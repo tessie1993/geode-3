@@ -24,11 +24,11 @@ extensions.configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
 // Which JDK compiles, as opposed to what that JDK emits. Left unset it silently follows
 // JAVA_HOME, so a developer on Android Studio's JBR and CI on temurin were running different
 // compilers against the same source - the drift that hid a broken detekt gate locally for as
-// long as CI stayed green. 21 rather than the newest available: it is LTS, and the ceiling here
+// long as CI stayed green. 25 rather than the newest available: it is LTS, and the ceiling here
 // is set by the least tolerant tool in the build, not by the newest JDK released.
 extensions.configure<JavaPluginExtension> {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
@@ -44,9 +44,9 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 // Detekt defaults --jvm-target to the JDK running Gradle, and the Kotlin compiler it embeds
 // accepts no more than 22. On a JDK 25 daemon - Android Studio's bundled JBR is one - every
 // detekt task dies with "Invalid value (25) passed to --jvm-target" before it analyses a line,
-// so the gate fails for a reason that has nothing to do with the code. CI pins Temurin 17 and
-// never saw it. Pinning here makes the gate independent of whichever JDK a developer happens to
-// launch Gradle with, at the same 17 the rest of this file targets.
+// so the gate fails for a reason that has nothing to do with the code. CI runs Temurin 25, the
+// same JDK, so it needs the pin too. Pinning here makes the gate independent of whichever JDK a
+// developer happens to launch Gradle with, at the same 17 the rest of this file targets.
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
     jvmTarget = "17"
 }
