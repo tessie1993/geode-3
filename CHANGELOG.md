@@ -11,6 +11,15 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Tag writing and the Duplicates tab removed.** The track info editor now
+  only edits the app's own copy of a track's metadata: the "write tags into
+  the audio file" switch, the `MediaStore.createWriteRequest` consent flow,
+  its error message, `geode_tags_write`/`geode_tags_last_error`, their JNI
+  exports and `writeTags` are gone, and the app no longer keeps a persistable
+  write grant on imported tracks. TagLib stays for reading (ReplayGain). The
+  Library no longer has a Duplicates tab or its `MediaStore.createDeleteRequest`
+  delete flow.
+
 - **`tools/glslcheck` removed.** The headless shader compile-and-render
   harness and its pointers in the README and `tools/shaderpreview/README.md`
   are gone. Nothing in the repo now compiles or renders the shaders off a

@@ -150,17 +150,6 @@ object GeodeNative {
         gains: FloatArray,
     ): Int
 
-    /**
-     * Writes the six UTF-8 [texts] plus [year] and [track] to [fd], which native closes. A missing array
-     * slot leaves that field unchanged. On a false return, see [tagsLastError] for why.
-     */
-    external fun tagsWrite(
-        fd: Int,
-        texts: Array<ByteArray>,
-        year: Int,
-        track: Int,
-    ): Boolean
-
     external fun playerCreate(): Long
 
     external fun playerDestroy(handle: Long)
@@ -406,9 +395,6 @@ object GeodeNative {
     )
 
     external fun dspSampleRate(handle: Long): Int
-
-    /** The reason the most recent [tagsWrite] on this thread returned false; GEODE_TAGS_OK (0) otherwise. */
-    external fun tagsLastError(): Int
 
     /**
      * Full-frame RGBA8 overlay drawn last, premultiplied alpha, over the finished composite. `pixels`

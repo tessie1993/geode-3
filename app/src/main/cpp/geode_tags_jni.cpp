@@ -4,8 +4,6 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <optional>
-#include <string>
 #include <string_view>
 
 #include "api/geode_api.h"
@@ -20,18 +18,6 @@ jbyteArray utf8Bytes(JNIEnv* env, const char* text) {
     if (out && !view.empty()) {
         env->SetByteArrayRegion(out, 0, static_cast<jsize>(view.size()), reinterpret_cast<const jbyte*>(view.data()));
     }
-    return out;
-}
-
-// One element of a byte[][] as a std::string; a null element (the caller means "leave unchanged") reads
-// as std::nullopt rather than "".
-std::optional<std::string> stringAt(JNIEnv* env, jobjectArray texts, jsize index) {
-    auto bytes = static_cast<jbyteArray>(env->GetObjectArrayElement(texts, index));
-    if (!bytes) return std::nullopt;
-    const jsize n = env->GetArrayLength(bytes);
-    std::string out(static_cast<size_t>(n), '\0');
-    if (n > 0) env->GetByteArrayRegion(bytes, 0, n, reinterpret_cast<jbyte*>(out.data()));
-    env->DeleteLocalRef(bytes);
     return out;
 }
 
@@ -61,27 +47,6 @@ Java_dev_geode_engine_bridge_GeodeNative_tagsRead(JNIEnv* env, jobject, jint fd,
     const int mask = geode_tags_replaygain(tags.get(), &replayGain[0], &replayGain[1], &replayGain[2], &replayGain[3]);
     env->SetFloatArrayRegion(gains, 0, 4, replayGain.data());
     return mask;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_tagsWrite(JNIEnv* env, jobject, jint fd, jobjectArray texts, jint year,
-                                                   jint track) {
-    // A slot beyond the caller's array, or a null element within it, means "leave this field unchanged":
-    // both must reach geode_tags_write as a null pointer, not "".
-    std::array<std::optional<std::string>, GEODE_TAG_TEXT_COUNT> owned;
-    std::array<const char*, GEODE_TAG_TEXT_COUNT> pointers{};
-    const jsize count = texts ? env->GetArrayLength(texts) : 0;
-    for (int i = 0; i < GEODE_TAG_TEXT_COUNT; ++i) {
-        if (i < count) owned[static_cast<size_t>(i)] = stringAt(env, texts, i);
-        const std::optional<std::string>& value = owned[static_cast<size_t>(i)];
-        pointers[static_cast<size_t>(i)] = value ? value->c_str() : nullptr;
-    }
-    return geode_tags_write(fd, pointers.data(), year, track) ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_tagsLastError(JNIEnv*, jobject) {
-    return geode_tags_last_error();
 }
 
 }  // extern "C"

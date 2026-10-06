@@ -178,8 +178,8 @@ GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t fr
 GEODE_API void       geode_dsp_set_sample_rate(geode_dsp*, int sample_rate);
 GEODE_API int        geode_dsp_sample_rate(geode_dsp*);   /* 0 for a null chain */
 
-/* Tag I/O through TagLib. Both calls take a file descriptor they own: it is closed before they return, so
- * the caller detaches it first. Text crosses as UTF-8. */
+/* Tag reading through TagLib. geode_tags_read takes a file descriptor it owns: it is closed before it returns,
+ * so the caller detaches it first. Text crosses as UTF-8. */
 typedef enum GeodeTagText {
     GEODE_TAG_TITLE = 0,
     GEODE_TAG_ARTIST,
@@ -204,20 +204,6 @@ GEODE_API size_t      geode_tags_art_bytes(const geode_tags*);   /* every embedd
 /* Fills the four ReplayGain values and returns the GEODE_TAG_*_GAIN/PEAK mask of the ones the file carries. */
 GEODE_API int         geode_tags_replaygain(const geode_tags*, float* track_gain_db, float* track_peak,
                                             float* album_gain_db, float* album_peak);
-/* texts holds GEODE_TAG_TEXT_COUNT UTF-8 strings in GeodeTagText order (NULL, or a short array's missing
- * slot, leaves that field unchanged; "" clears it). 1 = saved, 0 = failed (see geode_tags_last_error). */
-GEODE_API int         geode_tags_write(int fd, const char* const* texts, int year, int track);
-
-typedef enum GeodeTagsError {
-    GEODE_TAGS_OK = 0,
-    GEODE_TAGS_ERR_OPEN,
-    GEODE_TAGS_ERR_READ_ONLY,
-    GEODE_TAGS_ERR_UNSUPPORTED,
-    GEODE_TAGS_ERR_SAVE
-} GeodeTagsError;
-/* Why the most recent geode_tags_write on this thread returned 0; GEODE_TAGS_OK otherwise (the tags API is
- * called from one thread at a time, so this is tracked per-thread rather than per-call). */
-GEODE_API int         geode_tags_last_error(void);
 
 /* Native player: AMediaCodec decode -> resampler -> mixer (gapless join, crossfade) -> Oboe. Every call is
  * asynchronous and may come from any thread; a file descriptor belongs to the player from the call on.
