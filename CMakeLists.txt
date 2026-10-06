@@ -78,8 +78,6 @@ set(WITH_ZLIB OFF CACHE BOOL "" FORCE)
 set(VISIBILITY_HIDDEN ON CACHE BOOL "" FORCE)
 add_subdirectory(third_party/taglib)
 
-add_subdirectory(third_party/oboe)
-
 add_subdirectory(core)
 
 add_library(geode SHARED

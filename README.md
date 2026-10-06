@@ -46,7 +46,7 @@ ABIs arm64-v8a and x86_64. The full version history is in
 ## Build
 
 ```bash
-git submodule update --init --recursive   # projectM, kissfft, oboe, taglib
+git submodule update --init --recursive   # projectM, kissfft, taglib
 ./gradlew assembleDebug                   # debug APK, native core included
 ./gradlew installDebug                    # install on a connected device
 ./gradlew ktlintCheck detekt              # style and static analysis
@@ -82,7 +82,7 @@ dynamically linked):
 | `core/audio/player` | AMediaCodec decode, resampling, a lock-free mixer with gapless and crossfade, Oboe output |
 | `core/library` | TagLib tag reading over a file descriptor |
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
-| `third_party/` | Git submodules: projectm, kissfft, oboe, taglib |
+| `third_party/` | Git submodules: projectm, kissfft, taglib |
 
 Shaders ship as assets under `app/src/main/assets/shaders/` and are loaded by
 the native core. Inside `:app`, dependency flow is one-way: `ui` depends on

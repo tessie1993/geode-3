@@ -23,13 +23,13 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 - **Toolchain refresh; CI now builds native changes.** NDK r30
   (`30.0.16248370`), CMake 4.1.2, JDK 25 (Gradle toolchain, daemon JVM
   criteria and CI), Gradle 9.8.0, AGP 9.4.1, Kotlin 2.4.20, KSP 2.3.12,
-  Compose BOM 2026.09.00, Media3 1.11.1, Glance 1.2.0 and the Oboe 1.11.0
-  submodule. Kotlin and Java still emit 17; `compileSdk`, `targetSdk` and
-  `minSdk` are unchanged, and the workflows install `platforms;android-37.0`
-  to match `compileSdk`. The PR workflow (`android.yml`) and `ship-apk.yml`
-  now also trigger on `core/**`, the root `CMakeLists.txt`, `third_party/**`,
-  `tools/*.patch`, `.gitmodules` and workflow changes, so a native-only change
-  is built and checked.
+  Compose BOM 2026.09.00, Media3 1.11.1 and Glance 1.2.0. Kotlin and Java
+  still emit 17; `compileSdk`, `targetSdk` and `minSdk` are unchanged, and
+  the workflows install `platforms;android-37.0` to match `compileSdk`. The
+  PR workflow (`android.yml`) and `ship-apk.yml` now also trigger on
+  `core/**`, the root `CMakeLists.txt`, `third_party/**`, `tools/*.patch`,
+  `.gitmodules` and workflow changes, so a native-only change is built and
+  checked.
 
 - **`tools/glslcheck` removed.** The headless shader compile-and-render
   harness and its pointers in the README and `tools/shaderpreview/README.md`
