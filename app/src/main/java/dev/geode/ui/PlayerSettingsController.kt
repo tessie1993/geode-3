@@ -11,7 +11,6 @@ import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxState
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
-import dev.geode.playback.NativePlayer
 import dev.geode.playback.ReplayGain
 import dev.geode.ui.theme.ThemePack
 import kotlinx.coroutines.CoroutineScope
@@ -34,8 +33,6 @@ internal class PlayerSettingsController(
         fun redecideCachedBeats(prefs: GuiPrefs)
 
         fun refreshUi()
-
-        fun applyBitPerfect(enabled: Boolean)
     }
 
     val theme: StateFlow<ThemePack> = userData.theme
@@ -75,10 +72,6 @@ internal class PlayerSettingsController(
         (player as? ExoPlayer)?.let {
             it.skipSilenceEnabled = p.skipSilence
             it.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
-        }
-        (player as? NativePlayer)?.let {
-            it.applyPrefs(p.crossfadeMs, p.crossfadeCurve, p.gapless)
-            host.applyBitPerfect(p.bitPerfect)
         }
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
     }

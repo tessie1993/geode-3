@@ -13,7 +13,6 @@ import dev.geode.audio.PcmRingBuffer
 import dev.geode.audio.TapRenderersFactory
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.PlayerPrefsStore
 import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
@@ -67,39 +66,32 @@ class PlaybackSession internal constructor(
 
     private val prefsFiles = GeodePrefsFiles(context)
 
-    /** Read once here: the engine choice is fixed for the life of the session. */
-    val nativeEngine: Boolean = PlayerPrefsStore(prefsFiles.player).load().nativeEngine
-
     // WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU
     // cannot doze mid-track with the screen off. Not the WIFI variant: nothing streams.
-    val exoPlayer: ExoPlayer? =
-        if (nativeEngine) {
-            null
-        } else {
-            ExoPlayer
-                .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
-                .setMediaSourceFactory(
-                    androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
-                        context,
-                        androidx.media3.extractor.ExtractorsFactory {
-                            androidx.media3.extractor
-                                .DefaultExtractorsFactory()
-                                .createExtractors() +
-                                dev.geode.audio.AiffExtractor()
-                        },
-                    ),
-                ).setAudioAttributes(
-                    AudioAttributes
-                        .Builder()
-                        .setUsage(C.USAGE_MEDIA)
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                        .build(),
-                    true,
-                ).setWakeMode(C.WAKE_MODE_LOCAL)
-                .build()
-        }
+    val exoPlayer: ExoPlayer =
+        ExoPlayer
+            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
+            .setMediaSourceFactory(
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                    context,
+                    androidx.media3.extractor.ExtractorsFactory {
+                        androidx.media3.extractor
+                            .DefaultExtractorsFactory()
+                            .createExtractors() +
+                            dev.geode.audio.AiffExtractor()
+                    },
+                ),
+            ).setAudioAttributes(
+                AudioAttributes
+                    .Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                true,
+            ).setWakeMode(C.WAKE_MODE_LOCAL)
+            .build()
 
-    val player: Player = exoPlayer ?: NativePlayer(context, NativeTapPump(tap, clockDriver), NativePlayerDsp(dsp))
+    val player: Player = exoPlayer
 
     val audioFx = AudioFxController(prefsFiles.audioFx, AudioFxPresets.all(context), dsp)
 
