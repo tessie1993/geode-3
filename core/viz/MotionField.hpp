@@ -39,6 +39,7 @@ public:
         float orbitX = 0.0f;      // uOrbit.x, -1..1
         float orbitY = 0.0f;      // uOrbit.y, -1..1
         float drift = 0.0f;       // uDrift: accumulated angle, radians
+        float driftRate = 0.0f;   // rotation contribution, radians per second
         float breath = 1.0f;      // uBreath, 0.9..1.1
         float flowPhase = 0.0f;   // uFlowPhase: monotonic integrator
     };

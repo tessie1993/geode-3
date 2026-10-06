@@ -19,6 +19,9 @@ on:
       - "CMakeLists.txt"
       - "third_party/**"
       - "tools/*.patch"
+      - "tools/release/**"
+      - "tools/android/**"
+      - "server/**"
       - ".gitmodules"
       - ".github/workflows/**"
       - ".github/workflows/android.yml"
@@ -47,11 +50,13 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up Java 25
+      - name: Set up Java 21 and 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "25"
+          java-version: |
+            25
+            21
 
       - name: Set up Gradle and cache
         uses: gradle/actions/setup-gradle@v6
@@ -85,7 +90,9 @@ jobs:
       # class of bug is caught at PR time instead of the next audit.
       - name: detekt
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:detekt --stacktrace --no-daemon
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME_21_X64 }}
+        run: ./gradlew -Dorg.gradle.java.home="$JAVA_HOME" :app:detekt --stacktrace --no-daemon
 
       # detekt prints only "Analysis failed with N weighted issues" and a stack
       # trace; the findings themselves go to a report file. Without this, reading
@@ -159,7 +166,7 @@ jobs:
       # still available from the workflow run for device testing.
       - name: Run unit tests
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew :app:testDebugUnitTest --stacktrace --no-daemon
+        run: ./gradlew testDebugUnitTest --stacktrace --no-daemon
 
       - name: Run Android lint
         working-directory: ${{ env.PROJECT_DIR }}
@@ -180,15 +187,23 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # Instrumented tests need a real Android runtime: MediaStore, a live
-  # MediaSession and the permission model do not exist off a device, and
-  # Robolectric's shadows actively misreport some of them (its ContentResolver
-  # returns success for any uri, so a delete of a missing file "succeeds").
-  # This job is the only place those paths are genuinely exercised.
-  #
-  # Its own job rather than a step in the build: the emulator takes minutes to
-  # boot, and a slow device suite must not delay the APK the build job
-  # publishes for manual testing.
+  # Focused player-preference and package tests run on a real Android runtime.
+  # This does not replace the physical-device release matrix.
+  native-regressions:
+    name: Native motion and release validation regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check native motion across angle wraps
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
+            core/tests/MotionFieldTest.cpp core/viz/MotionField.cpp \
+            -o "$RUNNER_TEMP/motion-test"
+          "$RUNNER_TEMP/motion-test"
+      - name: Test release artifact validation
+        run: python3 -m unittest discover -s tools/release/tests -v
+
   instrumented-tests:
     name: Instrumented tests (emulator)
     runs-on: ubuntu-latest
@@ -201,11 +216,13 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up JDK 25
+      - name: Set up JDK 21 and 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "25"
+          java-version: |
+            25
+            21
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -222,13 +239,13 @@ jobs:
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          # 29 is the floor for the scoped-storage paths these tests cover;
-          # anything below skips them via assumeTrue rather than failing.
           api-level: 30
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon
+          script: |
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon
+            python3 tools/android/smoke_qa.py --output app/build/reports/smoke
           working-directory: .
 
       - name: Upload instrumented reports
@@ -239,5 +256,6 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            app/build/reports/smoke/
           if-no-files-found: ignore
           retention-days: 14

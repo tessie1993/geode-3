@@ -25,7 +25,6 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTexture
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
-import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetRepository
@@ -33,7 +32,6 @@ import dev.geode.data.PresetStore
 import dev.geode.data.SessionRepository
 import dev.geode.data.SessionStore
 import dev.geode.data.SharedPrefsFavouritesRepository
-import dev.geode.data.SharedPrefsPlayerPrefsRepository
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.TakeStore
@@ -48,7 +46,6 @@ import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
 import dev.geode.export.StudioClip
 import dev.geode.geodeContainer
-import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackService
@@ -96,8 +93,7 @@ class PlayerSession internal constructor(
 
     private val prefsFiles = container.prefsFiles
 
-    private val playerPrefsRepository: PlayerPrefsRepository =
-        SharedPrefsPlayerPrefsRepository(PlayerPrefsStore(prefsFiles.player), storeScope)
+    private val playerPrefsRepository: PlayerPrefsRepository = playback.playerPrefsRepository
 
     private val favouritesRepository: FavouritesRepository =
         SharedPrefsFavouritesRepository(prefsFiles.favourites, storeScope)
@@ -200,15 +196,10 @@ class PlayerSession internal constructor(
             playback.player,
             engine,
             playback.audioFx,
-            playback.replayGain,
             object : PlayerSettingsController.Host {
                 override fun redecideCachedBeats(prefs: GuiPrefs) = analysis.redecideCachedBeats(prefs)
 
                 override fun refreshUi() = refresh()
-
-                override fun applyBitPerfect(enabled: Boolean) {
-                    BitPerfectOutput.apply(application, enabled)
-                }
             },
         )
 
@@ -1205,9 +1196,6 @@ class PlayerSession internal constructor(
 
     private suspend fun attachPlayback() {
         val pp = settings.loadedPlayerPrefs()
-        player.shuffleModeEnabled = pp.shuffle
-        player.repeatMode = pp.repeatMode
-        settings.applyPlaybackPrefs(pp)
         val alreadyLoaded = player.currentMediaItem != null
         if (alreadyLoaded) {
             currentUri = player.currentMediaItem?.localConfiguration?.uri
