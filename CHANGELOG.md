@@ -11,6 +11,11 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **`tools/glslcheck` removed.** The headless shader compile-and-render
+  harness and its pointers in the README and `tools/shaderpreview/README.md`
+  are gone. Nothing in the repo now compiles or renders the shaders off a
+  device; `docs/DEVICE_CHECKS.md` covers them.
+
 - **Form drive: the superformula as the one driver every visual is fed
   through.** `core/viz/FormDrive` sits in `Renderer::resolveParams`, after
   the LFO and ADSR slots and before the safety clamp, so every family's
