@@ -11,6 +11,15 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Tag writing and the Duplicates tab removed.** The track info editor now
+  only edits the app's own copy of a track's metadata: the "write tags into
+  the audio file" switch, the `MediaStore.createWriteRequest` consent flow,
+  its error message, `geode_tags_write`/`geode_tags_last_error`, their JNI
+  exports and `writeTags` are gone, and the app no longer keeps a persistable
+  write grant on imported tracks. TagLib stays for reading (ReplayGain). The
+  Library no longer has a Duplicates tab or its `MediaStore.createDeleteRequest`
+  delete flow.
+
 - **Toolchain refresh; CI now builds native changes.** NDK r30
   (`30.0.16248370`), CMake 4.1.2, JDK 25 (Gradle toolchain, daemon JVM
   criteria and CI), Gradle 9.8.0, AGP 9.4.1, Kotlin 2.4.20, KSP 2.3.12,

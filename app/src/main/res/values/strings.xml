@@ -113,9 +113,7 @@
     <string name="track_info_field_year">Year</string>
     <string name="track_info_field_track_no">Track #</string>
     <string name="track_info_field_comment">Comment / info</string>
-    <string name="track_info_note">Edits are stored in the app; the audio file itself changes only with the switch on.</string>
-    <string name="track_info_write_file">Write tags into the audio file</string>
-    <string name="track_info_write_failed">The file could not be written. Turn the switch off to keep the edit in the app only.</string>
+    <string name="track_info_note">Edits are stored in the app; the audio file itself is never changed.</string>
 
     <!-- Settings › About. -->
     <string name="about_group">About</string>
@@ -248,13 +246,6 @@
     <string name="library_tab_artists">Artists</string>
     <string name="library_tab_playlists">Playlists</string>
     <string name="library_tab_folders">Folders</string>
-    <string name="library_tab_duplicates">Duplicates</string>
-    <string name="duplicates_none">No duplicate recordings found: nothing shares a title, artist and length.</string>
-    <string name="duplicates_group">%1$s — %2$s · %3$d copies</string>
-    <plurals name="duplicates_summary">
-        <item quantity="one">%1$d group of duplicates. Tap a row to play it; Delete removes that file from the device after Android asks you.</item>
-        <item quantity="other">%1$d groups of duplicates. Tap a row to play it; Delete removes that file from the device after Android asks you.</item>
-    </plurals>
     <string name="smart_playlists">Smart playlists</string>
     <string name="smart_new">New smart playlist</string>
     <string name="smart_edit">Edit smart playlist</string>

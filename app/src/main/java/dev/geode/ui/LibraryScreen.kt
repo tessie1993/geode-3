@@ -70,7 +70,6 @@ import kotlin.math.roundToInt
 
 /** Playlists sit last and behave differently: hand-ordered, so search and sort do not apply. */
 private const val PLAYLISTS_TAB = 4
-private const val DUPLICATES_TAB = 5
 
 @Composable
 fun LibraryScreen(onOpenSearch: () -> Unit) {
@@ -86,9 +85,8 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
     }
     val permLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
-    var reloadKey by remember { mutableStateOf(0) }
     val state by libraryViewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(granted, reloadKey) { if (granted) libraryViewModel.refreshDeviceTracks() }
+    LaunchedEffect(granted) { if (granted) libraryViewModel.refreshDeviceTracks() }
     var tab by rememberSaveable { mutableStateOf(0) }
     val tabs =
         listOf(
@@ -97,7 +95,6 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
             stringResource(R.string.library_tab_artists),
             stringResource(R.string.library_tab_folders),
             stringResource(R.string.library_tab_playlists),
-            stringResource(R.string.library_tab_duplicates),
         )
     // Already searched and sorted by the ViewModel — the screen draws what it is handed.
     val shown = state.tracks
@@ -144,7 +141,7 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
         CrystalTabs(titles = tabs, selected = tab, onSelect = { tab = it })
         // Search and sort belong to the track-shaped tabs. Playlists are ordered by hand, and
         // re-sorting someone's running order out from under them would be a bug, not a feature.
-        if (tab != PLAYLISTS_TAB && tab != DUPLICATES_TAB) {
+        if (tab != PLAYLISTS_TAB) {
             OutlinedTextField(
                 value = state.query,
                 onValueChange = libraryViewModel::setQuery,
@@ -165,7 +162,6 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
             2 -> GroupList(shown.groupBy { it.artist }, playerViewModel)
             3 -> FoldersTab(shown.groupBy { it.folder }, playerViewModel)
             PLAYLISTS_TAB -> PlaylistsTab(libraryViewModel)
-            DUPLICATES_TAB -> DuplicatesTab(state.tracks, playerViewModel, onDeleted = { reloadKey++ })
         }
     }
 }

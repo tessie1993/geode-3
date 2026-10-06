@@ -16,8 +16,6 @@ namespace {
 
 std::string utf8(const TagLib::String& s) { return s.toCString(true); }
 
-TagLib::String fromUtf8(const std::string& s) { return TagLib::String(s, TagLib::String::UTF8); }
-
 // ReplayGain text is "+1.23 dB" or "0.98"; strtof stops at the unit.
 bool parseFloat(const TagLib::PropertyMap& map, const char* key, float& out) {
     if (!map.contains(key)) return false;
@@ -76,39 +74,6 @@ bool readTags(int fd, TrackTags& out) {
     out.hasAlbumPeak = parseFloat(map, "REPLAYGAIN_ALBUM_PEAK", out.albumPeak);
     out.artBytes = pictureBytes(ref);
     if (const TagLib::AudioProperties* props = ref.audioProperties()) out.durationMs = props->lengthInMilliseconds();
-    return true;
-}
-
-bool writeTags(int fd, const TrackTagEdit& edit, TagsWriteError* error) {
-    auto fail = [&](TagsWriteError e) {
-        if (error) *error = e;
-        return false;
-    };
-    TagLib::FileStream stream(fd, false);
-    if (!opened(stream, fd)) return fail(TagsWriteError::kOpenFailed);
-    if (stream.readOnly()) return fail(TagsWriteError::kReadOnly);
-    TagLib::FileRef ref(&stream, false, TagLib::AudioProperties::Fast);
-    if (ref.isNull()) return fail(TagsWriteError::kUnsupported);
-    TagLib::Tag* tag = ref.tag();
-    if (!tag) return fail(TagsWriteError::kUnsupported);
-    if (edit.title) tag->setTitle(fromUtf8(*edit.title));
-    if (edit.artist) tag->setArtist(fromUtf8(*edit.artist));
-    if (edit.album) tag->setAlbum(fromUtf8(*edit.album));
-    if (edit.genre) tag->setGenre(fromUtf8(*edit.genre));
-    if (edit.comment) tag->setComment(fromUtf8(*edit.comment));
-    tag->setYear(static_cast<unsigned int>(edit.year < 0 ? 0 : edit.year));
-    tag->setTrack(static_cast<unsigned int>(edit.track < 0 ? 0 : edit.track));
-    if (edit.albumArtist) {
-        TagLib::PropertyMap map = ref.properties();
-        if (edit.albumArtist->empty()) {
-            map.erase("ALBUMARTIST");
-        } else {
-            map.replace("ALBUMARTIST", TagLib::StringList(fromUtf8(*edit.albumArtist)));
-        }
-        ref.setProperties(map);
-    }
-    if (!ref.save()) return fail(TagsWriteError::kSaveFailed);
-    if (error) *error = TagsWriteError::kNone;
     return true;
 }
 
