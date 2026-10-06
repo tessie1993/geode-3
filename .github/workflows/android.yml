@@ -195,7 +195,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Check native motion across angle wraps
         run: |
-          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
             core/tests/MotionFieldTest.cpp core/viz/MotionField.cpp \
             -o "$RUNNER_TEMP/motion-test"
           "$RUNNER_TEMP/motion-test"

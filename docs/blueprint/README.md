@@ -22,6 +22,7 @@ Store listing inspection does not establish how a competitor behaves on a device
 | [Feature specification](FEATURE_SPEC.md) | Spec sheet, complete feature inventory, release scope and measurable acceptance criteria |
 | [Architecture](ARCHITECTURE.md) | Android/C++ boundaries, audio ownership, clocks, threading, rendering, storage and export |
 | [Design specification](DESIGN.md) | Visual direction, screens, journeys, controls, accessibility and scene art direction |
+| [Authentication, premium and security](SECURITY_AUTH_PREMIUM.md) | Identity, verified purchases, backend API contract, threat model and abuse tests |
 | [Build and delivery plan](DELIVERY_PLAN.md) | Ordered work packages, dependencies, migration, verification and completion gates |
 | [Play release plan](PLAY_RELEASE.md) | Signing, native compatibility, Console tasks, privacy, listing and rollout |
 | [Implementation status](IMPLEMENTATION_STATUS.md) | Changes in this branch and evidence still needed |

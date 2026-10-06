@@ -1,5 +1,12 @@
 # Geode — plan (fresh start, 2026-10-06)
 
+> 2026-10-07 update: the expanded, source-linked blueprint is in
+> [../blueprint/README.md](../blueprint/README.md). The owner's latest explicit
+> stack is C++ + Media3 + **Oboe**: the older A2/A2b removal of Oboe below is
+> superseded. Auth, premium unlock and security are part of the release goal;
+> see the blueprint's security design for server verification requirements.
+> The historical outline below is retained for traceability, not completion evidence.
+
 ## Goal (owner)
 A Play Store–ready app with these parts:
 - **Music player.**
