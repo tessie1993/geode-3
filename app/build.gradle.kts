@@ -37,8 +37,8 @@ android {
     // 37 is the floor the Compose 1.12 / lifecycle 2.11 / hilt-navigation 1.4
     // AARs declare; targetSdk stays where it is.
     compileSdk = 37
-    // r28 is the first NDK that aligns shared objects to 16 KB pages by default.
-    ndkVersion = "28.0.13004108"
+    // r30 is the 2026 LTS. r28 was the first NDK to align shared objects to 16 KB pages.
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "dev.geode"
@@ -101,7 +101,7 @@ android {
     externalNativeBuild {
         cmake {
             path = file("../CMakeLists.txt")
-            version = "3.22.1"
+            version = "4.1.2"
         }
     }
 

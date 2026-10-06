@@ -3,12 +3,12 @@
 #
 # Contributors and CI-like containers start here. The build wants:
 #   - platforms;android-37.0 (compileSdk 37, app/build.gradle.kts)
-#   - build-tools;36.0.0
-#   - ndk;28.0.13004108      (ndkVersion; compiles app/src/main/cpp)
-#   - cmake;3.22.1           (externalNativeBuild.cmake.version)
+#   - build-tools;36.0.0     (AGP 9.4's default build-tools)
+#   - ndk;30.0.16248370      (ndkVersion; compiles the native core built by the root CMakeLists.txt)
+#   - cmake;4.1.2            (externalNativeBuild.cmake.version)
 #   - platform-tools         (adb, for on-device smoke tests)
-# plus a JDK 17+ that is assumed present (the Gradle toolchain does not
-# auto-provision one in offline-ish containers).
+# plus a JDK that is assumed present: sdkmanager needs 17+, and the build itself asks
+# Gradle for a JDK 25 toolchain, which does not auto-provision in offline-ish containers.
 #
 # Usage:
 #   tools/setup-android-sdk.sh [sdk-dir]
@@ -29,14 +29,15 @@ CMDLINE_TOOLS_ZIP="commandlinetools-linux-16111833_latest.zip"
 CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/${CMDLINE_TOOLS_ZIP}"
 
 # sdkmanager has no "platforms;android-37": API 37 is published as the minor-versioned
-# "platforms;android-37.0", and only on the preview channel (--channel=3), which is why the
-# install below passes that flag. AGP resolves compileSdk = 37 against the android-37.0 directory.
+# "platforms;android-37.0". It began on the preview channel, hence the --channel=3 the install
+# below still passes (harmless now it is stable). AGP resolves compileSdk = 37 against the
+# android-37.0 directory.
 PLATFORM="platforms;android-37.0"
 PLATFORM_DIR="android-37.0"
 SDK_CHANNEL=3
 BUILD_TOOLS="build-tools;36.0.0"
-NDK="ndk;28.0.13004108"
-CMAKE="cmake;3.22.1"
+NDK="ndk;30.0.16248370"
+CMAKE="cmake;4.1.2"
 
 say() { printf '[android-sdk] %s\n' "$*"; }
 
@@ -76,8 +77,8 @@ NEED=()
 [ -d "$SDK_DIR/platform-tools" ] || NEED+=("platform-tools")
 [ -d "$SDK_DIR/platforms/$PLATFORM_DIR" ] || NEED+=("$PLATFORM")
 [ -d "$SDK_DIR/build-tools/36.0.0" ] || NEED+=("$BUILD_TOOLS")
-[ -d "$SDK_DIR/ndk/28.0.13004108" ] || NEED+=("$NDK")
-[ -d "$SDK_DIR/cmake/3.22.1" ] || NEED+=("$CMAKE")
+[ -d "$SDK_DIR/ndk/30.0.16248370" ] || NEED+=("$NDK")
+[ -d "$SDK_DIR/cmake/4.1.2" ] || NEED+=("$CMAKE")
 
 if [ "${#NEED[@]}" -gt 0 ]; then
     say "accepting licenses"

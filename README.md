@@ -52,8 +52,8 @@ git submodule update --init --recursive   # projectM, kissfft, oboe, taglib
 ./gradlew ktlintCheck detekt              # style and static analysis
 ```
 
-Requires JDK 17+, the Android SDK with `platforms;android-37`, NDK
-`28.0.13004108` and CMake 3.22.1; `local.properties` must point at the SDK.
+Requires JDK 25, the Android SDK with `platforms;android-37.0`, NDK
+`30.0.16248370` and CMake 4.1.2; `local.properties` must point at the SDK.
 `tools/setup-android-sdk.sh` installs those packages on a machine without
 them. The workflows under `.github/workflows` build the debug APK, ship a
 signed APK and cut a Play Store release; they check out the submodules.
@@ -103,8 +103,6 @@ not a device check.
 
 - `ENABLE_PLAYLIST` in the root `CMakeLists.txt` is now `OFF`: nothing calls
   `libprojectM-4-playlist.so`, so it is no longer packaged.
-- `compileSdk = 37` while the workflows install `platforms;android-36`; both
-  are left as they are.
 - `docs/visualizer-v2/` is what survives of the V2 planning set: the source
   archive and provenance registry (which the build's provenance check reads),
   the feature ABI and the safety model. The master plan they cite is not in
