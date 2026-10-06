@@ -2,9 +2,9 @@
 
 Native Android music player, real-time GPU music visualizer and a small video
 suite. Kotlin and Jetpack Compose on top; a C++20 engine built by CMake and
-the NDK underneath (audio analysis, the GLES 3.x renderer, the DSP chain, a
-native player and tag access). Everything runs on-device: the app holds no
-network permission, and nothing it hears or renders leaves the phone.
+the NDK underneath (audio analysis, the GLES 3.x renderer, the DSP chain and
+tag reading). Everything runs on-device: the app holds no network permission,
+and nothing it hears or renders leaves the phone.
 
 Currently v1.8.0 (versionCode 32); minSdk 26, targetSdk 36, compileSdk 37,
 ABIs arm64-v8a and x86_64. The full version history is in
@@ -18,10 +18,8 @@ ABIs arm64-v8a and x86_64. The full version history is in
   timed lyrics (`.lrc`), A-B repeat, fades, sleep timer, a ten-band equalizer,
   ReplayGain, playback speed/pitch, skip silence, resume position for tracks
   over twenty minutes; track info edits kept in the app (audio files are never
-  modified). An optional native audio engine adds gapless joins,
-  crossfades and, on Android 14+, a bit-perfect USB output toggle. Android
-  Auto browsing (tracks, albums, artists, playlists, favourites, recently
-  played) and a home-screen now-playing widget.
+  modified). Android Auto browsing (tracks, albums, artists, playlists,
+  favourites, recently played) and a home-screen now-playing widget.
 - **Visual scenes** — particle, simulation and fragment-shader scenes with an
   in-app GLSL editor; the GPU fluid family (nine Fluid looks over one solver,
   plus Curl Flow and Water);
@@ -79,7 +77,6 @@ dynamically linked):
 | `core/analysis` | FFT (kissfft), bands, onsets, tempo, beats, bars, key, structure, stereo field; the feature frame |
 | `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the superformula driver (`FormDrive`) that modulates every family's parameters with the music, transitions, safety clamps, every scene family |
 | `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter |
-| `core/audio/player` | AMediaCodec decode, resampling, a lock-free mixer with gapless and crossfade, Oboe output |
 | `core/library` | TagLib tag reading over a file descriptor |
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
 | `third_party/` | Git submodules: projectm, kissfft, taglib |

@@ -11,6 +11,21 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Native audio engine, bit-perfect USB output, crossfade and Oboe
+  removed.** Playback always runs on Media3 ExoPlayer now, and nothing that
+  ran on it changes: gapless joins, the equalizer, ReplayGain, speed and
+  pitch, skip silence, the play/pause fades, the sleep timer, pause on
+  unplug, the visualizer tap and Android Auto behave as before, and so do the
+  microphone and other-apps' audio capture. Settings no longer offer the
+  "Native audio engine" switch or the options behind it (gapless, bit-perfect
+  USB output, crossfade length and curve), which only that engine honoured;
+  their stored values are ignored. `NativePlayer`, `NativePlayerDsp`,
+  `NativeTapPump` and `BitPerfectOutput` are gone, along with the
+  `MODIFY_AUDIO_SETTINGS` permission only the bit-perfect toggle used,
+  `core/audio/player`, the `geode_player_*` C ABI and its JNI exports, the
+  `mediandk` link and the Oboe submodule. The DSP chain the ExoPlayer path
+  uses (`core/audio/dsp`, `NativeDspProcessor`) stays; tag reading stays.
+
 - **Tag writing and the Duplicates tab removed.** The track info editor now
   only edits the app's own copy of a track's metadata: the "write tags into
   the audio file" switch, the `MediaStore.createWriteRequest` consent flow,
