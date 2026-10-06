@@ -15,6 +15,12 @@ on:
       - "gradle/**"
       - "*.gradle.kts"
       - "gradle.properties"
+      - "core/**"
+      - "CMakeLists.txt"
+      - "third_party/**"
+      - "tools/*.patch"
+      - ".gitmodules"
+      - ".github/workflows/**"
       - ".github/workflows/android.yml"
 
 permissions:
@@ -41,34 +47,35 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up Java 21
+      - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
 
       - name: Set up Gradle and cache
         uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Install Android SDK 36, NDK and CMake
+      - name: Install Android SDK 37, NDK and CMake
         shell: bash
         # sdkmanager is not on PATH on the ubuntu-24.04 runner image; resolve
         # it from the preinstalled SDK location instead. The NDK and CMake
         # versions match ndkVersion and externalNativeBuild.cmake.version in
-        # app/build.gradle.kts: they compile the MilkDrop JNI bridge from
-        # app/src/main/cpp during assembleDebug.
+        # app/build.gradle.kts: the root CMakeLists.txt builds the whole
+        # native core (libgeode.so + libprojectM-4.so) with them during
+        # assembleDebug.
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" \
             "platform-tools" \
-            "platforms;android-36" \
+            "platforms;android-37.0" \
             "build-tools;36.0.0" \
-            "ndk;28.0.13004108" \
-            "cmake;3.22.1"
+            "ndk;30.0.16248370" \
+            "cmake;4.1.2"
 
       - name: Make Gradle wrapper executable
         working-directory: ${{ env.PROJECT_DIR }}
@@ -194,14 +201,14 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # The emulator needs hardware acceleration to be usable; ubuntu runners
       # expose KVM but not to unprivileged processes by default.

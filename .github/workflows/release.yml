@@ -32,26 +32,30 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
 
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v6
 
-      # The platform is one major version behind compileSdk (37) - see the
-      # README maintainer note for why that gap is left as is. NDK and CMake
-      # match ndkVersion and externalNativeBuild.cmake.version in
-      # app/build.gradle.kts, and bundleRelease compiles the MilkDrop JNI
-      # bridge from app/src/main/cpp with them.
-      - name: Install Android SDK 36, NDK and CMake
+      # The platform matches compileSdk (37). NDK and CMake match ndkVersion
+      # and externalNativeBuild.cmake.version in app/build.gradle.kts, and
+      # bundleRelease builds the whole native core (libgeode.so +
+      # libprojectM-4.so) from the root CMakeLists.txt with them.
+      - name: Install Android SDK 37, NDK and CMake
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-36" "ndk;28.0.13004108" "cmake;3.22.1"
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-37.0" \
+            "build-tools;36.0.0" \
+            "ndk;30.0.16248370" \
+            "cmake;4.1.2"
 
       - name: Decode upload keystore
         env:

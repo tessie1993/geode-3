@@ -28,6 +28,12 @@ on:
       - "gradle/**"
       - "*.gradle.kts"
       - "gradle.properties"
+      - "core/**"
+      - "CMakeLists.txt"
+      - "third_party/**"
+      - "tools/*.patch"
+      - ".gitmodules"
+      - ".github/workflows/**"
       - ".github/workflows/ship-apk.yml"
 
 permissions:
@@ -65,30 +71,31 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up Java 21
+      - name: Set up Java 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
 
       - name: Set up Gradle and cache
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Install Android SDK 36, NDK and CMake
+      - name: Install Android SDK 37, NDK and CMake
         shell: bash
         # sdkmanager is not on PATH on the ubuntu-24.04 runner image; resolve
         # it from the preinstalled SDK location instead. NDK and CMake match
-        # app/build.gradle.kts and compile the JNI bridge in app/src/main/cpp.
+        # app/build.gradle.kts; the root CMakeLists.txt builds the whole native
+        # core (libgeode.so + libprojectM-4.so) with them.
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" \
             "platform-tools" \
-            "platforms;android-36" \
+            "platforms;android-37.0" \
             "build-tools;36.0.0" \
-            "ndk;28.0.13004108" \
-            "cmake;3.22.1"
+            "ndk;30.0.16248370" \
+            "cmake;4.1.2"
 
       - name: Make Gradle wrapper executable
         working-directory: ${{ env.PROJECT_DIR }}
