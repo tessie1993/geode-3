@@ -20,6 +20,8 @@ on:
       - "third_party/**"
       - "tools/*.patch"
       - "tools/release/**"
+      - "tools/android/**"
+      - "server/**"
       - ".gitmodules"
       - ".github/workflows/**"
       - ".github/workflows/android.yml"
@@ -48,13 +50,13 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up Java 25
+      - name: Set up Java 21 and 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: |
-            21
             25
+            21
 
       - name: Set up Gradle and cache
         uses: gradle/actions/setup-gradle@v6
@@ -214,13 +216,13 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
-      - name: Set up JDK 25
+      - name: Set up JDK 21 and 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: |
-            21
             25
+            21
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -241,7 +243,9 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon
+          script: |
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon
+            python3 tools/android/smoke_qa.py --output app/build/reports/smoke
           working-directory: .
 
       - name: Upload instrumented reports
@@ -252,5 +256,6 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            app/build/reports/smoke/
           if-no-files-found: ignore
           retention-days: 14
