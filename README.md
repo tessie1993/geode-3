@@ -14,11 +14,11 @@ ABIs arm64-v8a and x86_64. The full version history is in
 
 - **Player** — MediaStore library plus SAF folder roots and imports, editable
   queue, favourites, playlists and smart playlists (rules over title, artist,
-  album, folder, length, age, play count and favourite), a duplicate finder,
-  multi-term search; timed lyrics (`.lrc`), A-B repeat, fades, sleep timer, a
-  ten-band equalizer, ReplayGain, playback speed/pitch, skip silence, resume
-  position for tracks over twenty minutes; tag editing that can write back
-  into the file. An optional native audio engine adds gapless joins,
+  album, folder, length, age, play count and favourite), multi-term search;
+  timed lyrics (`.lrc`), A-B repeat, fades, sleep timer, a ten-band equalizer,
+  ReplayGain, playback speed/pitch, skip silence, resume position for tracks
+  over twenty minutes; track info edits kept in the app (audio files are never
+  modified). An optional native audio engine adds gapless joins,
   crossfades and, on Android 14+, a bit-perfect USB output toggle. Android
   Auto browsing (tracks, albums, artists, playlists, favourites, recently
   played) and a home-screen now-playing widget.
@@ -80,7 +80,7 @@ dynamically linked):
 | `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the superformula driver (`FormDrive`) that modulates every family's parameters with the music, transitions, safety clamps, every scene family |
 | `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter |
 | `core/audio/player` | AMediaCodec decode, resampling, a lock-free mixer with gapless and crossfade, Oboe output |
-| `core/library` | TagLib tag reading and writing over a file descriptor |
+| `core/library` | TagLib tag reading over a file descriptor |
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
 | `third_party/` | Git submodules: projectm, kissfft, oboe, taglib |
 
@@ -101,11 +101,6 @@ not a device check.
 
 ## Maintainer notes
 
-- Tag writing covers files the app holds a write grant for. For a
-  `content://media/...` track the app did not create, on API 30+ the editor
-  now launches `MediaStore.createWriteRequest` for the user's consent and
-  retries the write once if it is granted; below API 30, for a non-MediaStore
-  URI, or if consent is denied, it reports the refused write instead.
 - `ENABLE_PLAYLIST` in the root `CMakeLists.txt` is now `OFF`: nothing calls
   `libprojectM-4-playlist.so`, so it is no longer packaged.
 - `compileSdk = 37` while the workflows install `platforms;android-36`; both
