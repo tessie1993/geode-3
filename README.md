@@ -95,11 +95,9 @@ Three test files exist: `app/src/test/.../PresetLinkTest.kt`,
 `engine/audio-core/src/test/.../FeatureRingTest.kt`. Checks that cannot run
 headless (GL behaviour, capture, wallpaper) are listed in
 [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md), a partial reconstruction.
-`tools/glslcheck` compiles and renders every fragment style and every fluid
-display variant headlessly (`node check.mjs --all`), and
 `tools/hostlink/hostlink.sh` compiles and links the native renderer on the
-host with no undefined symbols allowed; both are lower bounds on
-portability, not device checks.
+host with no undefined symbols allowed; it is a lower bound on portability,
+not a device check.
 
 ## Maintainer notes
 

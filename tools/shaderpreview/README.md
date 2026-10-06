@@ -3,9 +3,8 @@
 > **Stale since the C++ port.** This harness reads `GlUtil.kt` and the
 > Kotlin scene files, all of which were deleted when the renderer moved to
 > `core/viz`; `node preview.mjs --list` fails on the first line. The
-> compile-and-render check that does run today is `tools/glslcheck`. The
 > notes below on how a harness stays honest and what it cannot tell you are
-> still the right notes, and glslcheck follows them.
+> still the right notes for any replacement.
 
 Renders the app's GPU styles headlessly, off-device, and **measures** them.
 
