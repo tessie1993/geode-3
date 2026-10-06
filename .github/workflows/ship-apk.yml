@@ -32,6 +32,7 @@ on:
       - "CMakeLists.txt"
       - "third_party/**"
       - "tools/*.patch"
+      - "tools/release/**"
       - ".gitmodules"
       - ".github/workflows/**"
       - ".github/workflows/ship-apk.yml"
@@ -75,7 +76,9 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "25"
+          java-version: |
+            21
+            25
 
       - name: Set up Gradle and cache
         uses: gradle/actions/setup-gradle@v6
@@ -109,7 +112,7 @@ jobs:
       # runs, so a release asset is always a verified build.
       - name: Verify (ktlint, unit tests, lint)
         working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew ktlintCheck :app:testDebugUnitTest :app:lintDebug --stacktrace --no-daemon
+        run: ./gradlew ktlintCheck testDebugUnitTest :app:lintDebug :app:checkNativePageAlignment --stacktrace --no-daemon
 
       - name: Package APK and checksum
         id: package
@@ -168,10 +171,10 @@ jobs:
           asks for permission to install from the browser or file manager used.
           Verify the download with \`sha256sum -c $FILE_NAME.sha256\`.
 
-          This build is signed with Android's debug key while sharing the
-          Play build's application id, so the two cannot be installed at the
-          same time: Android refuses the install over a Play copy, and you have
-          to uninstall one to try the other.
+          This debug build uses application id dev.geode.debug and installs
+          alongside the Play version (dev.geode). CI debug signing is not a
+          stable distribution identity; back up data before replacing a debug
+          build with one signed by a different key. This is not a Play release.
           EOF
           )
 

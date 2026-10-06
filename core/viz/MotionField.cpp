@@ -148,12 +148,10 @@ void MotionField::step(const GeodeFeatureFrame& f, float dt) {
     // ---- drift: a rotation that eases its sign, never flips it outright -----
     if (sectionBoundary) driftSignTarget_ = nextRandom() < 0.5f ? -1.0f : 1.0f;
     driftSign_ = oneOle(driftSign_, driftSignTarget_, dt, kDriftSignEaseSeconds);
-    const float driftRate = driftSign_ * (kDriftBaseRadPerSec + kDriftMidRadPerSec * state_.midRel);
-    // Wrapped rather than free-running: state_.drift only ever feeds a bounded
-    // rotation-rate contribution in apply(), never an absolute angle drawn on
-    // screen, so wrapping it costs nothing and keeps float precision over a
-    // long session.
-    driftAngle_ = std::fmod(driftAngle_ + driftRate * dt + 2.0f * kTwoPi, 2.0f * kTwoPi);
+    state_.driftRate = driftSign_ * (kDriftBaseRadPerSec + kDriftMidRadPerSec * state_.midRel);
+    // Keep the shader angle bounded for long sessions. SceneParams.rotation
+    // is a velocity, so apply() uses driftRate independently of angle wraps.
+    driftAngle_ = std::fmod(driftAngle_ + state_.driftRate * dt + 2.0f * kTwoPi, 2.0f * kTwoPi);
     if (driftAngle_ > kTwoPi) driftAngle_ -= 2.0f * kTwoPi;
     state_.drift = driftAngle_;
 
@@ -186,7 +184,7 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion) const {
     // than freezing it.
     const float breath = 1.0f + (s.breath - 1.0f) * motionBreath;
     o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
-    o.rotation = std::clamp(p.rotation + s.drift * motionDrift, -3.0f, 3.0f);
+    o.rotation = std::clamp(p.rotation + s.driftRate * motionDrift, -3.0f, 3.0f);
     o.sway = std::clamp(p.sway + motionAmount * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);
     o.morph = std::clamp(p.morph + motionAmount * (1.0f - s.harmony), 0.0f, 1.0f);
