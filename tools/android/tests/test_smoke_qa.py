@@ -27,6 +27,35 @@ class RestartEvidenceTest(unittest.TestCase):
 
 
 class SemanticSelectorTest(unittest.TestCase):
+    def test_active_tab_is_targeted_when_android_exports_it_as_nonclickable(self):
+        # Captured run-35 shape: a separate Player heading, then the selected
+        # nav ancestor containing both icon description and text descendants.
+        root = ET.fromstring('''<hierarchy>
+            <node text="Player" enabled="true" clickable="false" selected="false" bounds="[16,73][57,89]" />
+            <node enabled="true" clickable="false" focusable="true" selected="true" bounds="[14,548][70,628]">
+                <node enabled="true" clickable="false" selected="false" bounds="[17,554][67,604]">
+                    <node content-desc="Player" enabled="true" clickable="false" selected="false" bounds="[30,567][54,591]" />
+                </node>
+                <node text="Player" enabled="true" clickable="false" selected="false" bounds="[24,608][60,622]" />
+            </node>
+        </hierarchy>''')
+        self.assertEqual(SmokeRun.action(root, "Player").get("bounds"), "[14,548][70,628]")
+        SmokeRun.assert_selected(root, "Player")
+
+    def test_disabled_selected_control_is_never_authorized(self):
+        root = ET.fromstring('''<hierarchy>
+            <node enabled="false" clickable="false" focusable="true" selected="true" bounds="[14,548][70,628]">
+                <node content-desc="Player" enabled="true" clickable="false" bounds="[30,567][54,591]" />
+            </node>
+        </hierarchy>''')
+        self.assertIsNone(SmokeRun.action(root, "Player"))
+
+    def test_focusable_heading_without_selection_is_not_a_tap_target(self):
+        root = ET.fromstring('''<hierarchy>
+            <node text="Player" enabled="true" clickable="false" focusable="true" selected="false" bounds="[16,73][57,89]" />
+        </hierarchy>''')
+        self.assertIsNone(SmokeRun.action(root, "Player"))
+
     def test_destination_action_skips_duplicate_screen_heading(self):
         root = ET.fromstring('''<hierarchy>
             <node text="Library" enabled="true" clickable="false" bounds="[0,0][400,60]" />

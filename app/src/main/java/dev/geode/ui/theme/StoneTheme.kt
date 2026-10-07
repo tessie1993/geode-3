@@ -67,6 +67,7 @@ fun stoneTypography(textScale: Float = 1f): Typography {
 
 fun tidalTypography(textScale: Float = 1f): Typography {
     val base = stoneTypography(textScale)
+
     fun TextStyle.clean(): TextStyle = copy(fontFamily = FontFamily.SansSerif)
 
     return base.copy(

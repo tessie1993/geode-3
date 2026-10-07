@@ -102,14 +102,21 @@ class SmokeRun:
 
     @staticmethod
     def action(root, label):
-        """Prefer a labelled action over a duplicate, non-interactive heading."""
+        """Resolve the exact label to its interactive or active-tab ancestor.
+
+        Compose exports the active Tab as selected/focusable but non-clickable
+        in Android's hierarchy. Its current XML bounds remain the target for a
+        harmless reselect; unselected controls still require clickable=true.
+        """
         parents = {child: parent for parent in root.iter() for child in parent}
         for node in SmokeRun.matches(root, label):
             current = node
             while current is not None:
                 if current.get("enabled") == "false":
                     break
-                if current.get("clickable") == "true" and SmokeRun.bounds(current):
+                interactive = current.get("clickable") == "true"
+                active_tab = current.get("selected") == "true" and current.get("focusable") == "true"
+                if (interactive or active_tab) and SmokeRun.bounds(current):
                     return current
                 current = parents.get(current)
         return None
