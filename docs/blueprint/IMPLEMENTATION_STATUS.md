@@ -21,7 +21,7 @@ plan's Actions-only rule. Source review is not equivalent to executed tests.
 
 - Complete service ownership of history, A-B repeat, resume, errors and fades;
   resolve native-player focus/lifetime or migrate it out of release.
-- Oboe microphone integration and route/device latency proof.
+- AAudio microphone integration and route/device latency proof.
 - Beat/stale-PCM/presentation-clock, MilkDrop persistence, renderer recreation and
   complete live/export parity.
 - New signature visual designs, universal customization and saved-style migrations.
