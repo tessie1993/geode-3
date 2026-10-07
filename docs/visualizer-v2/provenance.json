@@ -749,6 +749,99 @@
       }
     },
     {
+      "id": "taglib",
+      "planLedger": "TagLib",
+      "name": "taglib/taglib",
+      "url": "https://github.com/taglib/taglib",
+      "tier": "RETAIN",
+      "planTier": "RETAIN",
+      "license": "LGPL-2.1 OR MPL-1.1",
+      "role": "Reads the tags of the user's audio files (title, artist, album, genre, ReplayGain, embedded artwork size) for the library and loudness normalisation.",
+      "incorporated": "Static library built in-tree from the third_party/taglib submodule by the root CMakeLists.txt and linked into libgeode.so; used by core/library/Tags.cpp",
+      "notIncorporated": "zlib support, bindings, examples and tests (all switched off in the root CMakeLists.txt); any local modification",
+      "importedFiles": [
+        "third_party/taglib/"
+      ],
+      "modifications": [],
+      "attribution": "Used under the MPL-1.1 option of TagLib's dual LGPL-2.1 / MPL-1.1 licence: version, upstream source URL and the full MPL-1.1 text are in THIRD_PARTY_NOTICES (MPL-1.1 section 3.6).",
+      "notes": "TagLib 2.3.1 is unmodified, so the pinned upstream tag is the complete corresponding source. Its nested submodule third_party/taglib/3rdparty/utfcpp is compiled in too and is registered separately as utfcpp.",
+      "pin": {
+        "commit": "54ae7d8ac45755e286a5c574280f48d5bef93aef",
+        "source": "pinned submodule at tag v2.3.1, read on 2026-10-07"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "COPYING.MPL",
+        "sha256": "53692a2ed6c6a2c6ec9b32dd0b820dfae91e0a1fcdf625ca9ed0bdf8705fcc4f",
+        "bytes": 25755,
+        "firstLine": "MOZILLA PUBLIC LICENSE",
+        "readAtCommit": "54ae7d8ac45755e286a5c574280f48d5bef93aef",
+        "readOn": "2026-10-07"
+      }
+    },
+    {
+      "id": "kissfft",
+      "planLedger": "KISS FFT",
+      "name": "mborgerding/kissfft",
+      "url": "https://github.com/mborgerding/kissfft",
+      "tier": "RETAIN",
+      "planTier": "RETAIN",
+      "license": "BSD-3-Clause",
+      "role": "Real-input FFT behind the spectrum analysis that drives the visuals.",
+      "incorporated": "Static library (float datatype) built in-tree from the third_party/kissfft submodule by the root CMakeLists.txt and linked into libgeode.so; used by core/analysis/Spectrum.cpp",
+      "notIncorporated": "Tests, tools, pkg-config files and any local modification",
+      "importedFiles": [
+        "third_party/kissfft/"
+      ],
+      "modifications": [],
+      "attribution": "BSD-3-Clause: copyright line and licence text in THIRD_PARTY_NOTICES.",
+      "notes": "COPYING names BSD-3-Clause and points at LICENSES/BSD-3-Clause (sha256 4d6bcab46f27d6d0c878e8305d4bdcfe040d52bf6656b9771f04c9fb9902c0ed, 1830 bytes), whose text is reproduced in THIRD_PARTY_NOTICES with the placeholder filled in from COPYING.",
+      "pin": {
+        "commit": "7bce4153c6bc8aba2db0e889e576f9d00505cbe1",
+        "source": "pinned submodule at tag 131.2.0, read on 2026-10-07"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "COPYING",
+        "sha256": "a2840585f8411be8e6826a31ef15ae65c950bd74a2437a73b013398a934ad0c6",
+        "bytes": 246,
+        "firstLine": "Copyright (c) 2003-2010 Mark Borgerding . All rights reserved.",
+        "readAtCommit": "7bce4153c6bc8aba2db0e889e576f9d00505cbe1",
+        "readOn": "2026-10-07"
+      }
+    },
+    {
+      "id": "utfcpp",
+      "planLedger": "utfcpp",
+      "name": "nemtrif/utfcpp",
+      "url": "https://github.com/nemtrif/utfcpp",
+      "tier": "RETAIN",
+      "planTier": "RETAIN",
+      "license": "BSL-1.0",
+      "role": "Header-only UTF-8 conversion library that TagLib 2.x uses for its text handling.",
+      "incorporated": "Headers from the TagLib submodule third_party/taglib/3rdparty/utfcpp, compiled into libgeode.so with TagLib",
+      "notIncorporated": "Tests, benchmarks and any local modification",
+      "importedFiles": [
+        "third_party/taglib/3rdparty/utfcpp/"
+      ],
+      "modifications": [],
+      "attribution": "Boost Software License 1.0: licence text and source pointer in THIRD_PARTY_NOTICES.",
+      "notes": "Not a Geode dependency in its own right; it arrives through TagLib's nested submodule, which CI checks out recursively.",
+      "pin": {
+        "commit": "819011bb01628fe1aa2f1da9f2c842a48fd5680b",
+        "source": "pinned submodule of taglib at tag v4.1.1, read on 2026-10-07"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566",
+        "bytes": 1338,
+        "firstLine": "Boost Software License - Version 1.0 - August 17th, 2003",
+        "readAtCommit": "819011bb01628fe1aa2f1da9f2c842a48fd5680b",
+        "readOn": "2026-10-07"
+      }
+    },
+    {
       "id": "butterchurn",
       "planLedger": "Butterchurn",
       "name": "jberg/butterchurn",
