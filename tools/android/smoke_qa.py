@@ -281,6 +281,11 @@ class SmokeRun:
         if self.checked(root, name):
             self.events.append(f"Theme {name} already checked in its exact labelled ancestry")
         else:
+            # A visible label can belong to a clipped radio whose midpoint is
+            # outside the picker. Scroll its whole enabled action into view and
+            # use the fresh hierarchy before tapping; preferences checks success.
+            root, _ = self.seek(name, clickable=True, fully_visible=True, scroll="horizontal",
+                                reverse=reverse, scroll_labels=THEME_LABELS)
             self.tap_current(root, name)
 
     def component_kit(self):

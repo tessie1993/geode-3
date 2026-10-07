@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -315,6 +316,65 @@ class SemanticSelectorTest(unittest.TestCase):
         self.assertIsNotNone(SmokeRun.action(root, "Lapis Lazuli"))
         run.select_theme("Lapis Lazuli")
         self.assertEqual(taps, [(root, "Lapis Lazuli")])
+
+    def test_clipped_theme_scrolls_before_tapping_and_proves_checked_callback(self):
+        # CI43 exposed an action ending at x=320 inside a viewport ending at
+        # x=290. Its midpoint x=296 missed the picker despite a visible label.
+        clipped = ET.fromstring('''<hierarchy>
+            <node scrollable="true" bounds="[30,270][290,319]">
+                <node enabled="true" checkable="true" checked="true" clickable="false"
+                      bounds="[175,270][263,319]">
+                    <node content-desc="Amethyst" enabled="true" bounds="[175,270][263,319]" />
+                </node>
+                <node enabled="true" checkable="true" checked="false" clickable="true"
+                      bounds="[273,270][320,319]">
+                    <node content-desc="Clear Quartz" enabled="true" bounds="[273,270][290,319]" />
+                </node>
+            </node>
+        </hierarchy>''')
+        visible = ET.fromstring('''<hierarchy>
+            <node scrollable="true" bounds="[30,270][290,319]">
+                <node enabled="true" checkable="true" checked="false" clickable="true"
+                      bounds="[128,270][216,319]">
+                    <node content-desc="Clear Quartz" enabled="true" bounds="[128,270][216,319]" />
+                </node>
+            </node>
+        </hierarchy>''')
+        selected = ET.fromstring('''<hierarchy>
+            <node scrollable="true" bounds="[30,270][290,319]">
+                <node enabled="true" checkable="true" checked="true" clickable="false"
+                      bounds="[128,270][216,319]">
+                    <node content-desc="Clear Quartz" enabled="true" bounds="[128,270][216,319]" />
+                </node>
+            </node>
+        </hierarchy>''')
+        run = SmokeRun.__new__(SmokeRun)
+        run.events = []
+        commands, captures = [], []
+        state = {"scrolled": False, "selected": False}
+
+        def capture(label):
+            captures.append((label, state.copy()))
+            return selected if state["selected"] else visible if state["scrolled"] else clipped
+
+        def shell(*args):
+            commands.append(args)
+            if args[:2] == ("input", "swipe"):
+                state["scrolled"] = True
+            elif args[:2] == ("input", "tap") and state["scrolled"] and args[2:] == ("172", "294"):
+                state["selected"] = True
+
+        run.capture = capture
+        run.shell = shell
+        with patch("smoke_qa.time.sleep"):
+            run.select_theme("Clear Quartz")
+        self.assertEqual([command for command in commands if command[:2] == ("input", "tap")],
+                         [("input", "tap", "172", "294")])
+        self.assertEqual(sum(command[:2] == ("input", "swipe") for command in commands), 1)
+        self.assertTrue(any(snapshot["scrolled"] and not snapshot["selected"] for _, snapshot in captures))
+        # Match the production preferences gate: the real post-tap hierarchy
+        # must report the exact labelled radio checked, not merely a tap attempt.
+        self.assertTrue(SmokeRun.checked(run.capture("glass-picker-clear-quartz"), "Clear Quartz"))
 
     def test_theme_choice_without_explicit_checked_state_is_rejected(self):
         root = ET.fromstring('''<hierarchy>
