@@ -3,6 +3,7 @@ add_library(geode_core STATIC
     api/geode_viz_api.cpp
     api/geode_dsp_api.cpp
     api/geode_tags_api.cpp
+    api/geode_mic_api.cpp
     library/Tags.cpp
     audio/capture/MicStream.cpp
     audio/dsp/Equalizer.cpp

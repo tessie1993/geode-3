@@ -206,3 +206,39 @@ GEODE_API int         geode_tags_replaygain(const geode_tags*, float* track_gain
 #ifdef __cplusplus
 }
 #endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Microphone capture over an AAudio input stream read with blocking calls (no data callback). One handle
+ * belongs to one thread at a time: create and start, read on the reader thread, then stop and destroy on
+ * that thread once reading has ended. The getters read atomics and are safe from any thread. */
+typedef struct geode_mic geode_mic;
+
+/* Does not open anything. prefer_unprocessed asks for the UNPROCESSED input preset (API 28+); otherwise
+ * VOICE_RECOGNITION. NULL only when allocation fails. */
+GEODE_API geode_mic* geode_mic_create(int prefer_unprocessed);
+/* Opens a low-latency float mono stream, EXCLUSIVE first and then SHARED, and starts it. 1 = started. */
+GEODE_API int        geode_mic_start(geode_mic*);
+/* Up to max_frames mono float frames, waiting up to timeout_nanos (0 = do not wait). Returns the frames read:
+ * 0 when none arrived in time or while the stream is being reopened after a disconnect, negative (an AAudio
+ * result) when the stream is gone for good. A reopen happens inside this call, on the calling thread; after
+ * it geode_mic_generation changes and geode_mic_sample_rate may differ. */
+GEODE_API int        geode_mic_read(geode_mic*, float* mono, int max_frames, int64_t timeout_nanos);
+GEODE_API void       geode_mic_stop(geode_mic*);
+GEODE_API void       geode_mic_destroy(geode_mic*);
+/* What the stream was actually opened with; 0 (or -1 for the modes) before the first successful open. */
+GEODE_API int        geode_mic_sample_rate(const geode_mic*);
+GEODE_API int        geode_mic_channels(const geode_mic*);          /* the device's; read always returns mono */
+GEODE_API int        geode_mic_frames_per_burst(const geode_mic*);
+GEODE_API int        geode_mic_buffer_frames(const geode_mic*);
+GEODE_API int        geode_mic_sharing_mode(const geode_mic*);      /* AAudio's: 0 exclusive, 1 shared */
+GEODE_API int        geode_mic_performance_mode(const geode_mic*);  /* AAudio's: 10 none, 12 low latency */
+GEODE_API int        geode_mic_last_error(const geode_mic*);        /* last AAudio result that was not OK */
+GEODE_API int        geode_mic_generation(const geode_mic*);        /* +1 for every successful (re)open */
+GEODE_API float      geode_mic_last_peak(const geode_mic*);         /* peak of the last non-empty read, 0..1 */
+
+#ifdef __cplusplus
+}
+#endif
