@@ -19,6 +19,7 @@
 #include "viz/MotionField.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
+#include "viz/PcmDelivery.hpp"
 #include "viz/ProgramBinaryCache.hpp"
 #include "viz/Scene.hpp"
 #include "viz/SceneRegistry.hpp"
@@ -49,6 +50,7 @@ public:
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
     void pushPcm(const float* samples, int count);
+    void setOffscreen(bool on);
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
     // The user source a scene last compiled successfully; "" when it draws its built-in style.
     std::string customShaderFor(const std::string& sceneId) const;
@@ -152,9 +154,9 @@ private:
     std::atomic<bool> reducedMotion_{false};
     float morphFadeSec_ = 0.0f;
     float morphRemainSec_ = 0.0f;
-    std::vector<float> pcm_;
-    int pcmCount_ = 0;
-    std::vector<float> pcmDeliverScratch_;
+    FramePcm pcm_;
+    bool freshFeatures_ = false;
+    bool offscreen_ = false;
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
     std::vector<std::pair<std::string, std::string>> customShaders_;
     std::string fluidForceSrc_;
@@ -204,6 +206,8 @@ private:
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;
     GeodeFeatureFrame frameFeatures_{};
+    bool frameFreshFeatures_ = false;
+    bool frameOffscreen_ = false;
     // Latched once per frame in beginFrame alongside frameFeatures_, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
     // stable snapshot instead of racing setLayer()/setTransition() on

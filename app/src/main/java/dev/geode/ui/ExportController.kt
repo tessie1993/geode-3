@@ -38,6 +38,8 @@ import kotlinx.coroutines.withContext
 data class StudioUiState(
     val clips: List<dev.geode.export.StudioClip> = emptyList(),
     val phase: ExportPhase = ExportPhase.Idle,
+    val clipsLoading: Boolean = false,
+    val clipsError: String? = null,
 )
 
 data class ExportUiState(
@@ -108,9 +110,12 @@ internal class ExportController(
     private val _exportState = MutableStateFlow(ExportUiState())
     val exportState: StateFlow<ExportUiState> = _exportState
 
-    private val _studio = MutableStateFlow(StudioUiState())
+    private val studioExports =
+        StudioExportCoordinator(scope) {
+            withContext(Dispatchers.IO) { dev.geode.export.StudioClips.list(application) }
+        }
 
-    val studio: StateFlow<StudioUiState> = _studio
+    val studio: StateFlow<StudioUiState> = studioExports.state
 
     @Volatile
     private var exportCancelled = false
@@ -129,8 +134,6 @@ internal class ExportController(
             }
         }
     }
-
-    private var studioJob: Job? = null
 
     fun startExport(
         aspect: ExportAspect,
@@ -255,17 +258,7 @@ internal class ExportController(
         if (!_exportState.value.phase.isBusy) _exportState.value = ExportUiState()
     }
 
-    fun refreshStudioClips() {
-        scope.launch {
-            _studio.update { it.copy(phase = ExportPhase.Loading) }
-            val clips =
-                withContext(Dispatchers.IO) {
-                    dev.geode.export.StudioClips
-                        .list(application)
-                }
-            _studio.update { it.copy(clips = clips, phase = ExportPhase.Idle) }
-        }
-    }
+    fun refreshStudioClips() = studioExports.refreshClips()
 
     fun deleteStudioClip(
         uri: String,
@@ -317,48 +310,36 @@ internal class ExportController(
         edit: dev.geode.export.ClipEdit,
         destination: Uri? = null,
     ) {
-        if (_studio.value.phase.isBusy) return
-        _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
-        studioJob =
-            scope.launch {
-                val name = "geode_studio_${System.currentTimeMillis()}.mp4"
-                val result =
-                    studioExporter.export(
-                        source = Uri.parse(clip.uri),
-                        sourceDurationMs = clip.durationMs,
-                        edit = edit,
-                        displayName = name,
-                        codec = defaultCodec(),
-                        destination = destination,
-                    ) { p -> _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) } }
-                _studio.update { it.copy(phase = result.toPhase()) }
-                refreshStudioClips()
-                studioJob = null
-            }
+        studioExports.start { onProgress ->
+            val name = "geode_studio_${System.currentTimeMillis()}.mp4"
+            studioExporter
+                .export(
+                    source = Uri.parse(clip.uri),
+                    sourceDurationMs = clip.durationMs,
+                    edit = edit,
+                    displayName = name,
+                    codec = defaultCodec(),
+                    destination = destination,
+                    onProgress = onProgress,
+                ).toPhase()
+        }
     }
 
     fun startProjectExport(
         project: dev.geode.editor.EditorProject,
         destination: Uri? = null,
     ) {
-        if (_studio.value.phase.isBusy) return
-        val built = ProjectComposition.build(application, project)
-        if (built !is ProjectComposition.Outcome.Ready) {
-            _studio.update { it.copy(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))) }
-            return
-        }
-        _studio.update { it.copy(phase = ExportPhase.Running(0f)) }
-        studioJob =
-            scope.launch {
+        studioExports.start { onProgress ->
+            val built = ProjectComposition.build(application, project)
+            if (built !is ProjectComposition.Outcome.Ready) {
+                ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))
+            } else {
                 val name = "geode_cut_${System.currentTimeMillis()}.mp4"
-                val result =
-                    studioExporter.exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination) { p ->
-                        _studio.update { it.copy(phase = ExportPhase.Running(p.coerceIn(0f, 1f))) }
-                    }
-                _studio.update { it.copy(phase = result.toPhase()) }
-                refreshStudioClips()
-                studioJob = null
+                studioExporter
+                    .exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination, onProgress)
+                    .toPhase()
             }
+        }
     }
 
     private fun defaultCodec(): ExportCodec = ExportPrefsStore(GeodePrefsFiles(application).general).load().codec
@@ -372,16 +353,9 @@ internal class ExportController(
             ExportPrefsStore(GeodePrefsFiles(application).general).load().loudnessTargetId,
         )
 
-    fun cancelStudioExport() {
-        studioExporter.cancel()
-        studioJob?.cancel()
-        studioJob = null
-        _studio.update { it.copy(phase = ExportPhase.Idle) }
-    }
+    fun cancelStudioExport() = studioExports.cancel()
 
-    fun clearStudioResult() {
-        _studio.update { it.copy(phase = ExportPhase.Idle) }
-    }
+    fun clearStudioResult() = studioExports.clearResult()
 
     private val loopRenderer = LoopRender(application)
     private val loopExtender = LoopExtend(application)

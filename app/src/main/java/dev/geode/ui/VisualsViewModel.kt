@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.data.MilkTexture
 import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
+import dev.geode.data.PresetWrite
 import dev.geode.data.TemplateFormat
 import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
@@ -19,16 +20,6 @@ import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 import javax.inject.Inject
-
-sealed interface PresetLinkImport {
-    data object NotALink : PresetLinkImport
-
-    data class Imported(
-        val name: String,
-    ) : PresetLinkImport
-
-    data object Unreadable : PresetLinkImport
-}
 
 /** Outcome of a `geode://template/...` link reaching the app through an intent. */
 sealed interface TemplateLinkImport {
@@ -129,7 +120,9 @@ class VisualsViewModel
             name: String,
             customShader: String?,
             folder: String = "",
-        ) = session.savePreset(name, customShader, folder)
+            replacing: Preset? = null,
+            onResult: (PresetWrite) -> Unit,
+        ) = session.savePreset(name, customShader, folder, replacing, onResult)
 
         fun deletePreset(name: String) = session.deletePreset(name)
 
@@ -137,21 +130,18 @@ class VisualsViewModel
 
         fun presetShareLink(name: String): String? = session.presetShareLink(name)
 
-        fun importPresetLink(text: String): String? = session.importPresetLink(text)
+        fun importPresetLink(text: String, onResult: (PresetWrite) -> Unit) = session.importPresetLink(text, onResult)
 
-        fun importSharedPreset(data: String): PresetLinkImport =
-            if (!PresetLink.isPresetLink(data)) {
-                PresetLinkImport.NotALink
-            } else {
-                session
-                    .importPresetLink(data)
-                    ?.let(PresetLinkImport::Imported)
-                    ?: PresetLinkImport.Unreadable
-            }
+        /** Recognition is synchronous; success waits for the durable import. */
+        fun importSharedPreset(data: String, onResult: (PresetWrite) -> Unit): Boolean {
+            if (!PresetLink.isPresetLink(data)) return false
+            session.importPresetLink(data, onResult)
+            return true
+        }
 
         fun importPresetFile(
             uri: Uri,
-            onResult: (String?) -> Unit,
+            onResult: (PresetWrite) -> Unit,
         ) = session.importPresetFile(uri, onResult)
 
         fun addPresetFolder(path: String) = session.addPresetFolder(path)

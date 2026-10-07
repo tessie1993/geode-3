@@ -15,11 +15,15 @@ class MidSideWindow(
 
     val side: FloatArray = FloatArray(windowFrames)
 
+    var position: SampleRing.Position? = null
+        private set
+
     fun refresh(): Boolean {
-        if (!ring.snapshotLatest(planar)) return false
+        val next = ring.snapshotPosition(planar) ?: return false
+        if (next == position) return false
         val left = planar[0]
         val right = planar[1]
-        val sources = ring.sourceChannelCount
+        val sources = next.sourceChannels
         if (sources >= 2) {
             for (i in mid.indices) {
                 mid[i] = (left[i] + right[i]) / 2f
@@ -29,6 +33,7 @@ class MidSideWindow(
             left.copyInto(mid)
             side.fill(0f)
         }
+        position = next
         return true
     }
 }

@@ -3,14 +3,20 @@ package dev.geode.ui
 import android.app.Application
 import android.net.Uri
 import dev.geode.data.Preset
+import dev.geode.data.PresetAdmission
+import dev.geode.data.PresetAdmissionException
+import dev.geode.data.PresetFailure
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
+import dev.geode.data.PresetWrite
 import dev.geode.render.scene.SceneIds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 internal class PresetLibraryController(
@@ -31,16 +37,18 @@ internal class PresetLibraryController(
     }
 
     val folders: StateFlow<PresetFolders> = presets.folders
+    private val libraryMutex = Mutex()
+    private val reservedNames = BuiltInPresets.ALL.map { it.name }.toSet()
 
     fun addPresetFolder(path: String) {
-        storeScope.launch { presets.addFolder(path) }
+        storeScope.launch { libraryMutex.withLock { presets.addFolder(path) } }
     }
 
     fun renamePresetFolder(
         from: String,
         to: String,
     ) {
-        storeScope.launch { presets.renameFolder(from, to) }
+        storeScope.launch { libraryMutex.withLock { presets.renameFolder(from, to) } }
     }
 
     fun movePresetToFolder(
@@ -48,9 +56,11 @@ internal class PresetLibraryController(
         folder: String,
     ) {
         storeScope.launch {
-            presets.moveToFolder(name, folder)
-            mirrorPresetToChosenFolder(name)
-            relistPresets()
+            libraryMutex.withLock {
+                presets.moveToFolder(name, folder)
+                mirrorPresetToChosenFolder(name)
+                relistPresets()
+            }
         }
     }
 
@@ -65,12 +75,11 @@ internal class PresetLibraryController(
     }
 
     fun refreshInitial() {
-        scope.launch {
-            val listed = presets.list()
-            host.updatePresets { current ->
-                if (current !== BuiltInPresets.ALL) current else BuiltInPresets.ALL + listed
+        storeScope.launch {
+            libraryMutex.withLock {
+                relistPresets()
+                presets.refreshFolders()
             }
-            presets.refreshFolders()
         }
     }
 
@@ -83,22 +92,60 @@ internal class PresetLibraryController(
         name: String,
         customShader: String?,
         folder: String = "",
+        replacing: Preset? = null,
+        onResult: (PresetWrite) -> Unit,
     ) {
         @Suppress("NAME_SHADOWING")
         val name = name.replace(" · ", " - ").trim().ifEmpty { "Preset" }
         val s = host.vizState.value
         val milkPath = host.activeMilkPath
         storeScope.launch {
-            val milkSource =
-                if (s.sceneId == SceneIds.MILKDROP) {
-                    milkPath?.let { src -> runCatching { java.io.File(src).readText() }.getOrNull() }
-                } else {
-                    null
-                }
-            milkSource?.let { source -> presets.materializeMilk(name, source) }
-            presets.save(Preset(name, s.sceneId, s.attack, s.decay, customShader, s.params, milkSource), folder)
-            mirrorPresetToChosenFolder(name)
-            relistPresets()
+            val result = libraryMutex.withLock {
+                operationResult {
+                    val milkSource = if (s.sceneId == SceneIds.MILKDROP && milkPath != null) {
+                        java.io.File(milkPath).inputStream().use(PresetAdmission::readText)
+                    } else {
+                        null
+                    }
+                    presets.save(
+                        Preset(name, s.sceneId, s.attack, s.decay, customShader, s.params, milkSource),
+                        folder,
+                        reservedNames,
+                        replacing,
+                    )
+                }.also { publishSaved(it) }
+            }
+            withContext(Dispatchers.Main.immediate) { onResult(result) }
+        }
+    }
+
+    private suspend fun operationResult(block: suspend () -> PresetWrite): PresetWrite = try {
+        block()
+    } catch (e: PresetAdmissionException) {
+        PresetWrite.Failed(e.reason, e.field)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        PresetWrite.Failed(PresetFailure.IO)
+    }
+
+    private suspend fun publishSaved(result: PresetWrite) {
+        if (result is PresetWrite.Saved) {
+            // A listing failure after a successful commit must not turn that commit into a
+            // failed save (and make Retry create another copy). Retain the committed entry.
+            try {
+                relistPresets()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                host.updatePresets { current -> current.filterNot { it.name == result.preset.name } + result.preset }
+            }
+            // The committed JSON embeds this source. The local .milk file is a derived copy;
+            // keep preparing it for the existing mirror/apply paths after the primary commit.
+            runCatching {
+                result.preset.milkPreset?.let { presets.materializeMilk(result.preset.name, it) }
+            }
+            mirrorPresetToChosenFolder(result.preset.name)
         }
     }
 
@@ -147,65 +194,48 @@ internal class PresetLibraryController(
         return link.takeIf { it.length <= PresetLink.MAX_LINK_LENGTH }
     }
 
-    fun importPresetLink(text: String): String? {
-        val link = PresetLink.findIn(text) ?: return null
-        return importPresetJson(PresetLink.decode(link) ?: return null)
+    fun importPresetLink(text: String, onResult: (PresetWrite) -> Unit) {
+        storeScope.launch {
+            val result = libraryMutex.withLock {
+                val link = PresetLink.findIn(text)
+                val json = link?.let(PresetLink::decode)
+                if (json == null) PresetWrite.Failed(PresetFailure.MALFORMED) else importPresetJson(json)
+            }
+            withContext(Dispatchers.Main.immediate) { onResult(result) }
+        }
     }
 
     fun importPresetFile(
         uri: Uri,
-        onResult: (String?) -> Unit,
+        onResult: (PresetWrite) -> Unit,
     ) {
-        scope.launch {
-            val json =
-                withContext(Dispatchers.IO) {
-                    runCatching {
-                        application
-                            .contentResolver
-                            .openInputStream(uri)
-                            ?.bufferedReader()
-                            ?.use { it.readText() }
-                    }.getOrNull()
+        storeScope.launch {
+            val result = libraryMutex.withLock {
+                operationResult {
+                    val json = application.contentResolver.openInputStream(uri)?.use(PresetAdmission::readText)
+                        ?: return@operationResult PresetWrite.Failed(PresetFailure.IO)
+                    importPresetJson(json)
                 }
-            onResult(json?.let { importPresetJson(it) })
+            }
+            withContext(Dispatchers.Main.immediate) { onResult(result) }
         }
     }
 
-    private fun importPresetJson(json: String): String? {
-        val incoming = runCatching { PresetStore.fromJson(json) }.getOrNull() ?: return null
-        val existing =
-            host.vizState.value.presets
-                .map { it.name }
-                .toSet()
-        val base =
-            incoming.name
-                .replace(" · ", " - ")
-                .trim()
-                .ifBlank { "Shared preset" }
-        var name = base
-        var n = 2
-        while (name in existing) {
-            name = "$base $n"
-            n++
-        }
-        val preset = incoming.copy(name = name)
-        host.updatePresets { it + preset }
-        storeScope.launch {
-            presets.save(preset)
-            relistPresets()
-        }
-        return name
-    }
+    private suspend fun importPresetJson(json: String): PresetWrite = operationResult {
+        val incoming = PresetAdmission.decode(json)
+        presets.save(incoming.copy(name = incoming.name.replace(" · ", " - ").trim()), reservedNames = reservedNames)
+    }.also { publishSaved(it) }
 
     fun presetFile(name: String): java.io.File? = presets.fileOf(name)
 
     fun deletePreset(name: String) {
         if (BuiltInPresets.isBuiltIn(name)) return
-        host.updatePresets { presets -> presets.filterNot { it.name == name } }
         storeScope.launch {
-            removeMirroredPreset(presets.fileOf(name)?.name, milkFileFor(name).name)
-            presets.delete(name)
-            relistPresets()
+            libraryMutex.withLock {
+                removeMirroredPreset(presets.fileOf(name)?.name, milkFileFor(name).name)
+                presets.delete(name)
+                relistPresets()
+            }
         }
     }
 

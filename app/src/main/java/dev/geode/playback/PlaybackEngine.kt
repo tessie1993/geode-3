@@ -138,6 +138,7 @@ class PlaybackSession internal constructor(
             playerPrefsRepository.prefs.collect { playbackPreferences.apply(it) }
         }
         dev.geode.audio.AudioBus.onInterestChanged = interestHook
+        dev.geode.audio.AudioBus.attachPcmSource(ring)
         syncAnalysis()
         scope.launch {
             analysis.features.collect {
@@ -158,6 +159,7 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
+        dev.geode.audio.AudioBus.detachPcmSource(ring)
         analysis.close()
         if (dev.geode.audio.AudioBus.onInterestChanged === interestHook) {
             dev.geode.audio.AudioBus.onInterestChanged = null

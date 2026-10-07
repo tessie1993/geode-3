@@ -79,14 +79,10 @@ class MainActivity : ComponentActivity() {
 
     private fun importSharedPreset(intent: Intent?) {
         val data = intent?.data?.toString() ?: return
-        val message =
-            when (val result = visualsViewModel.importSharedPreset(data)) {
-                PresetLinkImport.NotALink -> return
-                is PresetLinkImport.Imported -> getString(R.string.preset_link_imported, result.name)
-                PresetLinkImport.Unreadable -> getString(R.string.preset_link_unreadable)
-            }
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-        intent.data = null
+        val recognized = visualsViewModel.importSharedPreset(data) { result ->
+            Toast.makeText(this, presetWriteMessage(result), Toast.LENGTH_LONG).show()
+        }
+        if (recognized) intent.data = null
     }
 
     /**

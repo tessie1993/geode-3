@@ -600,6 +600,7 @@ class PlayerSession internal constructor(
             autoVisualsPrefsStore,
             object : AutoVisualsController.Host {
                 override val vizState: StateFlow<VizUiState> get() = _vizState
+                override val currentJourney: VisualJourneyKey get() = visual.currentJourney
 
                 override fun updateViz(transform: (VizUiState) -> VizUiState) = _vizState.update(transform)
 
@@ -953,7 +954,9 @@ class PlayerSession internal constructor(
         name: String,
         customShader: String?,
         folder: String = "",
-    ) = presetLibrary.savePreset(name, customShader, folder)
+        replacing: Preset? = null,
+        onResult: (dev.geode.data.PresetWrite) -> Unit,
+    ) = presetLibrary.savePreset(name, customShader, folder, replacing, onResult)
 
     internal fun milkPresetPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
 
@@ -963,11 +966,12 @@ class PlayerSession internal constructor(
 
     fun presetShareLink(name: String): String? = presetLibrary.presetShareLink(name)
 
-    fun importPresetLink(text: String): String? = presetLibrary.importPresetLink(text)
+    fun importPresetLink(text: String, onResult: (dev.geode.data.PresetWrite) -> Unit) =
+        presetLibrary.importPresetLink(text, onResult)
 
     fun importPresetFile(
         uri: Uri,
-        onResult: (String?) -> Unit,
+        onResult: (dev.geode.data.PresetWrite) -> Unit,
     ) = presetLibrary.importPresetFile(uri, onResult)
 
     fun presetFile(name: String): File? = presetLibrary.presetFile(name)

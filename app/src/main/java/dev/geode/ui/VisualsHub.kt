@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.Preset
+import dev.geode.data.PresetWrite
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneCapabilities
@@ -203,7 +204,9 @@ private fun PresetsTreeTab(
     var folderRenameText by remember { mutableStateOf("") }
     var movingPreset by remember { mutableStateOf<String?>(null) }
     var deletingPreset by remember { mutableStateOf<String?>(null) }
-    var replacingPreset by remember { mutableStateOf<String?>(null) }
+    var replacingPreset by remember { mutableStateOf<Preset?>(null) }
+    var saveBusy by remember { mutableStateOf(false) }
+    var saveNote by remember { mutableStateOf<String?>(null) }
     var showTemplates by remember { mutableStateOf(false) }
     val userPresets = viz.presets.filterNot { BuiltInPresets.isBuiltIn(it.name) }.distinctBy { it.name }
     val byFolder = userPresets.groupBy { presetFolders.folderOf(it.name) }
@@ -212,8 +215,9 @@ private fun PresetsTreeTab(
     val presetFilePicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
-                visualsViewModel.importPresetFile(uri) { name ->
-                    importNote = name?.let { "Imported \"$it\"." } ?: "That file is not a Geode preset."
+                importNote = context.getString(R.string.preset_importing)
+                visualsViewModel.importPresetFile(uri) { result ->
+                    importNote = context.presetWriteMessage(result)
                 }
             }
         }
@@ -223,13 +227,14 @@ private fun PresetsTreeTab(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
                 CrystalButton(compact = true, filled = false, onClick = {
                     val pasted = clipboardText(context)
-                    importNote =
-                        when {
-                            pasted.isNullOrBlank() -> "The clipboard is empty."
-                            else ->
-                                visualsViewModel.importPresetLink(pasted)?.let { "Imported \"$it\"." }
-                                    ?: "That clipboard text is not a Geode preset link."
+                    if (pasted.isNullOrBlank()) {
+                        importNote = "The clipboard is empty."
+                    } else {
+                        importNote = context.getString(R.string.preset_importing)
+                        visualsViewModel.importPresetLink(pasted) { result ->
+                            importNote = context.presetWriteMessage(result)
                         }
+                    }
                 }) { Text("Paste a shared preset") }
                 CrystalButton(compact = true, filled = false, onClick = {
                     presetFilePicker.launch(arrayOf("*/*"))
@@ -352,26 +357,34 @@ private fun PresetsTreeTab(
                 OutlinedTextField(
                     value = saveName,
                     onValueChange = { saveName = it },
+                    enabled = !saveBusy,
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Save current as…") },
                     singleLine = true,
                 )
-                CrystalButton(onClick = {
+                CrystalButton(enabled = !saveBusy, onClick = {
                     if (saveName.isNotBlank()) {
                         val existing = presetReplaceTarget(saveName, viz.presets)
                         if (existing != null) {
-                            replacingPreset = existing
+                            saveNote = null
+                            replacingPreset = viz.presets.firstOrNull { it.name == existing }
                         } else {
+                            saveBusy = true
+                            saveNote = null
                             visualsViewModel.savePreset(
                                 saveName.trim(),
                                 visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
                                 saveFolder,
-                            )
-                            saveName = ""
+                            ) { result ->
+                                saveBusy = false
+                                saveNote = context.presetWriteMessage(result)
+                                if (result is PresetWrite.Saved) saveName = ""
+                            }
                         }
                     }
-                }) { Text("Save") }
+                }) { Text(stringResource(if (saveBusy) R.string.preset_saving else R.string.preset_save)) }
             }
+            saveNote?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             if (folders.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 12.dp)) {
                     (listOf("") + folders).forEach { f ->
@@ -436,28 +449,39 @@ private fun PresetsTreeTab(
             confirmButton = { TextButton(onClick = { movingPreset = null }) { Text("Close") } },
         )
     }
-    replacingPreset?.let { name ->
+    replacingPreset?.let { target ->
         androidx.compose.material3.AlertDialog(
-            onDismissRequest = { replacingPreset = null },
-            title = { Text("Replace \"$name\"?") },
+            onDismissRequest = { if (!saveBusy) replacingPreset = null },
+            title = { Text("Replace \"${target.name}\"?") },
             text = {
-                Text(
-                    "A preset with this name already exists. Saving replaces its look " +
-                        "for good — there is no undo. Share it first if you might want it back.",
-                )
+                Column {
+                    Text(
+                        "A preset with this name already exists. Saving replaces its look " +
+                            "for good — there is no undo. Share it first if you might want it back.",
+                    )
+                    saveNote?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
             },
             confirmButton = {
-                CrystalButton(onClick = {
+                CrystalButton(enabled = !saveBusy, onClick = {
+                    saveBusy = true
+                    saveNote = null
                     visualsViewModel.savePreset(
-                        saveName.trim(),
+                        target.name,
                         visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
                         saveFolder,
-                    )
-                    saveName = ""
-                    replacingPreset = null
+                        replacing = target,
+                    ) { result ->
+                        saveBusy = false
+                        saveNote = context.presetWriteMessage(result)
+                        if (result is PresetWrite.Saved) {
+                            saveName = ""
+                            replacingPreset = null
+                        }
+                    }
                 }) { Text("Replace") }
             },
-            dismissButton = { TextButton(onClick = { replacingPreset = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(enabled = !saveBusy, onClick = { replacingPreset = null }) { Text("Cancel") } },
         )
     }
     deletingPreset?.let { name ->
@@ -665,7 +689,7 @@ private fun MilkDropTab(
             if (uri != null) {
                 viewModel.importMilkPresetAsync(uri) { path ->
                     if (path != null) {
-                        selectMilk(viewModel, visualizerView, path)
+                        selectMilk(viewModel, path)
                         refresh++
                     }
                 }
@@ -723,7 +747,7 @@ private fun MilkDropTab(
                             linkRefresh++
                             // Reload so the new link is what projectM reads - search paths are
                             // re-set on every preset load, so this is the whole refresh.
-                            selectMilk(viewModel, visualizerView, loadedPath)
+                            selectMilk(viewModel, loadedPath)
                         }
                     },
                     onDismiss = { pickTextureFor = null },
@@ -740,7 +764,7 @@ private fun MilkDropTab(
                 Modifier
                     .fillMaxWidth()
                     .clickable {
-                        selectMilk(viewModel, visualizerView, f.absolutePath)
+                        selectMilk(viewModel, f.absolutePath)
                         refresh++
                     }.padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -841,11 +865,9 @@ private fun MilkTexturePickerDialog(
 
 private fun selectMilk(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
     path: String,
 ) {
-    viewModel.selectScene(SceneIds.MILKDROP)
-    visualizerView.visualizerRenderer.loadMilkPreset(path)
+    viewModel.applyVizEntry(VizPlaylistEntry(SceneIds.MILKDROP, milkPath = path, label = java.io.File(path).nameWithoutExtension))
 }
 
 @Composable
@@ -998,6 +1020,9 @@ private fun CustomizeToolbar(
     var confirmReset by remember { mutableStateOf(false) }
     var savingPreset by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf("") }
+    var presetSaveBusy by remember { mutableStateOf(false) }
+    var presetSaveNote by remember { mutableStateOf<String?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     val changed = remember(params) { CustomizeSummary.changedCount(params) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
         OutlinedTextField(
@@ -1078,27 +1103,39 @@ private fun CustomizeToolbar(
     }
     if (savingPreset) {
         androidx.compose.material3.AlertDialog(
-            onDismissRequest = { savingPreset = false },
+            onDismissRequest = { if (!presetSaveBusy) savingPreset = false },
             title = { Text("Save as preset") },
             text = {
-                OutlinedTextField(
-                    value = presetName,
-                    onValueChange = { presetName = it },
-                    singleLine = true,
-                    placeholder = { Text("Preset name") },
-                )
+                Column {
+                    OutlinedTextField(
+                        value = presetName,
+                        onValueChange = { presetName = it },
+                        enabled = !presetSaveBusy,
+                        singleLine = true,
+                        placeholder = { Text("Preset name") },
+                    )
+                    presetSaveNote?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
             },
             confirmButton = {
-                CrystalButton(enabled = presetName.isNotBlank(), onClick = {
+                CrystalButton(enabled = presetName.isNotBlank() && !presetSaveBusy, onClick = {
+                    presetSaveBusy = true
+                    presetSaveNote = null
                     visualsViewModel.savePreset(
                         presetName.trim(),
                         visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
-                    )
-                    presetName = ""
-                    savingPreset = false
-                }) { Text("Save") }
+                    ) { result ->
+                        presetSaveBusy = false
+                        if (result is PresetWrite.Saved) {
+                            presetName = ""
+                            savingPreset = false
+                        } else {
+                            presetSaveNote = context.presetWriteMessage(result)
+                        }
+                    }
+                }) { Text(stringResource(if (presetSaveBusy) R.string.preset_saving else R.string.preset_save_copy)) }
             },
-            dismissButton = { TextButton(onClick = { savingPreset = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(enabled = !presetSaveBusy, onClick = { savingPreset = false }) { Text("Cancel") } },
         )
     }
     if (confirmReset) {
@@ -1311,7 +1348,7 @@ private fun TexturesHubTab(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(tex.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 CrystalButton(compact = true, filled = false, onClick = {
-                    visualsViewModel.useTexture(tex.name) { path -> selectMilk(viewModel, visualizerView, path) }
+                    visualsViewModel.useTexture(tex.name) { path -> selectMilk(viewModel, path) }
                 }) { Text("Use") }
                 IconButton(onClick = { deletingTexture = tex.name }) {
                     StoneIconArt(StoneIcon.DELETE, "Delete this texture", tint = MaterialTheme.colorScheme.error)

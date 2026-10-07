@@ -221,7 +221,10 @@ private fun ClipList(
                 CrystalButton(onClick = onPick) { Text(stringResource(R.string.studio_open_video)) }
             }
         }
-        if (studio.clips.isEmpty() && studio.phase != ExportPhase.Loading) {
+        studio.clipsError?.let { message ->
+            item { Text(message) }
+        }
+        if (studio.clips.isEmpty() && !studio.clipsLoading && studio.clipsError == null) {
             item { ClipLibraryEmpty() }
         }
         items(studio.clips.size) { index ->

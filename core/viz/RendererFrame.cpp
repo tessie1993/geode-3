@@ -35,6 +35,10 @@ float Renderer::beginFrame(double timeSeconds) {
         std::lock_guard<std::mutex> lock(stateLock_);
         pending.swap(pendingShaders_);
         frameFeatures_ = features_;
+        frameFreshFeatures_ = freshFeatures_;
+        freshFeatures_ = false;
+        frameOffscreen_ = offscreen_;
+        pcm_.beginFrame();
         frameLayerMix_ = layerMix_;
         frameLayerBlend_ = layerBlend_;
         frameTransitionId_ = transitionId_;
@@ -136,17 +140,16 @@ bool Renderer::ensureTargets() {
 }
 
 void Renderer::deliverPcm(Scene& scene) {
-    // Copy out under the lock, then hand the scene its own scratch buffer
-    // once unlocked: acceptPcm() (a copy of up to 4096 samples plus
-    // fillPcmRow) must never run while stateLock_ is held, or pushPcm() on
-    // the PCM producer thread blocks behind a scene upload.
-    int count = 0;
-    {
-        std::lock_guard<std::mutex> lock(stateLock_);
-        count = pcmCount_;
-        if (count > 0) std::copy(pcm_.begin(), pcm_.begin() + count, pcmDeliverScratch_.begin());
-    }
-    if (count > 0) scene.acceptPcm(pcmDeliverScratch_.data(), count);
+    // beginFrame() consumed the pending input exactly once under stateLock_.
+    // This immutable frame view reaches every participating scene, outside the
+    // lock; a later producer write cannot change it or starve a transition.
+    // Track export currently supplies timeline waveforms, not decoded PCM.
+    // Preserve that approximation explicitly for MilkDrop offscreen only, and
+    // only for a newly published timeline frame. Live feature snapshots must
+    // never impersonate new PCM when playback pauses or the producer stalls.
+    const bool timelinePcm = frameOffscreen_ && frameFreshFeatures_ && scene.family() == SceneFamily::Milkdrop;
+    const auto pcm = pcm_.view(timelinePcm, frameFeatures_.waveform, GEODE_WAVEFORM_POINTS);
+    if (pcm.count > 0) scene.acceptPcm(pcm.data, pcm.count);
 }
 
 void Renderer::bindSecondaryTarget() {

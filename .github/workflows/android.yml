@@ -110,6 +110,21 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Fresh PCM fanout and silence
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+            core/tests/PcmDeliveryTest.cpp -o "$RUNNER_TEMP/pcm-delivery-test"
+          "$RUNNER_TEMP/pcm-delivery-test"
+      - name: Native stereo energy and spectrum
+        run: |
+          gcc -O2 -Ithird_party/kissfft -c third_party/kissfft/kiss_fft.c -o "$RUNNER_TEMP/kiss_fft.o"
+          gcc -O2 -Ithird_party/kissfft -c third_party/kissfft/kiss_fftr.c -o "$RUNNER_TEMP/kiss_fftr.o"
+          g++ -std=c++20 -O2 -Wall -Wextra -Icore -Icore/tests/include -Ithird_party/kissfft \
+            core/tests/StereoAnalysisTest.cpp core/analysis/*.cpp \
+            "$RUNNER_TEMP/kiss_fft.o" "$RUNNER_TEMP/kiss_fftr.o" -lm -o "$RUNNER_TEMP/stereo-analysis-test"
+          "$RUNNER_TEMP/stereo-analysis-test"
       - name: Native motion across angle wraps
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \

@@ -1,0 +1,6 @@
+<resources>
+    <string name="export_output_choose_folder">Choose an export folder on this Android version.</string>
+    <string name="export_output_create_failed">Your Videos library could not create the export. Check the available storage or choose another folder.</string>
+    <string name="export_output_open_failed">The export file could not be opened for writing.</string>
+    <string name="export_output_publish_failed">The finished export could not be published to your Videos library.</string>
+</resources>

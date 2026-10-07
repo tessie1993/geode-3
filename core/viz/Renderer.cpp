@@ -12,7 +12,6 @@ namespace {
 constexpr const char* kTag = "GeodeRenderer";
 constexpr int kPaletteSize = 256;
 constexpr int kPaletteRows = 5;
-constexpr int kPcmCapacity = 512 * 8;
 }  // namespace
 
 Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
@@ -24,9 +23,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); }}),
-      compositePass_(assets_, &programCache_),
-      pcm_(kPcmCapacity, 0.0f),
-      pcmDeliverScratch_(kPcmCapacity, 0.0f) {
+      compositePass_(assets_, &programCache_) {
     programCache_.install(cacheDir_);
 }
 
@@ -45,6 +42,7 @@ bool Renderer::setParam(const std::string& key, float value) {
 void Renderer::setFeatures(const GeodeFeatureFrame& features) {
     std::lock_guard<std::mutex> lock(stateLock_);
     features_ = features;
+    freshFeatures_ = true;
 }
 
 void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {
@@ -72,10 +70,15 @@ void Renderer::beginParamMorph(float seconds) {
 
 void Renderer::pushPcm(const float* samples, int count) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    const int n = std::min(count, kPcmCapacity);
-    if (n <= 0) return;
-    std::copy(samples + (count - n), samples + count, pcm_.begin());
-    pcmCount_ = n;
+    pcm_.push(samples, count);
+}
+
+void Renderer::setOffscreen(bool on) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    if (offscreen_ == on) return;
+    offscreen_ = on;
+    if (on) thermal_.beginOffscreenRender();
+    else thermal_.endOffscreenRender();
 }
 
 void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
@@ -326,6 +329,9 @@ void Renderer::onSurfaceCreated() {
     overlays_.recreate();
     {
         std::lock_guard<std::mutex> lock(stateLock_);
+        // PCM from the previous surface/session must not survive GL recovery.
+        // Fresh producer input is latched by the next rendered frame.
+        pcm_.clear();
         if (!fluidForceSrc_.empty() || !fluidDyeSrc_.empty()) fluidInjectionDirty_ = true;
         // W00: the compositePass_.releaseStaleTextures() call above already dropped the overlay/
         // underlay GL textures, so re-arm from the retained pixel buffers to reupload them once

@@ -199,12 +199,7 @@ void geode_viz_set_paced_fps(geode_viz* v, float fps) {
 }
 
 void geode_viz_set_offscreen(geode_viz* v, int on) {
-    if (!v) return;
-    if (on) {
-        v->renderer.thermal().beginOffscreenRender();
-    } else {
-        v->renderer.thermal().endOffscreenRender();
-    }
+    if (v) v->renderer.setOffscreen(on != 0);
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

@@ -1,11 +1,9 @@
 package dev.geode.export
 
-import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
-import android.provider.MediaStore
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
@@ -16,14 +14,21 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import dev.geode.R
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
+import java.util.UUID
 import kotlin.coroutines.resume
 
 @UnstableApi
@@ -42,12 +47,6 @@ class StudioExporter(
 
         data object Cancelled : Result
     }
-
-    @Volatile
-    private var transformer: Transformer? = null
-
-    @Volatile
-    private var cancelled = false
 
     suspend fun export(
         source: Uri,
@@ -91,15 +90,13 @@ class StudioExporter(
         destination: Uri? = null,
         onProgress: (Float) -> Unit,
     ): Result {
-        cancelled = false
-        val scratch = File(context.cacheDir, "studio-${System.currentTimeMillis()}.mp4")
+        val scratch = File(context.cacheDir, "studio-${UUID.randomUUID()}.mp4")
         try {
             val outcome =
                 withContext(Dispatchers.Main) {
                     runTransformer(composition, scratch, outputDurationMs, codec.available(), onProgress)
                 }
             if (outcome != null) return outcome
-            if (cancelled) return Result.Cancelled
             return if (destination != null) {
                 withContext(Dispatchers.IO) { publishToDestination(scratch, destination, outputDurationMs) }
             } else {
@@ -119,111 +116,88 @@ class StudioExporter(
         outputDurationMs: Long,
         codec: ExportCodec,
         onProgress: (Float) -> Unit,
-    ): Result? =
-        suspendCancellableCoroutine { continuation ->
-            val built =
-                Transformer
-                    .Builder(context)
-                    .setVideoMimeType(codec.mimeType)
-                    .addListener(
-                        object : Transformer.Listener {
-                            override fun onCompleted(
-                                composition: Composition,
-                                exportResult: ExportResult,
-                            ) {
-                                transformer = null
-                                continuation.resumeOnce(null)
-                            }
+    ): Result? {
+        var activeTransformer: Transformer? = null
+        try {
+            return suspendCancellableCoroutine { continuation ->
+                val built =
+                    Transformer
+                        .Builder(context)
+                        .setVideoMimeType(codec.mimeType)
+                        .addListener(
+                            object : Transformer.Listener {
+                                override fun onCompleted(
+                                    composition: Composition,
+                                    exportResult: ExportResult,
+                                ) {
+                                    continuation.resumeOnce(null)
+                                }
 
-                            override fun onError(
-                                composition: Composition,
-                                exportResult: ExportResult,
-                                exportException: ExportException,
-                            ) {
-                                transformer = null
-                                continuation.resumeOnce(
-                                    if (cancelled) {
-                                        Result.Cancelled
-                                    } else {
-                                        Result.Failed(describe(exportException))
-                                    },
-                                )
-                            }
-                        },
-                    ).build()
-            transformer = built
-            continuation.invokeOnCancellation {
-                cancelled = true
-                bestEffort(TAG, "built.cancel()") { built.cancel() }
-            }
-            runCatching { built.start(composition, output.absolutePath) }
-                .onFailure {
-                    transformer = null
-                    continuation.resumeOnce(Result.Failed(it.message ?: "The export could not be started."))
-                    return@suspendCancellableCoroutine
-                }
-            val holder = ProgressHolder()
-            val scope = kotlinx.coroutines.CoroutineScope(continuation.context)
-            scope.launch {
-                while (continuation.isActive) {
-                    val state = runCatching { built.getProgress(holder) }.getOrNull()
-                    if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
-                        onProgress(holder.progress / 100f)
+                                override fun onError(
+                                    composition: Composition,
+                                    exportResult: ExportResult,
+                                    exportException: ExportException,
+                                ) {
+                                    continuation.resumeOnce(Result.Failed(describe(exportException)))
+                                }
+                            },
+                        ).build()
+                activeTransformer = built
+                runCatching { built.start(composition, output.absolutePath) }
+                    .onFailure {
+                        continuation.resumeOnce(Result.Failed(it.message ?: "The export could not be started."))
+                        return@suspendCancellableCoroutine
                     }
-                    delay(PROGRESS_POLL_MS)
+                val holder = ProgressHolder()
+                val scope = kotlinx.coroutines.CoroutineScope(continuation.context)
+                scope.launch {
+                    while (continuation.isActive) {
+                        val state = runCatching { built.getProgress(holder) }.getOrNull()
+                        if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
+                            onProgress(holder.progress / 100f)
+                        }
+                        delay(PROGRESS_POLL_MS)
+                    }
                 }
+                if (outputDurationMs <= 0L) onProgress(0f)
             }
-            if (outputDurationMs <= 0L) onProgress(0f)
+        } finally {
+            // Transformer belongs to Main. Cancellation must finish here before the coordinator
+            // admits another job or the outer finally removes Transformer's output file.
+            withContext(NonCancellable + Dispatchers.Main.immediate) {
+                bestEffort(TAG, "Release Studio Transformer") { activeTransformer?.cancel() }
+            }
         }
-
-    fun cancel() {
-        cancelled = true
-        bestEffort(TAG, "transformer?.cancel()") { transformer?.cancel() }
     }
 
-    private fun publish(
+    private suspend fun publish(
         file: File,
         displayName: String,
-    ): Uri? =
-        runCatching {
-            // Below Q this insert needs WRITE_EXTERNAL_STORAGE, which the app does not hold;
-            // failing here rather than mid-insert keeps a half-made row out of the library.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+    ): Uri? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        return try {
             val resolver = context.contentResolver
-            val values =
-                ContentValues().apply {
-                    put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
-                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Geode")
-                        put(MediaStore.Video.Media.IS_PENDING, 1)
-                    }
-                }
-            val uri =
-                resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                    ?: return null
-            resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
-                ?: run {
-                    resolver.delete(uri, null, null)
-                    return null
-                }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                resolver.update(
-                    uri,
-                    ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) },
-                    null,
-                    null,
-                )
+            publishMediaStoreVideo(PendingVideoStore(resolver, displayName)) { uri ->
+                val output =
+                    resolver.openOutputStream(uri)
+                        ?: throw IOException(context.getString(R.string.export_output_open_failed))
+                output.use { out -> file.inputStream().use { it.copyTo(out) } }
+                true
             }
-            uri
-        }.getOrNull()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            android.util.Log.w(TAG, "Could not publish Studio export", error)
+            null
+        }
+    }
 
     /**
      * Copies [file] into the SAF document [destination] the caller already created via
      * `CreateDocument`. Mirrors [VideoExporter.exportToDestination]'s write, and cleans up the
      * (now empty or partial) document on any failure rather than leaving a broken file behind.
      */
-    private fun publishToDestination(
+    private suspend fun publishToDestination(
         file: File,
         destination: Uri,
         outputDurationMs: Long,
@@ -241,11 +215,13 @@ class StudioExporter(
                         "this; try your Videos library or a folder on the device.",
                 )
             }
+            currentCoroutineContext().ensureActive()
             Result.Saved(destination, outputDurationMs)
         }.getOrElse { e ->
             bestEffort(TAG, "DocumentsContract.deleteDocument(resolver, de...") {
                 DocumentsContract.deleteDocument(context.contentResolver, destination)
             }
+            if (e is CancellationException) throw e
             Result.Failed(e.message ?: "The export could not be saved to that folder.")
         }
 

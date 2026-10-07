@@ -57,9 +57,21 @@ class GraphicsPathCompatibilityTest {
         assertEquals(4, conics.count { it.type == PathSegment.Type.Conic })
         val iterator = PathIterator(path, PathIterator.ConicEvaluation.AsQuadratics)
         val expectedSize = iterator.calculateSize()
+        assertEquals(expectedSize, iterator.calculateSize())
+        assertEquals(PathSegment.Type.Move, iterator.peek())
         val segments = iterator.asSequence().take(64).toList()
+        val untouched =
+            PathIterator(path, PathIterator.ConicEvaluation.AsQuadratics)
+                .asSequence()
+                .take(64)
+                .toList()
         assertFalse(iterator.hasNext())
         assertEquals(expectedSize, segments.size)
+        assertEquals(untouched.map { it.type }, segments.map { it.type })
+        assertEquals(
+            untouched.flatMap { it.points.toList() },
+            segments.flatMap { it.points.toList() },
+        )
         assertTrue(segments.count { it.type == PathSegment.Type.Quadratic } >= 4)
         assertFalse(segments.any { it.type == PathSegment.Type.Conic })
         assertTrue(segments.flatMap { it.points.toList() }.all { it.x.isFinite() && it.y.isFinite() })

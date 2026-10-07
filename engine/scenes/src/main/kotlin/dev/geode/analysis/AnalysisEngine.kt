@@ -109,16 +109,46 @@ class AnalysisEngine(
         private val sectionBoundary = PulseHold()
         private val drop = PulseHold()
         private val arrival = PulseHold()
+        private var sourceEpoch = ring.epoch
+        private var sourceRate = sampleRateHz
+        private var lastInputNs = System.nanoTime()
+        private var quiet = true
 
         fun reset() {
             analyzer.reset()
             listOf(beat, beatStrength, transient, kick, snare, hat, downbeat, sectionBoundary, drop, arrival)
                 .forEach(PulseHold::reset)
+            _features.value = AudioFeatures.empty(bandCount)
+            quiet = true
         }
 
         fun tick(): Boolean {
-            if (!window.refresh()) return false
+            val now = System.nanoTime()
+            val epoch = ring.epoch
+            val rate = sampleRateHz
+            if (sourceEpoch != epoch || sourceRate != rate) {
+                reset()
+                sourceEpoch = epoch
+                sourceRate = rate
+            }
+            if (!window.refresh()) {
+                if (!quiet && now - lastInputNs >= INPUT_IDLE_NS) reset()
+                return false
+            }
+            val position = checkNotNull(window.position)
+            if (position.epoch != sourceEpoch) {
+                reset()
+                sourceEpoch = position.epoch
+            }
             analyzer.analyze(window.mid, window.side, DT_SECONDS)
+
+            // A seek/source switch can happen while JNI analyzes the old window.
+            if (ring.epoch != position.epoch || sampleRateHz != rate || resetPending.get()) {
+                reset()
+                return false
+            }
+            lastInputNs = now
+            quiet = false
 
             _features.value =
                 AudioFeatures(
@@ -211,6 +241,8 @@ class AnalysisEngine(
 
     companion object {
         private const val TICK_NS = 16_000_000L
+        // Covers ordinary decoder block jitter, but never sustains a paused hit.
+        private const val INPUT_IDLE_NS = 250_000_000L
 
         // Three hops is 48 ms: one 30 fps display frame plus scheduling jitter.
         private const val PULSE_HOLD_HOPS = 3
