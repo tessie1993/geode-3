@@ -108,7 +108,9 @@ class AnalysisEngine(
             val nowNs = System.nanoTime()
             events.beginBatch()
             var newest: AudioFeatures? = null
-            for (hop in 0 until AnalysisInput.MAX_HOPS_PER_WAKE) {
+            var hopsRemaining = AnalysisInput.MAX_HOPS_PER_WAKE
+            while (hopsRemaining > 0) {
+                hopsRemaining--
                 val state = input.poll(nowNs, configuredRateHz)
                 if (input.discontinuity) {
                     // The cursor already selected a retained window. Reset DSP
