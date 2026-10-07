@@ -116,12 +116,40 @@ jobs:
             core/tests/MotionFieldTest.cpp core/viz/MotionField.cpp \
             -o "$RUNNER_TEMP/motion-test"
           "$RUNNER_TEMP/motion-test"
+      - name: PCM batches consumed once across visual layers
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+            core/tests/FramePcmTest.cpp -o "$RUNNER_TEMP/frame-pcm-test"
+          "$RUNNER_TEMP/frame-pcm-test"
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
+            core/tests/MilkdropPcmTest.cpp -o "$RUNNER_TEMP/milkdrop-pcm-test"
+          "$RUNNER_TEMP/milkdrop-pcm-test"
+      - name: Bounded spatial cameras and independent sound reactions
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
+            core/tests/CameraRigTest.cpp core/viz/CameraRig.cpp \
+            -o "$RUNNER_TEMP/camera-rig-test"
+          "$RUNNER_TEMP/camera-rig-test"
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
+            core/tests/SceneAudioResponseTest.cpp \
+            -o "$RUNNER_TEMP/scene-audio-response-test"
+          "$RUNNER_TEMP/scene-audio-response-test"
       - name: Native microphone sample helpers
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -Icore \
             core/tests/MicPcmTest.cpp \
             -o "$RUNNER_TEMP/mic-pcm-test"
           "$RUNNER_TEMP/mic-pcm-test"
+      - name: Fluid allocation recovery bounds
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+            core/tests/FluidAllocationPlanTest.cpp \
+            -o "$RUNNER_TEMP/fluid-allocation-plan-test"
+          "$RUNNER_TEMP/fluid-allocation-plan-test"
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
+            core/tests/FluidAudioDriveTest.cpp core/viz/fluid/FluidMath.cpp \
+            -o "$RUNNER_TEMP/fluid-audio-drive-test"
+          "$RUNNER_TEMP/fluid-audio-drive-test"
       - name: Release validation regressions
         run: python3 -m unittest discover -s tools/release/tests -v
       - name: Native dependency packaging regression

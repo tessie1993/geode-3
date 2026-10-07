@@ -30,6 +30,7 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
       currentFragment_(std::move(fragmentSrc)),
       cache_(cache),
       host_(std::move(host)),
+      camera_(CameraRig::profileFor(id_)),
       pcm_(static_cast<size_t>(kAudioTexWidth) * 8, 0.0f) {
     pendingFragment_ = currentFragment_;
 }
@@ -72,15 +73,6 @@ void ShaderScene::resize(int width, int height) {
     height_ = height;
 }
 
-// exp(-dt*hz) rather than a fixed per-frame fraction: the same wall-clock rise
-// on a 30fps device and a 120fps one, so the look does not change with the
-// frame rate the thermal governor happens to be pacing at.
-float ShaderScene::slew(float current, float target, float dt, float riseHz, float fallHz) {
-    const float hz = target > current ? riseHz : fallHz;
-    const float k = 1.0f - std::exp(-std::max(dt, 0.0f) * hz);
-    return current + (target - current) * k;
-}
-
 void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
@@ -92,14 +84,16 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     mid_ = std::clamp(features.mid * drive, 0.0f, kAudioClamp);
     treble_ = std::clamp(features.treble * drive, 0.0f, kAudioClamp);
     energy_ = std::clamp(features.rms * drive, 0.0f, kAudioClamp);
-    smoothBass_ = slew(smoothBass_, bass_, dt, kBandRiseHz, kBandFallHz);
-    smoothMid_ = slew(smoothMid_, mid_, dt, kBandRiseHz, kBandFallHz);
-    smoothTreble_ = slew(smoothTreble_, treble_, dt, kBandRiseHz, kBandFallHz);
-    smoothEnergy_ = slew(smoothEnergy_, energy_, dt, kBandRiseHz, kBandFallHz);
-    swell_ = slew(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
+    audioResponse_.step(features, drive, dt);
+    camera_.step(energy_, bass_, p, dt);
     beatPhase_ = features.beatPhase;
-    // Wave three: the continuous motion layer, never a transient/beat trigger.
+    // Continuous musical structure is separate from the local edge accent.
     motionField_.step(features, dt);
+    // Both procedural flow and the separate camera obey final speed, already
+    // scaled by the renderer's reduced-motion policy. Never multiply an
+    // accumulated clock by a rate that can change with the music.
+    flowPhase_ = std::fmod(flowPhase_ + std::max(p.speed, 0.0f) * dt *
+                         (0.08f + 0.22f * audioResponse_.state().swell), kTimeWrapSeconds);
     for (int i = 0; i < kAudioTexWidth; ++i) {
         const int band = i * GEODE_BAND_COUNT / kAudioTexWidth;
         texData_[static_cast<size_t>(i)] = std::clamp(features.bands[band] * drive, 0.0f, kAudioClamp);
@@ -146,6 +140,7 @@ void ShaderScene::draw(float timeSeconds) {
     set1f("uPalLutRow", paletteRowCoordinate(std::max(p.paletteLut, 0)));
     set1f("uSteps", marchSteps(p.marchDetail));
     uploadMotion();
+    uploadCamera();
     uploadTouch();
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -159,7 +154,7 @@ void ShaderScene::uploadParams() {
     set1f("uMid", mid_);
     set1f("uTreble", treble_);
     set1f("uEnergy", energy_);
-    // Wave three: nothing produces a beat trigger any more.
+    // Full-frame beat exposure stays neutral; uAccent affects local geometry.
     set1f("uBeat", 0.0f);
     set1f("uSpeed", p.speed);
     set1f("uZoom", p.zoom);
@@ -172,8 +167,7 @@ void ShaderScene::uploadParams() {
     set1f("uInvert", flag(p.invert));
     set1f("uIntensity", p.intensity);
     set1f("uMirrorX", flag(p.mirror));
-    // Inert since wave three; p.beatResponse itself stays wire-compatible.
-    set1f("uBeatResponse", 0.0f);
+    set1f("uBeatResponse", std::clamp(p.beatResponse, 0.0f, 2.0f));
     set1f("uTurbulence", p.turbulence);
     set1f("uPalBase", p.paletteBase());
     set1f("uPalRange", p.paletteRange());
@@ -209,16 +203,16 @@ void ShaderScene::uploadParams() {
 // and glUniform on a -1 location is a no-op, so this costs nothing on a style
 // that has not been converted.
 void ShaderScene::uploadMotion() {
-    set1f("uBassSmooth", smoothBass_);
-    set1f("uMidSmooth", smoothMid_);
-    set1f("uTrebleSmooth", smoothTreble_);
-    set1f("uEnergySmooth", smoothEnergy_);
-    set1f("uSwell", swell_);
+    const auto& audio = audioResponse_.state();
+    set1f("uBassSmooth", audio.bass);
+    set1f("uMidSmooth", audio.mid);
+    set1f("uTrebleSmooth", audio.treble);
+    set1f("uEnergySmooth", audio.energy);
+    set1f("uSwell", audio.swell);
+    set1f("uAccent", std::clamp(audio.accent * params_.beatResponse, 0.0f, 1.0f));
 
-    // Wave three: the continuous replacement for the spike-latched state.
-    // Nothing here is a trigger; every value is a running average, a
-    // phase-locked oscillator gated by confidence, or a slow re-target that
-    // eases over seconds. See viz/MotionField.hpp for the derivation.
+    // This separate block is continuous musical structure: averages,
+    // confidence-gated phase oscillators and slow structure retargeting.
     const MotionField::State& m = motionField_.state();
     set1f("uEnergyRel", m.energyRel);
     set1f("uBassRel", m.bassRel);
@@ -233,7 +227,7 @@ void ShaderScene::uploadMotion() {
     glUniform2f(uniforms_.loc("uOrbit"), m.orbitX, m.orbitY);
     set1f("uDrift", m.drift);
     set1f("uBreath", m.breath);
-    set1f("uFlowPhase", m.flowPhase);
+    set1f("uFlowPhase", static_cast<float>(flowPhase_));
     set1f("uMotion", std::clamp(params_.motionAmount, 0.0f, 1.0f));
 
     // Legacy since wave three, held at their neutral constant until R08
@@ -244,6 +238,17 @@ void ShaderScene::uploadMotion() {
     set1f("uSpawnAge", 1000.0f);
     set1f("uFormPhase", 0.0f);
     glUniform2f(uniforms_.loc("uMoveDir"), 1.0f, 0.0f);
+}
+
+void ShaderScene::uploadCamera() {
+    const auto& camera = camera_.frame();
+    const auto upload = [this](const char* name, CameraRig::Vec3 v) {
+        glUniform3f(uniforms_.loc(name), v.x, v.y, v.z);
+    };
+    upload("uCameraPosition", camera.position);
+    upload("uCameraRight", camera.right);
+    upload("uCameraUp", camera.up);
+    upload("uCameraForward", camera.forward);
 }
 
 void ShaderScene::uploadTouch() {
@@ -301,7 +306,12 @@ void ShaderScene::compilePendingIfAny() {
 }
 
 void ShaderScene::release() {
-    if (program_ != 0) glDeleteProgram(program_);
+    if (program_ != 0) {
+        GLint current = 0;
+        glGetIntegerv(GL_CURRENT_PROGRAM, &current);
+        if (static_cast<GLuint>(current) == program_) glUseProgram(0);
+        glDeleteProgram(program_);
+    }
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
     audioTex_.release();
     program_ = 0;

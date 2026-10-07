@@ -42,6 +42,12 @@ SceneParams apply(const SceneParams& p, bool reducedMotion) {
         out.pulse *= kReducedMotionScale;
         out.cycleSpeed *= kReducedMotionScale;
         out.endlessZoomSpeed *= kReducedMotionScale;
+        // These controls are read directly by spatial cameras and shader
+        // geometry, after the shared parameter modulation has been applied.
+        out.motionAmount *= kReducedMotionScale;
+        out.motionOrbit *= kReducedMotionScale;
+        out.motionBreath *= kReducedMotionScale;
+        out.motionDrift *= kReducedMotionScale;
     }
     return out;
 }

@@ -24,6 +24,9 @@ capture_instrumentation_evidence() {
     adb -s "$android_serial" exec-out run-as "$package" cat "cache/mic-lifecycle-$phase-meminfo.txt" \
       > "$report_dir/mic-lifecycle-$phase-meminfo.txt" 2>&1 || true
   done
+  mkdir -p "$report_dir/spatial-scene-review"
+  adb -s "$android_serial" exec-out run-as "$package" tar -C cache -cf - spatial-scene-review \
+    | tar -xf - -C "$report_dir" || true
 }
 
 finish() {

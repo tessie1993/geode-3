@@ -29,16 +29,14 @@ out vec4 fragColor;
 //
 // ---- the morph -------------------------------------------------------------
 //
-// The primitives sit on lib_dmt's closed ring and uFormPhase walks it,
+// The primitives sit on lib_dmt's closed ring and a slow morph phase walks it,
 // blending each neighbouring pair with mix(). That is a legitimate distance
 // field and not an approximation: mix(a, b, t) of two 1-Lipschitz functions is
 // 1-Lipschitz for any t in 0..1, because it is a convex combination. So the
 // morph costs the march nothing - no step scale, no correction - and every
-// intermediate shape is as marchable as the two it lies between. uFormPhase
-// glides rather than jumps, so there is no value of it at which the body is
-// discontinuous. A spike chooses the next plateau; the body takes most of a
-// second to get there. The satellites walk the same ring, each offset by its
-// own seed, so no two bodies are the same shape at the same moment.
+// intermediate shape is as marchable as the two it lies between. The phase
+// glides around the closed ring, with a bounded mid-band offset. Satellites
+// keep their own seeded shapes and life cycles.
 //
 // ---- the bank --------------------------------------------------------------
 //
@@ -51,9 +49,8 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // uSwell inflates the body, uBassSmooth deepens the stir, uTrebleSmooth
-// sharpens the rim light. A spike picks the next primitive (uFormPhase), re-aims
-// the flow (uMoveDir) and re-seeds the surface veining (uSpawnSeed). Nothing
-// keys brightness off a raw envelope, so nothing here can flash.
+// sharpens the rim light. Edge-latched accents slightly expand the body and
+// its silhouette halo. Camera movement uses separate, slower audio filters.
 
 #define CB_MAX_STEPS 128
 #define CB_FAR 9.0
@@ -122,9 +119,10 @@ float occlusion(vec3 p, vec3 n) {
 }
 
 void main() {
-    vec2 uv = view();
+    vec2 uv = spatialView();
 
     float bass = clamp(uBassSmooth, 0.0, 1.5);
+    float mid = clamp(uMidSmooth, 0.0, 1.5);
     float treb = clamp(uTrebleSmooth, 0.0, 1.5);
     float swell = clamp(uSwell, 0.0, 1.5);
     float finger = touchFalloff(uv, 0.6);
@@ -133,21 +131,18 @@ void main() {
     // is what pays for it, and a large amount makes every ray take tiny steps
     // and the body dissolve into banding at low Detail.
     gWarpScale = 1.15 + 0.25 * swell;
-    gWarpAmount = 0.10 + 0.11 * bass + 0.05 * finger;
+    gWarpAmount = 0.10 + 0.11 * bass + 0.025 * uAccent + 0.04 * uWarp + 0.05 * finger;
     gLip = fluidWarp3Lipschitz(gWarpScale, gWarpAmount);
-    gRadius = 0.86 * (1.0 + 0.07 * swell);
+    gRadius = 0.86 * (1.0 + 0.07 * swell + 0.025 * uAccent);
     // Glides; never steps. See the morph note at the top.
-    gMorph = uFormPhase;
+    gMorph = fract(uTime * 0.012 + uMorph * 0.20 + 0.035 * mid);
     // Detail buys population: three satellites at the floor, six at the top.
     gSatCount = mix(3.0, float(DMT_MAX_SATELLITES), clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
-    // The camera orbits on two unrelated slow rates, so the body is seen from
-    // a new angle every second even in silence, and a spike banks the orbit
-    // toward the new travel direction.
-    vec3 ro = vec3(0.0, 0.0, -3.1);
-    mat3 cam = rotY(uTime * 0.11 + uFlowPhase * 0.9) * rotX(0.32 * sin(uTime * 0.07) + uMoveDir.y * 0.25);
-    ro = cam * ro;
-    vec3 rd = cam * normalize(vec3(uv, CB_FOCAL));
+    // Separate slow orbit/dolly with a stable horizon; audio folds the body.
+    vec3 ro = uCameraPosition;
+    mat3 cam = cameraBasis();
+    vec3 rd = cameraRay(uv, CB_FOCAL);
 
     // ---- the march ---------------------------------------------------------
     float t = 0.0;
@@ -212,7 +207,7 @@ void main() {
         // The halo: rays that grazed the body without hitting it. `near` is
         // the closest approach, so this is a true silhouette glow and not a
         // radial gradient pasted behind the object.
-        col += dmtHalo(near, 0.50, 5.5, 0.30 + 0.35 * uSpike);
+        col += dmtHalo(near, 0.50, 5.5 - 0.8 * uAccent, 0.30);
     }
 
     // The particle layer, in screen space, riding the 2D half of the same

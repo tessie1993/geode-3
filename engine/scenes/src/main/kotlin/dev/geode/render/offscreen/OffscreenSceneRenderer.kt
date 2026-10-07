@@ -82,7 +82,7 @@ class OffscreenSceneRenderer(
         val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
         viz.setParams(p)
         viz.setFeatures(features)
-        viz.render(timeMs / 1000.0, targetFbo)
+        viz.render(frame.toDouble() / fps, targetFbo)
     }
 
     /** Frees the native renderer. Safe to call more than once. */

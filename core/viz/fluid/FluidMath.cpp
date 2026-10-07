@@ -45,7 +45,8 @@ float psi(float x, float y, float time, float freq, float detail) {
 }  // namespace
 
 float driven(float value, float audioDrive) {
-    const float d = std::clamp(audioDrive, kMinAudioDrive, kMaxAudioDrive);
+    const float d = std::isfinite(audioDrive) ? std::clamp(audioDrive, kMinAudioDrive, kMaxAudioDrive) : 0.0f;
+    if (d == 0.0f || !std::isfinite(value)) return 0.0f;
     return std::clamp(value * d, 0.0f, std::max(value, kDriveCeiling));
 }
 
@@ -119,7 +120,8 @@ float bloomPrefilterScale(float br, float threshold, float softKnee) {
 }  // namespace math
 
 GeodeFeatureFrame scaledFeatures(const GeodeFeatureFrame& features, float audioDrive) {
-    const float d = std::clamp(audioDrive, math::kMinAudioDrive, math::kMaxAudioDrive);
+    const float d = std::isfinite(audioDrive) ? std::clamp(audioDrive, math::kMinAudioDrive, math::kMaxAudioDrive) : 0.0f;
+    if (d == 0.0f) return {};
     if (d == 1.0f) return features;
     GeodeFeatureFrame out = features;
     for (float& band : out.bands) band = math::driven(band, d);
@@ -127,6 +129,14 @@ GeodeFeatureFrame scaledFeatures(const GeodeFeatureFrame& features, float audioD
     out.bass = math::driven(features.bass, d);
     out.mid = math::driven(features.mid, d);
     out.treble = math::driven(features.treble, d);
+    // Beat remains an event flag. Its amplitude is separate, including the
+    // legacy flag-only frames whose implicit strength is one.
+    out.beatStrength = math::driven(features.beatStrength > 0.0f ? features.beatStrength : (features.beat > 0.0f ? 1.0f : 0.0f), d);
+    out.transient = math::driven(features.transient, d);
+    out.kick = math::driven(features.kick, d);
+    out.snare = math::driven(features.snare, d);
+    out.hat = math::driven(features.hat, d);
+    out.onset = math::driven(features.onset, d);
     return out;
 }
 
@@ -149,7 +159,11 @@ namespace curl {
 float beatDrive(float beatEnvelope, float beatResponse) { return beatEnvelope * std::clamp(beatResponse, 0.0f, 2.0f); }
 
 float fieldAmp(float audioDrive, float beatDrive) {
-    return kBaseAmp * std::clamp(audioDrive, math::kMinAudioDrive, math::kMaxAudioDrive) * (1.0f + std::clamp(beatDrive, 0.0f, 2.0f) * kBeatAmp);
+    // Base curl motion is physical animation; beatDrive already carries the
+    // audio gain. Muting removes only the musical boost, without applying gain twice.
+    const bool reactive = std::isfinite(audioDrive) && audioDrive > 0.0f && std::isfinite(beatDrive);
+    const float boost = reactive ? std::clamp(beatDrive, 0.0f, 2.0f) : 0.0f;
+    return kBaseAmp * (1.0f + boost * kBeatAmp);
 }
 
 float retention(float trailLength, bool trails) {

@@ -18,23 +18,26 @@
 // lib_palette. A style that includes it and reads nothing from it costs
 // nothing: the linker drops the unread uniforms and the uploads become no-ops.
 //
-// WAVE THREE: A CONTINUOUS MOTION SYSTEM, NOT A REACTION LAYER
+// MUSICAL STRUCTURE AND LOCAL REACTIONS
 //
-// Nothing below is a trigger, and nothing below is keyed off a drum, an
-// instrument, a transient, an onset or a beat/downbeat flag. Movement is
-// continuous: relative band levels against a running average with
+// MotionField's musical-structure signals are continuous: relative band
+// levels against a running average with
 // attack/release (uEnergyRel/uBassRel/uMidRel/uTrebRel), spectral brightness
 // and harmonicity (uMotionBright/uHarmony), a chroma-derived key hue
 // (uKeyHue/uKeyStrength), tempo phase as smooth phase-locked oscillators
 // gated by confidence (uBeatOsc/uBarOsc), and slow re-targeting from novelty
 // and section boundaries that eases over seconds (uOrbit/uDrift/uBreath). See
-// core/viz/MotionField.hpp for the derivation of every uniform below.
+// core/viz/MotionField.hpp for that contract. SceneAudioResponse adds fast
+// band-specific followers and an edge-latched local accent. CameraRig uses
+// separate slow filters and an integrated world-up pose, so an accent cannot
+// snap the camera or rotate the horizon.
 
 // ---- slew-limited band envelopes -------------------------------------------
 //
 // Same range and meaning as uBass/uMid/uTreble/uEnergy (0..1.5, auto-gained),
-// but no single frame can move one of them far. Substituting uBassSmooth for
-// uBass is the one-line way to take the flash out of an existing style.
+// with distinct attack/release times: bass 30/260 ms, mid 50/220 ms, treble
+// 12/100 ms. Use these for deformation and fine highlights, not full-frame
+// exposure. The camera uses substantially slower filters on the CPU.
 uniform float uBassSmooth;
 uniform float uMidSmooth;
 uniform float uTrebleSmooth;
@@ -47,15 +50,18 @@ uniform float uEnergySmooth;
  */
 uniform float uSwell;
 
+/** Edge-latched beat/transient envelope, 180 ms decay; Beat response scales it once on the CPU. Use on local geometry/halos, never full-frame exposure. */
+uniform float uAccent;
+
 // ---- wave three: relative levels, timbre and key --------------------------
 
-/** rms / 20s running average, attack 0.25s / release 1.0s; 0..2, 1 = typical loudness for this track. */
+/** rms / 20s running average, attack 0.10s / release 0.50s; 0..2, 1 = typical loudness for this track. */
 uniform float uEnergyRel;
-/** bass / 20s running average, attack 0.15s / release 0.6s; 0..2. */
+/** bass / 20s running average, attack 0.030s / release 0.25s; 0..2. */
 uniform float uBassRel;
-/** mid / 20s running average, attack 0.15s / release 0.6s; 0..2. */
+/** mid / 20s running average, attack 0.055s / release 0.24s; 0..2. */
 uniform float uMidRel;
-/** treble / 20s running average, attack 0.15s / release 0.6s; 0..2. */
+/** treble / 20s running average, attack 0.012s / release 0.09s; 0..2. */
 uniform float uTrebRel;
 /** Spectral centroid, smoothed over 0.5s; 0 dark, 1 bright. */
 uniform float uMotionBright;

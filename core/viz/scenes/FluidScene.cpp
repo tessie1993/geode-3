@@ -5,21 +5,24 @@
 
 #include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
+#include "viz/fluid/AllocationPlan.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 
 namespace geode::viz {
 
 void FluidScene::init() {
+    release();
     sim_.onShaderError = [this](const std::string& m) { host_.onShaderError(m); };
+    look_.onShaderError = [this](const std::string& m) { host_.onShaderError(m); };
     sim_.create();
     choreography_.reset();
-    if (sim_.available()) {
+    if (sim_.ready()) {
         look_.create(sim_.texFormats(), style_.look);
         appliedTier_ = -1;
         appliedParticleSide_ = 0;
         applyQualityTier();
     } else {
-        host_.onShaderError("Fluid style unavailable: this GPU can't render half-float buffers");
+        host_.onShaderError("Fluid solver unavailable on this GPU; showing a recovery visual");
     }
 }
 
@@ -29,12 +32,25 @@ void FluidScene::resize(int width, int height) {
 }
 
 void FluidScene::onApplyQualityTier(int index, bool userChanged) {
+    (void) userChanged;
     const auto& tier = fluid::quality::tier(index);
+    const bool recreateParticles = appliedParticleSide_ == 0 || appliedParticleSide_ != tier.particleSide ||
+                                   particlesRequested_ != params_.fluidParticlesEnabled;
+    if (recreateParticles) particles_.release();
     sim_.applyResolution(tier.simRes, tier.dyeRes);
-    const bool recreateParticles = appliedParticleSide_ == 0 || (userChanged && appliedParticleSide_ != tier.particleSide);
     if (recreateParticles) {
         appliedParticleSide_ = tier.particleSide;
-        particles_.create(tier.particleSide * tier.particleSide, sim_.texFormats());
+        particlesRequested_ = params_.fluidParticlesEnabled;
+        if (particlesRequested_ && sim_.ready()) {
+            for (int attempt = 0; attempt < fluid::kAllocationAttempts; ++attempt) {
+                const int side = fluid::particleSideRequest(tier.particleSide, attempt);
+                particles_.create(side * side, sim_.texFormats());
+                if (particles_.available()) break;
+            }
+            if (!particles_.available() && !params_.fluidDyeEnabled) {
+                host_.onShaderError("Fluid particle buffers refused by GPU; showing a recovery visual");
+            }
+        }
     }
 }
 
@@ -49,13 +65,20 @@ GeodeFeatureFrame FluidScene::idleFeatures(float dt) {
 }
 
 void FluidScene::draw(float timeSeconds) {
-    if (!sim_.available()) return;
     resetFrameState();
     const SceneParams& p = params_;
     const GeodeFeatureFrame f = scaledFeatures();
 
     saveGlState();
     autoQualityTick();
+    if (!sim_.available() || (p.fluidDyeEnabled && !look_.available()) ||
+        (!p.fluidDyeEnabled && p.fluidParticlesEnabled && !particles_.available())) {
+        restoreFramebufferAndViewport();
+        recovery_.draw(loader_, p, f, lastDt_, style_.look, host_.onShaderError, style_.hueOffset);
+        hasPending_ = false;
+        restoreBlend();
+        return;
+    }
 
     const float energy = std::clamp(f.rms, 0.0f, 1.0f);
     const float pcmKick = std::clamp(pcmStrike_, 0.0f, 1.0f);
@@ -120,8 +143,10 @@ void FluidScene::release() {
     particles_.release();
     look_.release();
     sim_.release();
+    recovery_.release();
     appliedTier_ = -1;
     appliedParticleSide_ = 0;
+    particlesRequested_ = false;
 }
 
 }  // namespace geode::viz

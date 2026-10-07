@@ -1,10 +1,16 @@
 #version 300 es
+// FluidSim also compiles this asset directly for its basic dye display. GLSL
+// ES requires names in #if expressions to be defined; styled Look variants
+// supply their own LOOK before this guard.
+#ifndef LOOK
+#define LOOK 0
+#endif
 // Ported from WebGL-Fluid-Simulation - MIT License, (c) 2017 Pavel Dobryakov
 // Final display pass. Compiled as #define keyword variants (SHADING / BLOOM /
 // SUNRAYS prepended by FluidLook after the #version line) - never branch on
 // uniforms in this hot shader. Drawn with ONE, ONE_MINUS_SRC_ALPHA blending.
 //
-// LOOK, also prepended (always, 0..Look::kLookCount-1), picks the material
+// LOOK, prepended by Look (0..Look::kLookCount-1), picks the material
 // the dye is shown as. Every fluid STYLE is the same solver under a different
 // LOOK plus a few multipliers (StyleCatalog's FluidStyle), so the eight looks
 // below are the whole of what makes Ink different from Chrome:

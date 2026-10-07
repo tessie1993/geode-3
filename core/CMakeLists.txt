@@ -46,6 +46,7 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
+    viz/CameraRig.cpp
     viz/VisualSafety.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp

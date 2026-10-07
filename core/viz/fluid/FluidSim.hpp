@@ -41,7 +41,8 @@ public:
     float timeSeconds = 0.0f;
     std::function<void(const std::string&)> onShaderError = [](const std::string&) {};
 
-    bool available() const { return available_; }
+    bool ready() const { return available_; }
+    bool available() const { return available_ && velocity_ && velocity_->ok() && (velocityOnly_ || (dye_ && dye_->ok())); }
     const Formats& texFormats() const { return formats_; }
     float aspect() const { return aspect_; }
     float flowScale() const { return 2.0f * rdx_ / static_cast<float>(velocity_ ? velocity_->height() : 128); }
@@ -96,7 +97,6 @@ private:
     GLuint linearSampler_ = 0;
     std::string baseVertSrc_;
     std::array<UniformCache, kProgCount> programs_;
-    bool programsBuilt_ = false;
     std::vector<Splat> pending_;
     std::optional<UniformCache> customForce_;
     std::optional<UniformCache> customDye_;
@@ -105,6 +105,7 @@ private:
     std::string pendingDyeSrc_;
     bool injectionDirty_ = false;
     bool available_ = false;
+    bool allocationErrorReported_ = false;
 };
 
 }  // namespace geode::viz::fluid

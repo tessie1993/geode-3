@@ -24,7 +24,7 @@ struct SceneParams {
     // Inert since wave three; removed with the next format bump.
     float shake = 0.0f;
     float audioDrive = 1.0f;
-    // Inert since wave three; removed with the next format bump.
+    // Strength of localized, edge-latched accents in spatial shader scenes.
     float beatResponse = 1.0f;
     float turbulence = 0.0f;
     float density = 1.0f;
@@ -156,10 +156,8 @@ struct SceneParams {
     // before wave three still decodes.
     float formDrive = 0.7f;
 
-    // Wave three: the continuous motion system (viz/MotionField), which
-    // replaces formDrive/beatResponse/flash/strobe/pulse/shake as the way the
-    // music moves a scene. Appended after the older fields so every existing
-    // wire index survives.
+    // Continuous motion controls, separate from localized beat accents.
+    // Appended after older fields so existing wire indices survive.
     float motionAmount = 0.7f;
     float motionBreath = 0.5f;
     float motionOrbit = 0.5f;

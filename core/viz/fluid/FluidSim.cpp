@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "util/Log.hpp"
+#include "viz/fluid/AllocationPlan.hpp"
 
 namespace geode::viz::fluid {
 
@@ -48,7 +49,6 @@ void FluidSim::create() {
         }
         programs_[static_cast<size_t>(i)] = UniformCache(program);
     }
-    programsBuilt_ = true;
     std::lock_guard<std::mutex> lock(injectionLock_);
     injectionDirty_ = !pendingForceSrc_.empty() || !pendingDyeSrc_.empty();
 }
@@ -73,49 +73,55 @@ bool FluidSim::applyResolution(int newSimRes, int newDyeRes) {
 }
 
 void FluidSim::allocGrids(bool preserve) {
-    GLint prevFbo = 0;
-    GLint prevVp[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
-    glGetIntegerv(GL_VIEWPORT, prevVp);
-    const auto [sw, sh] = resolution(simRes, width_, height_);
-    const auto [dw, dh] = resolution(dyeRes, width_, height_);
-    std::optional<DoubleFbo> oldVelocity = std::move(velocity_);
-    std::optional<DoubleFbo> oldDye = std::move(dye_);
-    if (pressure_) pressure_->release();
-    pressure_.reset();
-    if (divergence_) divergence_->release();
-    if (curl_) curl_->release();
-    velocity_.emplace(sw, sh, formats_.rg, false);
-    velocity_->create();
-    if (preserve && oldVelocity && velocity_->ok() && oldVelocity->ok()) copyInto(oldVelocity->read(), velocity_->read());
-    if (oldVelocity) oldVelocity->release();
-    if (!velocityOnly_) {
-        dye_.emplace(dw, dh, formats_.rgba, true);
-        dye_->create();
-        if (preserve && oldDye && dye_->ok() && oldDye->ok()) copyInto(oldDye->read(), dye_->read());
-    }
-    if (oldDye) oldDye->release();
-    pressure_.emplace(sw, sh, formats_.r, false);
-    pressure_->create();
-    divergence_.emplace(sw, sh, formats_.r, false);
-    divergence_->create();
-    curl_.emplace(sw, sh, formats_.r, false);
-    curl_->create();
-    const bool allOk = velocity_->ok() && pressure_->ok() && divergence_->ok() && curl_->ok() && (velocityOnly_ || (dye_ && dye_->ok()));
-    if (!allOk) {
-        GEODE_LOGW(kTag, "grid allocation failed (%dx%d / %dx%d) - fluid disabled", sw, sh, dw, dh);
-        onShaderError("Fluid grids could not be allocated on this GPU");
-        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
-        glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
-        release();
+    AllocationState state;
+    GridRequest previous{0, 0};
+    for (int attempt = 0; attempt < kAllocationAttempts; ++attempt) {
+        const auto request = allocationRequest(simRes, dyeRes, attempt);
+        if (request.sim == previous.sim && request.dye == previous.dye) break;
+        previous = request;
+        const auto [sw, sh] = resolution(request.sim, width_, height_);
+        const auto [dw, dh] = resolution(request.dye, width_, height_);
+        std::optional<DoubleFbo> velocity(std::in_place, sw, sh, formats_.rg, false);
+        velocity->create();
+        if (!velocity->ok()) continue;
+        std::optional<DoubleFbo> pressure(std::in_place, sw, sh, formats_.r, false);
+        pressure->create();
+        if (!pressure->ok()) continue;
+        std::optional<Fbo> divergence(std::in_place, sw, sh, formats_.r, false);
+        divergence->create();
+        if (!divergence->ok()) continue;
+        std::optional<Fbo> curl(std::in_place, sw, sh, formats_.r, false);
+        curl->create();
+        if (!curl->ok()) continue;
+        std::optional<DoubleFbo> dye;
+        if (!velocityOnly_) {
+            dye.emplace(dw, dh, formats_.rgba, true);
+            dye->create();
+            if (!dye->ok()) continue;
+        }
+        if (preserve && velocity_ && velocity_->ok()) copyInto(velocity_->read(), velocity->read());
+        if (preserve && dye_ && dye_->ok() && dye) copyInto(dye_->read(), dye->read());
+        velocity_ = std::move(velocity);
+        pressure_ = std::move(pressure);
+        divergence_ = std::move(divergence);
+        curl_ = std::move(curl);
+        dye_ = std::move(dye);
+        cellSize_ = 2.0f / static_cast<float>(sh);
+        rdx_ = 1.0f / cellSize_;
+        halfRdx_ = 0.5f / cellSize_;
+        alpha_ = -cellSize_ * cellSize_;
+        if (attempt > 0) GEODE_LOGW(kTag, "using reduced grids (%dx%d / %dx%d)", sw, sh, dw, dh);
+        allocationErrorReported_ = false;
         return;
     }
-    cellSize_ = 2.0f / static_cast<float>(sh);
-    rdx_ = 1.0f / cellSize_;
-    halfRdx_ = 0.5f / cellSize_;
-    alpha_ = -cellSize_ * cellSize_;
-    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
-    glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
+    // Retain the previous complete solver on a failed resize. Programs stay
+    // ready so lowering quality can retry even when the first allocation failed.
+    GEODE_LOGW(kTag, "grid allocation failed after bounded retries");
+    if (!allocationErrorReported_) {
+        onShaderError(available() ? "Fluid resize refused by GPU; keeping the previous buffers"
+                                  : "Fluid buffers refused by GPU; showing a recovery visual");
+        allocationErrorReported_ = true;
+    }
 }
 
 void FluidSim::copyInto(const Fbo& src, const Fbo& dst) {
@@ -326,10 +332,7 @@ void FluidSim::release() {
         if (*fbo) (*fbo)->release();
         fbo->reset();
     }
-    if (programsBuilt_) {
-        for (auto& cache : programs_) glDeleteProgram(cache.program());
-        programsBuilt_ = false;
-    }
+    for (auto& cache : programs_) if (cache.program() != 0) glDeleteProgram(cache.program());
     programs_.fill(UniformCache(0));
     deleteCustom(customForce_);
     deleteCustom(customDye_);
@@ -338,6 +341,7 @@ void FluidSim::release() {
     linearSampler_ = 0;
     pending_.clear();
     available_ = false;
+    allocationErrorReported_ = false;
 }
 
 void FluidSim::useProgram(int prog, int gridW, int gridH) {

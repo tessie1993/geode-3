@@ -4,6 +4,7 @@
 #include "viz/fluid/FluidEmitters.hpp"
 #include "viz/fluid/FluidLook.hpp"
 #include "viz/fluid/FluidParticles.hpp"
+#include "viz/fluid/FluidRecovery.hpp"
 #include "viz/fluid/FluidSim.hpp"
 #include "viz/scenes/FluidSceneBase.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
@@ -35,7 +36,7 @@ public:
 
 protected:
     GeodeFeatureFrame idleFeatures(float dt) override;
-    bool tierApplied() const override { return appliedParticleSide_ != 0; }
+    bool tierApplied() const override { return appliedParticleSide_ != 0 && (params_.fluidParticlesEnabled == particlesRequested_); }
     void onApplyQualityTier(int index, bool userChanged) override;
 
 private:
@@ -46,9 +47,11 @@ private:
     fluid::FluidSim sim_;
     fluid::Look look_;
     fluid::Particles particles_;
+    fluid::RecoveryDisplay recovery_;
     fluid::Emitters emitters_;
     std::vector<fluid::Splat> splats_;
     int appliedParticleSide_ = 0;
+    bool particlesRequested_ = false;
     float idlePhase_ = 0.0f;
 };
 

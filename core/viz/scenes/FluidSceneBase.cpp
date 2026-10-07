@@ -11,7 +11,7 @@ namespace geode::viz {
 void FluidSceneBase::update(const GeodeFeatureFrame& features, float dt) {
     time_ = std::fmod(time_ + dt, timeWrapSeconds_);
     lastDt_ = dt;
-    pcmStrike_ = pcmPulse_.tick(dt);
+    pcmStrike_ = fluid::math::driven(pcmPulse_.tick(dt), params_.audioDrive);
     pending_ = features;
     hasPending_ = true;
     last_ = features;

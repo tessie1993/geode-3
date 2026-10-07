@@ -34,6 +34,7 @@ void Look::create(const Formats& formats, int look) {
     }
     if (!ok) {
         GEODE_LOGW(kTag, "look shader rejected by driver: %s", error.c_str());
+        onShaderError("Fluid look rejected by GPU; showing a recovery visual: " + error);
         for (GLuint p : {prefilter, bloomBlur, bloomFinal, sunraysMask, sunrays, blur}) {
             if (p != 0) glDeleteProgram(p);
         }

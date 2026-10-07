@@ -34,6 +34,7 @@ float Renderer::beginFrame(double timeSeconds) {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         pending.swap(pendingShaders_);
+        pcm_.beginFrame();
         frameFeatures_ = features_;
         frameLayerMix_ = layerMix_;
         frameLayerBlend_ = layerBlend_;
@@ -63,6 +64,9 @@ Scene* Renderer::resolveActiveScene() {
             outgoingScene_ = activeScene_;
             outgoingParams_ = lastFinalParams_;
             transitionStartS_ = frameNowS_;
+        } else {
+            outgoingScene_ = nullptr;
+            outgoingParams_.reset();
         }
         activeScene_ = requested;
         sceneJustSwitched_ = true;
@@ -94,7 +98,7 @@ SceneParams Renderer::resolveParams(float dt) {
     // pass through, fed only the feature frame (never a one-hop PCM/drum
     // impulse), ahead of the safety clamp so nothing it adds can exceed the
     // flash and motion limits.
-    motionField_.step(frameFeatures_, dt);
+    motionField_.step(gainAdjusted(frameFeatures_, p), dt);
     const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
     p = motionField_.apply(p, reducedMotion);
     p = safety::apply(p, reducedMotion);
@@ -136,17 +140,10 @@ bool Renderer::ensureTargets() {
 }
 
 void Renderer::deliverPcm(Scene& scene) {
-    // Copy out under the lock, then hand the scene its own scratch buffer
-    // once unlocked: acceptPcm() (a copy of up to 4096 samples plus
-    // fillPcmRow) must never run while stateLock_ is held, or pushPcm() on
-    // the PCM producer thread blocks behind a scene upload.
-    int count = 0;
-    {
-        std::lock_guard<std::mutex> lock(stateLock_);
-        count = pcmCount_;
-        if (count > 0) std::copy(pcm_.begin(), pcm_.begin() + count, pcmDeliverScratch_.begin());
-    }
-    if (count > 0) scene.acceptPcm(pcmDeliverScratch_.data(), count);
+    // beginFrame drained the producer queue once. A push arriving between
+    // active/layer/outgoing draws belongs to the next frame; every scene in
+    // this one sees identical audio, and scene work never holds stateLock_.
+    if (pcm_.count() > 0) scene.acceptPcm(pcm_.samples(), pcm_.count());
 }
 
 void Renderer::bindSecondaryTarget() {
@@ -300,6 +297,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const float progress = drawSecondaryTargets(p, dt);
     drawSceneTarget(*scene, p, dt);
     composite(*scene, p, progress, targetFbo);
+    pruneInactiveHeavyScenes();
 }
 
 }  // namespace geode::viz

@@ -33,7 +33,18 @@ class SampleRing(
 
     val sourceChannelCount: Int get() = sourceChannels
 
-    val oldestAvailable: Long get() = maxOf(0L, written + maxWriteFrames - capacityFrames)
+    val oldestAvailable: Long get() = maxOf(0L, written - capacityFrames)
+
+    data class Position(
+        val epoch: Int,
+        val writtenFrames: Long,
+        val oldestAvailable: Long,
+    )
+
+    enum class WindowRead { OK, WAITING, GAP, DISCONTINUITY }
+
+    @Synchronized
+    fun position(): Position = Position(epochValue, written, oldestAvailable)
 
     @Synchronized
     fun beginEpoch() {
@@ -85,6 +96,21 @@ class SampleRing(
             }
         }
         return true
+    }
+
+    /** Indexed PCM and its epoch are checked under the same monitor as writes. */
+    @Synchronized
+    fun snapshotWindow(
+        firstFrame: Long,
+        expectedEpoch: Int,
+        out: Array<FloatArray>,
+    ): WindowRead {
+        val frames = out.minOf { it.size }
+        if (epochValue != expectedEpoch) return WindowRead.DISCONTINUITY
+        if (firstFrame < 0L || firstFrame + frames > written) return WindowRead.WAITING
+        if (frames > capacityFrames || firstFrame < oldestAvailable) return WindowRead.GAP
+        copyInto(firstFrame, frames, out)
+        return WindowRead.OK
     }
 
     companion object {

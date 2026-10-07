@@ -4,6 +4,7 @@
 #include "viz/Quad.hpp"
 #include "viz/fluid/FluidBuffers.hpp"
 #include "viz/fluid/FluidParticles.hpp"
+#include "viz/fluid/FluidRecovery.hpp"
 #include "viz/scenes/FluidSceneBase.hpp"
 
 namespace geode::viz {
@@ -24,13 +25,14 @@ public:
 
 protected:
     GeodeFeatureFrame idleFeatures(float dt) override { (void) dt; return idleAudioFeatures(0.0f, 0.0f, 0.0f, 0.0f); }
-    void onApplyQualityTier(int index, bool userChanged) override { (void) index; (void) userChanged; }
+    void onApplyQualityTier(int index, bool userChanged) override;
 
 private:
     static constexpr float kNoiseWrapSeconds = 628.31853f;
     static constexpr float kWallWrapSeconds = 7100.0f;
 
     fluid::Particles particles_;
+    fluid::RecoveryDisplay recovery_;
     fluid::Formats formats_;
     std::optional<fluid::Fbo> field_;
     UniformCache fieldUniforms_{0};
@@ -41,6 +43,8 @@ private:
     float beatDrive_ = 0.0f;
     float pcmKick_ = 0.0f;
     float aspect_ = 1.0f;
+    int width_ = 1, height_ = 1, fieldRes_ = 96;
+    bool allocationErrorReported_ = false;
     bool available_ = false;
 };
 
