@@ -89,17 +89,41 @@ libprojectM
 -----------
 The MilkDrop-compatible visualization engine bundled as a native library
 (libprojectM, https://github.com/projectM-visualizer/projectm) is licensed
-under the GNU Lesser General Public License v2.1 (LGPL-2.1). Geode links
-it dynamically as a separate shared object (.so) and does not modify it.
-Per LGPL-2.1: this notice preserves attribution; the library's source is
-available at the URL above; and the dynamic-linking arrangement preserves
-the user's ability to replace the library. LGPL-2.1 section 6 requires a
-copy of the licence itself to accompany the app, not merely a link, so the
-full text is reproduced verbatim at the end of this file.
+under the GNU Lesser General Public License v2.1 (LGPL-2.1). Geode uses
+projectM 4.1.7 (tag v4.1.7, commit e0b0a967f0ffd7d332106c366668ed271718472b)
+as a separate shared library, libprojectM-4.so, which libgeode.so links to
+dynamically. It is built in-tree from the third_party/projectm git submodule
+by the root CMakeLists.txt.
+
+Geode's copy of projectM is MODIFIED. At configure time, before the library
+is built, the root CMakeLists.txt applies one patch to the submodule:
+
+  tools/projectm-v4.1.7-render-fbo-backport.patch
+
+That file is in the Geode repository, https://github.com/tessie1993/geode-3,
+where it has been present since 2 September 2026. The patch backports
+projectm_opengl_render_frame_fbo from the unreleased upstream master onto
+v4.1.7, so that a frame can be composited into a framebuffer supplied by the
+caller instead of only the default framebuffer. It changes four files and
+nothing else in projectM is changed:
+
+  src/api/include/projectM-4/render_opengl.h
+  src/libprojectM/ProjectM.cpp
+  src/libprojectM/ProjectM.hpp
+  src/libprojectM/ProjectMCWrapper.cpp
+
+The unmodified source is the upstream repository named above at tag v4.1.7.
+Applying the patch to that tree gives the corresponding source of the library
+as Geode builds it.
+
+Per LGPL-2.1: this notice preserves attribution and states the modification
+and where the modified source can be had; the dynamic-linking arrangement
+preserves the user's ability to replace the library. LGPL-2.1 section 6
+requires a copy of the licence itself to accompany the app, not merely a
+link, so the full text is reproduced verbatim further down in this file.
 
 The shipped binary statically embeds projectM's vendored dependencies, so
-their notices belong here too. libprojectM-4.so is built in-tree from the
-third_party/projectm submodule by the root CMakeLists.txt:
+their notices belong here too:
 
   glm (https://github.com/g-truc/glm) - Copyright (c) 2005 - G-Truc
   Creation. Dual licensed under The Happy Bunny License (Modified MIT
@@ -112,9 +136,6 @@ third_party/projectm submodule by the root CMakeLists.txt:
   SOIL2 (https://github.com/SpartanJ/SOIL2) - Copyright 2020 Martin Lucas
   Golini, itself derived from Jonathan Dummer's public-domain SOIL.
   Licensed under MIT No Attribution.
-
-  projectm-eval - part of the projectM project itself and covered by the
-  LGPL-2.1 notice above.
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of the MIT-licensed software above and associated documentation files
@@ -131,6 +152,46 @@ NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
 DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+projectm-eval
+-------------
+projectm-eval, the expression evaluator that MilkDrop presets' equations run
+on, is built into libprojectM-4.so from projectM's vendored copy
+(third_party/projectm/vendor/projectm-eval):
+
+  https://github.com/projectM-visualizer/projectm-eval
+  Version 1.0.6, commit da885dcdf33620ef26aa04cac9e215378b80252e
+
+Although it is maintained by the projectM team, it is licensed under the MIT
+License, not the LGPL-2.1 that covers libprojectM itself. Geode does not
+modify it. Its licence file, third_party/projectm/vendor/projectm-eval/
+LICENSE.md, reads:
+
+The MIT License (MIT)
+=====================
+
+Copyright © `2023` `The projectM Team`
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the “Software”), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
 
 TagLib
 ------
