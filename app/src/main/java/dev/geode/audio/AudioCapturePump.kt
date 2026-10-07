@@ -1,7 +1,7 @@
 package dev.geode.audio
 
-import android.media.AudioFormat
 import android.media.AudioRecord
+import android.os.Process
 import androidx.annotation.AnyThread
 import dev.geode.util.bestEffort
 import kotlin.concurrent.thread
@@ -11,7 +11,7 @@ abstract class AudioCapturePump(
     defaultRateHz: Int,
     protected val nowMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
 ) {
-    private var record: AudioRecord? = null
+    private var activeSource: CaptureSource? = null
     private var worker: Thread? = null
 
     @Volatile
@@ -31,6 +31,8 @@ abstract class AudioCapturePump(
 
     protected abstract val threadName: String
 
+    protected open val threadPriority: Int = Process.THREAD_PRIORITY_DEFAULT
+
     protected abstract fun noteLevel(
         buffer: FloatArray,
         count: Int,
@@ -46,61 +48,35 @@ abstract class AudioCapturePump(
         channels: Int,
         onSampleRate: (Int) -> Unit,
     ): Boolean {
-        val recording =
-            runCatching { rec.startRecording() }.isSuccess &&
-                rec.recordingState == AudioRecord.RECORDSTATE_RECORDING
-        if (!recording) {
-            android.util.Log.w(javaClass.simpleName, "startRecording refused")
-            bestEffort(TAG, "rec.stop()") { rec.stop() }
-            bestEffort(TAG, "rec.release()") { rec.release() }
-            return false
-        }
-        record = rec
+        val source = AudioRecordSource.started(rec, sampleRateHz, channels, READ_FRAMES) ?: return false
+        startPump(source, onSampleRate)
+        return true
+    }
+
+    @AnyThread
+    @Synchronized
+    protected fun startPump(
+        source: CaptureSource,
+        onSampleRate: (Int) -> Unit,
+    ) {
+        activeSource = source
         val generation = ++runGeneration
         running = true
         lastAudibleAtMs = 0L
         resetLevel()
-        onSampleRate(sampleRateHz)
+        sampleRateHz = source.sampleRateHz
+        onSampleRate(source.sampleRateHz)
         worker =
             thread(name = threadName, isDaemon = true) {
-                val floats = FloatArray(READ_FRAMES * channels)
-                val shorts = ShortArray(READ_FRAMES * channels)
-                val asFloat = rec.audioFormat == AudioFormat.ENCODING_PCM_FLOAT
-                val startedAt = nowMs()
-                while (running && runGeneration == generation) {
-                    val n =
-                        if (asFloat) {
-                            rec.read(floats, 0, floats.size, AudioRecord.READ_BLOCKING)
-                        } else {
-                            val read = rec.read(shorts, 0, shorts.size)
-                            if (read > 0) {
-                                for (i in 0 until read) floats[i] = shorts[i] / 32768f
-                            }
-                            read
-                        }
-                    // stop() bumps runGeneration before it returns, so a read that was
-                    // already blocked when stop() was called but only unblocks afterwards
-                    // lands here with a stale generation — skip writing into a sink this run
-                    // no longer owns.
-                    if (runGeneration != generation) break
-                    if (n > 0) {
-                        val frames = n / channels
-                        if (frames > 0) {
-                            sink.write(floats, frames, channels)
-                            noteLevel(floats, n, startedAt)
-                        }
-                    } else if (n < 0) {
-                        android.util.Log.w(javaClass.simpleName, "AudioRecord.read error $n")
-                        break
-                    }
-                }
-                // This worker is the sole owner of `rec`; release it regardless of whether the
+                applyThreadPriority()
+                val pumpRun = PumpRun(source, generation, onSampleRate)
+                var live = true
+                while (live && running && runGeneration == generation) live = pumpRun.step()
+                // This worker is the sole owner of the source; release it regardless of whether the
                 // generation moved on, since nobody else will.
-                bestEffort(TAG, "rec.stop()") { rec.stop() }
-                bestEffort(TAG, "rec.release()") { rec.release() }
+                source.release()
                 if (runGeneration == generation) running = false
             }
-        return true
     }
 
     @AnyThread
@@ -108,14 +84,60 @@ abstract class AudioCapturePump(
     fun stop() {
         running = false
         // Invalidate the generation the worker captured at start. If join() below times out
-        // with the worker still inside a blocking rec.read(), this lets it notice on return
-        // and exit without writing into the sink or touching a record a later run now owns.
+        // with the worker still inside a blocking read, this lets it notice on return
+        // and exit without writing into the sink or touching a source a later run now owns.
         runGeneration++
-        record?.let { runCatching { it.stop() } }
+        activeSource?.let { runCatching { it.interrupt() } }
         worker?.let { runCatching { it.join(500) } }
         worker = null
-        record = null
+        activeSource = null
         resetLevel()
+    }
+
+    private fun applyThreadPriority() {
+        val priority = threadPriority
+        if (priority == Process.THREAD_PRIORITY_DEFAULT) return
+        bestEffort(TAG, "Process.setThreadPriority") { Process.setThreadPriority(priority) }
+    }
+
+    private inner class PumpRun(
+        private val source: CaptureSource,
+        private val generation: Int,
+        private val onSampleRate: (Int) -> Unit,
+    ) {
+        private val channels = source.channels
+        private val buffer = FloatArray(source.readFrames * channels)
+        private val startedAt = nowMs()
+        private var reportedRate = source.sampleRateHz
+
+        /** One read and what follows from it; false once this run is over. */
+        fun step(): Boolean {
+            val frames = source.read(buffer)
+            // stop() bumps runGeneration before it returns, so a read that was already blocked
+            // when stop() was called but only unblocks afterwards lands here with a stale
+            // generation — skip writing into a sink this run no longer owns.
+            if (runGeneration != generation) return false
+            if (frames < 0) {
+                android.util.Log.w(this@AudioCapturePump.javaClass.simpleName, "capture read error $frames")
+                return false
+            }
+            reportRateChange()
+            if (frames > 0) {
+                sink.write(buffer, frames, channels)
+                noteLevel(buffer, frames * channels, startedAt)
+            }
+            return true
+        }
+
+        // A source that reopens on another device can come back at another rate; the analysis has to
+        // be told before the first chunk at the new rate reaches the sink.
+        private fun reportRateChange() {
+            val rate = source.sampleRateHz
+            if (rate == reportedRate) return
+            reportedRate = rate
+            sampleRateHz = rate
+            onSampleRate(rate)
+        }
     }
 
     protected companion object {

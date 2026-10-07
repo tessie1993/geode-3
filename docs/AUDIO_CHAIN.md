@@ -13,6 +13,7 @@ Sources of truth, if this doc and the code ever disagree — the code wins:
 | Where it is installed | `audio/TapRenderersFactory.kt` |
 | The two rules | this document; the `AudioChainContractTest` that pinned them is not in the tree (see the README's Tests section) |
 | Platform effects (a different mechanism) | `audio/AudioFxController.kt`, `ui/EqualizerSettings.kt` |
+| The microphone path | `audio/MicCapture.kt`, `audio/MicSourcePlan.kt`, `audio/AudioCapturePump.kt`, `core/audio/capture/MicStream.cpp` |
 
 ## The order
 
@@ -127,6 +128,77 @@ apply — so that slice has to decide whether the platform equalizer is retired
 or kept behind an explicit "System FX (legacy)" toggle. Shipping both without
 deciding means every EQ curve is applied twice on some devices and once on
 others.
+
+## The microphone path
+
+The microphone never touches the chain above. `MicCapture` writes into the same
+PCM sink the tap writes into, so the analysis and every scene read it the way
+they read playback; only the capture is different.
+
+```
+MicCapture.start()
+   │  MicSourcePlan.openFirst(Build.VERSION.SDK_INT)
+   │
+   ├─ API 28+ ─────────▶ AAudioMicSource ──▶ MicStream (core/audio/capture)
+   │                       AAudio INPUT stream, blocking AAudioStream_read
+   │
+   └─ API 26–27, or AAudio would not open
+                       ▶ AudioRecordSource ──▶ AudioRecord, mono
+                │
+                ▼
+   AudioCapturePump   one reader thread, THREAD_PRIORITY_URGENT_AUDIO
+                │     CaptureSource.read ──▶ PcmSink.write
+                ▼
+   the shared PCM sink ──▶ analysis engine and scenes
+```
+
+**AAudio.** The stream asks for `LOW_LATENCY`, `EXCLUSIVE` and then `SHARED` if
+that will not open, float samples, one channel, and the device's own sample
+rate, so nothing is forced to 44.1 kHz. A device that hands back 16-bit is
+converted and one that hands back two channels is averaged to mono, in native
+code, before Kotlin sees the frames. The input preset is `UNPROCESSED` when
+`AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED` says so and
+`VOICE_RECOGNITION` otherwise; a preset the stream cannot open with is retried
+with the other. The buffer is requested at two bursts. Each read is one burst,
+bounded to 64–1,024 frames, and waits at most 40 ms.
+
+**Why blocking reads.** AAudio does not allow a stream to be closed from its own
+callbacks, and reopening is exactly what a route change needs. With no data
+callback nothing runs on a real-time thread, and the pump's ordinary reader
+thread closes and reopens the stream itself. The API 28 input-preset call is a
+weak reference behind `__builtin_available(android 28, *)`, so `minSdk` stays 26.
+
+**Route changes.** When the headset or Bluetooth mic is plugged in or out the
+read fails with `AAUDIO_ERROR_DISCONNECTED`. `MicStream::read` closes the stream
+and reopens it with the same settings over the next calls, waiting 0, 100, 200,
+400, 800 and then 1,000 ms between attempts, and gives up after 12 failures
+(about ten seconds), which ends the pump like any other read error. A reopen can
+come back at another sample rate: `AAudioMicSource.sampleRateHz` follows it and
+the pump calls `onSampleRate` again before the first chunk at the new rate, which
+is how `CaptureController` retunes the analysis.
+
+**Stopping.** `stop()` bumps the pump's generation. The reader leaves within one
+read, a read that was already blocked cannot write into the sink, and the reader
+thread itself closes and destroys the native stream, so nothing else touches the
+stream while it closes.
+
+**The AudioRecord path** is used below API 28 and whenever AAudio will not open.
+It tries the device's native output rate first (`PROPERTY_OUTPUT_SAMPLE_RATE`,
+usually 48 kHz), then 44.1 kHz, then 48 and 22.05 kHz; a buffer of two minimum
+sizes; 256-frame reads; float and then 16-bit. `PlaybackCapture` (other apps'
+audio) is untouched: it still uses AudioRecord with 1,024-frame reads and a
+buffer of four minimum sizes.
+
+Known limits:
+
+- A reopen reports the new rate but does not start a new sample-ring epoch
+  (`CaptureController` only passes the rate on), so the one analysis window that
+  straddles a reopen can mix audio from the two routes.
+- About 10–20 ms of capture latency is what a device with a low-latency (MMAP)
+  input path gives. Elsewhere AAudio uses a legacy path no faster than
+  AudioRecord. `MicStream` logs what it was granted on every open (tag
+  `geode.mic`: rate, burst, buffer, sharing and performance mode); the analysis
+  window and hop sit on top of that figure.
 
 ## Adding a stage
 

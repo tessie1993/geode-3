@@ -30,7 +30,7 @@ import dev.geode.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-const val PRIVACY_POLICY_URL = "https://tessie1993.github.io/music-visualizer-2/privacy-policy.html"
+const val PRIVACY_POLICY_URL = "https://tessie1993.github.io/geode-3/privacy-policy.html"
 
 @Composable
 internal fun AboutSettingsTab() {

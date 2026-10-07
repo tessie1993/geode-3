@@ -48,16 +48,13 @@ store readiness claim follows merely from an APK compiling.
 
 ## Ownership (owner decision, 7 October 2026)
 
-Two agent sessions work on this repository. Each package has one owner; the other
-session does not edit its files while a PR for it is open.
+**All packages, D00–D19, are owned by the Claude Code session** (`docs/rebuild/PLAN.md`).
+The owner decided that work written for Codex sessions is done by Claude. Codex sessions
+stop editing this repository. PR #9 (`codex/account-visual-foundation`) is taken over
+and driven to green by the Claude session.
 
-| Area | Owner | Packages |
-|---|---|---|
-| Visuals: engine correctness, projectM, 3D prototype and foundation, signature scenes, style catalog, universal controls and the new Visualizer/Customize screens | Claude Code session (`docs/rebuild/PLAN.md` lane B) | D03, D05, D08, D09, D11, the Visualizer/Customize part of D15 |
-| Microphone input (AAudio) | Claude Code session (lane A2b) | D06 |
-| Playback, data, account, premium and billing, Google identity and Drive, exporter and Studio, app shell, release | Codex sessions | D00–D02, D04, D07, D10, D12–D14, the rest of D15, D16–D19 |
-
-In-flight visual changes in PR #9 land first; later visual work builds on them.
+An earlier split the same day gave visuals and the microphone to Claude and the
+rest to Codex. It is superseded.
 
 ## Decisions and unresolved external inputs
 
