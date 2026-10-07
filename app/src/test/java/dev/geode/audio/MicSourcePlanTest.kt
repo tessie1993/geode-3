@@ -17,15 +17,14 @@ class MicSourcePlanTest {
         tried: MutableList<MicBackend>,
         aaudioResult: () -> String?,
         recordResult: () -> String?,
-    ): (MicBackend) -> String? {
-        return { backend ->
+    ): (MicBackend) -> String? =
+        { backend ->
             tried += backend
             when (backend) {
                 MicBackend.AAUDIO -> aaudioResult()
                 MicBackend.AUDIO_RECORD -> recordResult()
             }
         }
-    }
 
     @Test
     fun `android 8_0 and 8_1 never try AAudio`() {
