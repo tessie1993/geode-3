@@ -26,6 +26,46 @@ class RestartEvidenceTest(unittest.TestCase):
             SmokeRun.assert_restarted(self.hierarchy("Loading"))
 
 
+class MotionRecordingEvidenceTest(unittest.TestCase):
+    def test_run_42_actions_after_film_end_cannot_pass_recording_evidence(self):
+        result = {
+            "time_limit_seconds": 14, "recording_tail_seconds": 1,
+            "action_elapsed_seconds": {
+                "Awaken": 1.23, "Press capsule": 8.84,
+                "Press round button": 15.30, "Selected capsule": 20.97,
+            },
+        }
+        with self.assertRaisesRegex(AssertionError, "Press round button.*Selected capsule"):
+            SmokeRun.assert_recorded_actions(result, tuple(result["action_elapsed_seconds"]))
+        self.assertEqual(result["actions_within_recording"], ["Awaken", "Press capsule"])
+
+    def test_recording_requires_every_expected_action_and_one_second_tail(self):
+        result = {
+            "time_limit_seconds": 40, "recording_tail_seconds": 1,
+            "action_elapsed_seconds": {"Library": 7.4, "Player": 14.5, "Search": 22.0, "Close search": 39.01},
+        }
+        labels = ("Library", "Player", "Search", "Close search")
+        with self.assertRaisesRegex(AssertionError, "39s tail deadline.*Close search"):
+            SmokeRun.assert_recorded_actions(result, labels)
+        result["action_elapsed_seconds"]["Close search"] = 39
+        SmokeRun.assert_recorded_actions(result, labels)
+        self.assertEqual(result["actions_within_recording"], list(labels))
+        del result["action_elapsed_seconds"]["Player"]
+        with self.assertRaisesRegex(AssertionError, "Player"):
+            SmokeRun.assert_recorded_actions(result, labels)
+
+    def test_invalid_elapsed_time_cannot_prove_an_action_was_recorded(self):
+        for elapsed in (-1, float("inf"), float("nan")):
+            with self.subTest(elapsed=elapsed):
+                result = {
+                    "time_limit_seconds": 14, "recording_tail_seconds": 1,
+                    "action_elapsed_seconds": {"Awaken": elapsed},
+                }
+                with self.assertRaisesRegex(AssertionError, "Awaken"):
+                    SmokeRun.assert_recorded_actions(result, ("Awaken",))
+                self.assertEqual(result["actions_within_recording"], [])
+
+
 class SemanticSelectorTest(unittest.TestCase):
     def test_fixture_directory_uses_resolved_emulator_external_volume(self):
         self.assertEqual(SmokeRun.fixture_directory("/storage/emulated/0"), "/storage/emulated/0/Music/GeodeUiQa")

@@ -87,8 +87,7 @@ fun CrystalButton(
                 enabled = enabled,
                 role = Role.Button,
                 onClick = onClick,
-            )
-            .defaultMinSize(minHeight = if (compact && !tidal) 36.dp else 48.dp),
+            ).defaultMinSize(minHeight = if (compact && !tidal) 36.dp else 48.dp),
     ) {
         StoneSurfaceArt(component, state, Modifier.matchParentSize(), reducedMotion = reducedMotion)
         Row(
