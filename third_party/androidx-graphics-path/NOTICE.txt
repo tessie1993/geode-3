@@ -7,7 +7,11 @@ Source: https://github.com/androidx/androidx
 Native source snapshot: b780700e4b66ed38927ca1de28872d915b06a57c
 Path: graphics/graphics-path/src/main/cpp
 
-Geode rebuilds these unchanged native sources with NDK 30 and explicit 16 KB
+Geode rebuilds these native sources with NDK 30 and explicit 16 KB
 LOAD/RELRO alignment. The build adapter and AAR repackaging script are Geode
 changes. The original AndroidX 1.1.0 classes, resources and consumer rules are
 preserved. Only Geode's supported arm64-v8a and x86_64 binaries are replaced.
+
+Geode modification, 2026-10-07: PathIterator::count uses a separate conic
+converter so calculateSize does not change the segments returned by next.
+Original and modified file hashes are recorded in source-lock.json.

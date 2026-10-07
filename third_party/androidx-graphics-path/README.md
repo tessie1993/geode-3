@@ -9,11 +9,20 @@ Android's [16 KB guidance](https://developer.android.com/guide/practices/page-si
 requires rebuilding incompatible prebuilt libraries. App linker flags cannot
 relink a native binary already packaged inside an AAR.
 
-`src/` contains unchanged Apache-2.0 native sources from the AndroidX commit
+`src/` contains Apache-2.0 native sources from the AndroidX commit
 recorded in `source-lock.json`. The source snapshot predates 1.1.0 and the
 native source directory had no subsequent changes before that release. Each
-file's upstream Git blob hash is checked before building. Copyright headers and
+file's upstream Git blob hash, or the explicitly recorded Geode-modified hash,
+is checked before building. Copyright headers and
 the complete upstream license are retained.
+
+The API 30 instrumented regression in run `37552958015` exposed an upstream
+iterator defect: calling `calculateSize()` populated the same conic converter
+used by `next()`. A circle then emitted two extra quadratics before its first
+Move (12 segments instead of 10). `PathIterator::count` now uses a separate
+converter. The original hash remains in the lock beside the modified hash and
+reason; the packaged notice identifies this local change. The test retains its
+exact size assertion and also compares iteration with and without a size query.
 
 `tools/android/rebuild_graphics_path.py` runs inside the shared Android CI setup:
 

@@ -21,6 +21,9 @@ int PathIterator::count() noexcept {
         return mCount;
     }
 
+    // Geode fix (2026-10-07): size queries must not prime the converter used
+    // by next(), otherwise the final conic is emitted before the first Move.
+    ConicConverter counter;
     int count = 0;
     const Verb* verbs = mVerbs;
     const Point* points = mPoints;
@@ -39,10 +42,10 @@ int PathIterator::count() noexcept {
                 count++;
                 break;
             case Verb::Conic:
-                mConverter.toQuadratics(points - 1, *conicWeights, mTolerance);
+                counter.toQuadratics(points - 1, *conicWeights, mTolerance);
                 conicWeights++;
                 points += 2;
-                count += mConverter.quadraticCount();
+                count += counter.quadraticCount();
                 break;
             case Verb::Cubic:
                 points += 3;

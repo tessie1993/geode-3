@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(androidx.graphics.path LANGUAGES CXX)
 
-# Geode build adapter, 2026-10-07. Upstream native sources are unchanged.
+# Geode build adapter, 2026-10-07. See source-lock.json for the iterator fix.
 # Keep the upstream SONAME, JNI export map and compiler settings; add complete
 # 16 KB LOAD and RELRO alignment when rebuilding the two ABIs shipped by Geode.
 add_library(androidx.graphics.path SHARED
