@@ -33,7 +33,10 @@ class JellyMatteContrastTest {
         }
     }
 
-    private fun contrast(ink: Color, paper: Color): Float {
+    private fun contrast(
+        ink: Color,
+        paper: Color,
+    ): Float {
         val a = ink.luminance()
         val b = paper.luminance()
         return (max(a, b) + 0.05f) / (min(a, b) + 0.05f)

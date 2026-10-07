@@ -4,7 +4,7 @@ import unittest
 import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from smoke_qa import SmokeRun
+from smoke_qa import SmokeRun, THEME_LABELS
 
 
 class RestartEvidenceTest(unittest.TestCase):
@@ -158,6 +158,33 @@ class SemanticSelectorTest(unittest.TestCase):
                 root = ET.fromstring(f'<hierarchy><node text="Player" clickable="true" bounds="{bounds}" /></hierarchy>')
                 self.assertIsNone(SmokeRun.action(root, "Player"))
 
+    def test_customize_action_clipped_by_actual_row_viewport_is_not_fully_visible(self):
+        # Captured run-41 toolbar: the actionable button extends above/below
+        # the 26-pixel row viewport and only two pixels of its text are visible.
+        root = ET.fromstring('''<hierarchy>
+            <node class="android.widget.HorizontalScrollView" scrollable="true" bounds="[16,424][304,450]">
+                <node enabled="true" clickable="true" bounds="[51,413][118,458]">
+                    <node text="Set A" enabled="true" bounds="[67,436][102,438]" />
+                </node>
+            </node>
+        </hierarchy>''')
+        self.assertIsNotNone(SmokeRun.action(root, "Set A"))
+        self.assertIsNone(SmokeRun.fully_visible_action(root, "Set A"))
+
+    def test_customize_action_must_fit_both_native_scroll_viewports(self):
+        for viewport, expected in (("[16,404][304,466]", True), ("[16,424][304,466]", False)):
+            with self.subTest(viewport=viewport):
+                root = ET.fromstring(f'''<hierarchy>
+                    <node scrollable="true" bounds="{viewport}">
+                        <node class="android.widget.HorizontalScrollView" scrollable="true" bounds="[16,404][304,466]">
+                            <node enabled="true" clickable="true" bounds="[51,413][118,458]">
+                                <node text="Set A" bounds="[67,426][102,440]" />
+                            </node>
+                        </node>
+                    </node>
+                </hierarchy>''')
+                self.assertEqual(SmokeRun.fully_visible_action(root, "Set A") is not None, expected)
+
     def test_switch_checked_state_uses_labelled_toggle_not_sibling_text(self):
         root = ET.fromstring('''<hierarchy>
             <node text="Slow the motion down" bounds="[0,0][200,60]" />
@@ -206,6 +233,61 @@ class SemanticSelectorTest(unittest.TestCase):
         SmokeRun.assert_selected(root, "Tidal Glass", allow_checked=True)
         with self.assertRaisesRegex(AssertionError, "not selected"):
             SmokeRun.assert_selected(root, "Tidal Glass")
+
+    def test_theme_reselect_proves_checked_parent_without_tapping_nonclickable_radio(self):
+        # Captured run-41 Settings Look shape: both exact labelled descendants
+        # belong to a checked, focusable, non-clickable RadioButton ancestor.
+        root = ET.fromstring('''<hierarchy>
+            <node enabled="true" checkable="true" checked="true" clickable="false" focusable="true"
+                  selected="false" bounds="[30,270][118,319]">
+                <node content-desc="Tidal Glass" checkable="false" checked="false" clickable="false"
+                      enabled="true" bounds="[30,270][118,319]" />
+                <node text="Tidal Glass" checkable="false" checked="false" clickable="false"
+                      enabled="true" bounds="[44,295][104,309]" />
+            </node>
+        </hierarchy>''')
+        run = SmokeRun.__new__(SmokeRun)
+        run.events = []
+        seeks, taps = [], []
+        def seek(label, **kwargs):
+            seeks.append((label, kwargs))
+            return root, SmokeRun.find(root, label)
+        run.seek = seek
+        run.tap_current = lambda current, label: taps.append(label)
+        self.assertIsNone(SmokeRun.action(root, "Tidal Glass"))
+        run.select_theme("Tidal Glass")
+        self.assertEqual(taps, [])
+        self.assertEqual(seeks, [("Tidal Glass", {"scroll": "horizontal", "reverse": False,
+                                                "scroll_labels": THEME_LABELS})])
+        self.assertTrue(SmokeRun.checked(root, "Tidal Glass"))
+
+    def test_unchecked_theme_requires_its_real_selection_action(self):
+        root = ET.fromstring('''<hierarchy>
+            <node enabled="true" checkable="true" checked="false" clickable="true" bounds="[128,270][216,319]">
+                <node content-desc="Lapis Lazuli" checkable="false" checked="false" bounds="[128,270][216,319]" />
+            </node>
+        </hierarchy>''')
+        run = SmokeRun.__new__(SmokeRun)
+        run.events = []
+        run.seek = lambda label, **kwargs: (root, SmokeRun.find(root, label))
+        taps = []
+        run.tap_current = lambda current, label: taps.append((current, label))
+        self.assertIsNotNone(SmokeRun.action(root, "Lapis Lazuli"))
+        run.select_theme("Lapis Lazuli")
+        self.assertEqual(taps, [(root, "Lapis Lazuli")])
+
+    def test_theme_choice_without_explicit_checked_state_is_rejected(self):
+        root = ET.fromstring('''<hierarchy>
+            <node content-desc="Tidal Glass" selected="true" clickable="true" bounds="[30,270][118,319]" />
+        </hierarchy>''')
+        run = SmokeRun.__new__(SmokeRun)
+        run.events = []
+        run.seek = lambda label, **kwargs: (root, SmokeRun.find(root, label))
+        taps = []
+        run.tap_current = lambda current, label: taps.append(label)
+        with self.assertRaisesRegex(AssertionError, "missing checked semantics"):
+            run.select_theme("Tidal Glass")
+        self.assertEqual(taps, [])
 
     def test_seek_evidence_reads_current_position_and_duration(self):
         node = ET.fromstring('<node content-desc="Seek. 0:27 of 0:45" bounds="[100,100][500,160]" />')

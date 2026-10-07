@@ -276,8 +276,9 @@ fun AppRoot() {
                             Box(
                                 Modifier.fillMaxSize().jellySceneEntrance(
                                     appState.dest.ordinal,
-                                    enabled = LocalThemePack.current.isJellyGlass &&
-                                        (appState.dest == GeodeDestination.PLAYER || appState.dest == GeodeDestination.LIBRARY),
+                                    enabled =
+                                        LocalThemePack.current.isJellyGlass &&
+                                            (appState.dest == GeodeDestination.PLAYER || appState.dest == GeodeDestination.LIBRARY),
                                 ),
                             ) {
                                 destinationContent(false)
@@ -298,8 +299,9 @@ fun AppRoot() {
                             Box(
                                 Modifier.fillMaxSize().jellySceneEntrance(
                                     appState.dest.ordinal,
-                                    enabled = LocalThemePack.current.isJellyGlass &&
-                                        (appState.dest == GeodeDestination.PLAYER || appState.dest == GeodeDestination.LIBRARY),
+                                    enabled =
+                                        LocalThemePack.current.isJellyGlass &&
+                                            (appState.dest == GeodeDestination.PLAYER || appState.dest == GeodeDestination.LIBRARY),
                                 ),
                             ) {
                                 destinationContent(true)
@@ -635,7 +637,12 @@ private fun TidalMiniPlayer(
             }
             Text(
                 title ?: stringResource(R.string.mini_player_idle),
-                modifier = Modifier.weight(1f).padding(horizontal = 10.dp).jellyMatteSheet(8.dp).padding(4.dp),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(horizontal = 10.dp)
+                        .jellyMatteSheet(8.dp)
+                        .padding(4.dp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium,

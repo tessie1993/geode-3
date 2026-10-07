@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,10 +61,18 @@ class SpatialComponentKitActivity : ComponentActivity() {
         val requested = ThemePackCatalog.bySlug(intent.getStringExtra(THEME_EXTRA)).slug
         setContent {
             var themeSlug by rememberSaveable { mutableStateOf(requested) }
+            var sceneGeneration by rememberSaveable { mutableIntStateOf(0) }
             val pack = ThemePackCatalog.bySlug(themeSlug)
-            CrystalMaterialTheme(pack, GuiPrefs()) {
-                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-                    SpatialComponentKit(pack, onTheme = { themeSlug = it.slug })
+            key(themeSlug, sceneGeneration) {
+                CrystalMaterialTheme(pack, GuiPrefs()) {
+                    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+                        SpatialComponentKit(
+                            pack,
+                            generation = sceneGeneration,
+                            onTheme = { themeSlug = it.slug },
+                            onAwaken = { sceneGeneration++ },
+                        )
+                    }
                 }
             }
         }
@@ -77,7 +86,9 @@ class SpatialComponentKitActivity : ComponentActivity() {
 @Composable
 private fun SpatialComponentKit(
     pack: ThemePack,
+    generation: Int,
     onTheme: (ThemePack) -> Unit,
+    onAwaken: () -> Unit,
 ) {
     var interactions by rememberSaveable { mutableIntStateOf(0) }
     var capsuleSelected by rememberSaveable { mutableStateOf(true) }
@@ -92,16 +103,27 @@ private fun SpatialComponentKit(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(
-                "Component kit",
-                Modifier.jellyMatteSheet(10.dp).padding(horizontal = 10.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Component kit",
+                    Modifier.jellyMatteSheet(10.dp).padding(horizontal = 10.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                CrystalButton(onClick = onAwaken, compact = true) { Text("Awaken") }
+            }
             KitThemePicker(pack, onTheme)
-            TidalWaterOrb(Modifier.fillMaxWidth().height(orbHeight), reducedMotion = reducedMotion)
+            TidalWaterOrb(
+                Modifier.fillMaxWidth().height(orbHeight),
+                reducedMotion = reducedMotion,
+                artwork = { TrackArtwork(null, Modifier.fillMaxSize()) },
+            )
             Column(
                 Modifier.fillMaxWidth().jellyMatteSheet(16.dp).padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -146,12 +168,20 @@ private fun SpatialComponentKit(
                     CrystalPlayButton(StoneIcon.PLAY, "Disabled round button", onClick = {}, enabled = false)
                 }
             }
-            Text(
-                "Interactions: $interactions",
-                Modifier.jellyMatteSheet(8.dp).padding(horizontal = 10.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    "Interactions: $interactions",
+                    Modifier.jellyMatteSheet(8.dp).padding(horizontal = 10.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    "Scene: $generation",
+                    Modifier.jellyMatteSheet(8.dp).padding(horizontal = 10.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
     }
 }

@@ -289,6 +289,7 @@ internal fun TidalSurfaceArt(
 ) {
     val pack = LocalThemePack.current
     val palette = pack.palette
+    val matte = jellyMatteTint(LocalFontColor.current ?: palette.onSurface, palette.surface)
     val running = rememberTidalMotionRunning(reducedMotion)
     val time = rememberSpatialWaterTime(running)
     val round =
@@ -319,8 +320,8 @@ internal fun TidalSurfaceArt(
                     .matchParentSize()
                     .tidalPanel(
                         art,
-                        if (disabled) 0.58f else 0.80f,
-                        palette.surface,
+                        0.92f,
+                        matte,
                         palette.glow,
                         22.dp,
                         if (disabled) 0.25f else intensity,
@@ -337,9 +338,9 @@ internal fun TidalSurfaceArt(
             colorFilter = glassTint,
             alpha =
                 when {
-                    disabled -> if (round) 0.42f else 0.12f
-                    state == StoneState.PRESSED -> if (round) 0.82f else 0.20f
-                    else -> if (round) 1f else 0.28f
+                    disabled -> if (round) 0.42f else 0.08f
+                    state == StoneState.PRESSED -> if (round) 0.82f else 0.14f
+                    else -> if (round) 1f else 0.16f
                 },
             modifier = Modifier.matchParentSize(),
         )
@@ -364,6 +365,9 @@ internal fun TidalSurfaceArt(
                         style = Stroke(1.dp.toPx()),
                     )
                 }
+            }
+            if (round) {
+                drawCircle(matte.copy(alpha = 0.90f), radius = size.minDimension * 0.35f, center = center)
             }
         }
     }
@@ -418,10 +422,11 @@ internal fun Modifier.tidalPressRipple(
             if (event is PressInteraction.Press) {
                 position.value = event.pressPosition
                 rippleJob?.cancel()
-                rippleJob = launch {
-                    ripple.snapTo(0f)
-                    ripple.animateTo(1f, tween(850))
-                }
+                rippleJob =
+                    launch {
+                        ripple.snapTo(0f)
+                        ripple.animateTo(1f, tween(850))
+                    }
             }
         }
     }

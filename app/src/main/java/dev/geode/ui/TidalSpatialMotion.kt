@@ -64,7 +64,10 @@ internal fun Modifier.jellySpatialPress(
         }
 }
 
-internal fun normalizedJellyPress(point: Offset, size: IntSize): Offset {
+internal fun normalizedJellyPress(
+    point: Offset,
+    size: IntSize,
+): Offset {
     if (point == Offset.Unspecified || size.width <= 0 || size.height <= 0) return Offset.Zero
     return Offset(
         (point.x / size.width * 2f - 1f).coerceIn(-1f, 1f),

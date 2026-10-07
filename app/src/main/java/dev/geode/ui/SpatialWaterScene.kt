@@ -35,12 +35,18 @@ import dev.geode.ui.theme.LocalBackgroundDim
 import dev.geode.ui.theme.LocalThemePack
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
 private const val ORBIT_SEGMENTS = 32
 private const val ORBIT_DROPLETS = 8
 private const val SCENE_MOTES = 18
+private const val WORLD_WATER_HORIZON = 0.29f
+private const val FAR_ATMOSPHERE_HEIGHT = 0.58f
+private const val LAKE_SOURCE_HORIZON = 0.51f
+private const val FAR_IMAGE_STRIPS = 64
 
 /** A portable layered water world. Perspective and occlusion are explicit; no GL owner is added. */
 @Composable
@@ -56,19 +62,8 @@ internal fun SpatialWaterBackground(
     val lake = rememberTidalBitmap(R.drawable.spatial_lake_atmosphere)
     val ferns = rememberTidalBitmap(R.drawable.spatial_foreground_ferns)
     Box(modifier) {
-        Image(
-            bitmap = lake,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier =
-                Modifier.fillMaxSize().graphicsLayer {
-                    scaleX = 1.045f
-                    scaleY = 1.045f
-                    translationX = sin(time.value * 0.075f) * 2.dp.toPx()
-                    translationY = sin(time.value * 0.060f) * 1.5.dp.toPx()
-                },
-        )
         Canvas(Modifier.fillMaxSize()) {
+            drawLakePlanes(lake, time.value)
             drawRect(palette.background.copy(alpha = if (pack.isLight) 0.62f else 0.30f))
             drawRect(
                 Brush.verticalGradient(
@@ -105,6 +100,81 @@ internal fun SpatialWaterBackground(
     }
 }
 
+/** The far panorama and near source-water plane share a world horizon, with a soft overlap. */
+private fun DrawScope.drawLakePlanes(
+    lake: ImageBitmap,
+    time: Float,
+) {
+    if (size.minDimension <= 0f) return
+    val farWidth = (size.width * 1.045f).roundToInt().coerceAtLeast(1)
+    val verticalPad = 2.dp.toPx()
+    val farHeight =
+        (size.height * FAR_ATMOSPHERE_HEIGHT + verticalPad * 2f)
+            .roundToInt()
+            .coerceAtLeast(1)
+    val cropScale = max(farWidth.toFloat() / lake.width, farHeight.toFloat() / lake.height)
+    val sourceWidth = min(lake.width, (farWidth / cropScale).roundToInt()).coerceAtLeast(1)
+    val sourceHeight = min(lake.height, (farHeight / cropScale).roundToInt()).coerceAtLeast(1)
+    val sourceLeft = (lake.width - sourceWidth) / 2
+    val sourceTop =
+        (lake.height * LAKE_SOURCE_HORIZON - sourceHeight * 0.5f)
+            .roundToInt()
+            .coerceIn(0, lake.height - sourceHeight)
+    drawNearLakeWater(lake, time, sourceLeft, sourceWidth, farWidth)
+    val drift = sin(time * 0.075f) * 2.dp.toPx()
+    val topDrift = sin(time * 0.060f) * 1.5.dp.toPx()
+    val destination =
+        IntOffset(
+            ((size.width - farWidth) / 2f + drift).roundToInt(),
+            (-verticalPad + topDrift).roundToInt(),
+        )
+    val fadeTop = size.height * 0.40f
+    val fadeBottom = size.height * FAR_ATMOSPHERE_HEIGHT
+    clipRect(top = 0f, bottom = fadeTop) {
+        drawImage(
+            lake,
+            srcOffset = IntOffset(sourceLeft, sourceTop),
+            srcSize = IntSize(sourceWidth, sourceHeight),
+            dstOffset = destination,
+            dstSize = IntSize(farWidth, farHeight),
+        )
+    }
+    repeat(FAR_IMAGE_STRIPS) { strip ->
+        val top = fadeTop + (fadeBottom - fadeTop) * strip / FAR_IMAGE_STRIPS
+        val bottom = fadeTop + (fadeBottom - fadeTop) * (strip + 1) / FAR_IMAGE_STRIPS
+        val alpha = 1f - (strip + 0.5f) / FAR_IMAGE_STRIPS
+        clipRect(top = top, bottom = bottom) {
+            drawImage(
+                lake,
+                srcOffset = IntOffset(sourceLeft, sourceTop),
+                srcSize = IntSize(sourceWidth, sourceHeight),
+                dstOffset = destination,
+                dstSize = IntSize(farWidth, farHeight),
+                alpha = alpha,
+            )
+        }
+    }
+}
+
+private fun DrawScope.drawNearLakeWater(
+    lake: ImageBitmap,
+    time: Float,
+    sourceLeft: Int,
+    sourceWidth: Int,
+    destinationWidth: Int,
+) {
+    val sourceTop = (lake.height * LAKE_SOURCE_HORIZON).roundToInt()
+    val top = (size.height * WORLD_WATER_HORIZON).roundToInt()
+    val drift = sin(time * 0.11f) * 5.dp.toPx()
+    drawImage(
+        lake,
+        srcOffset = IntOffset(sourceLeft, sourceTop),
+        srcSize = IntSize(sourceWidth, (lake.height - sourceTop).coerceAtLeast(1)),
+        dstOffset = IntOffset(((size.width - destinationWidth) / 2f + drift).roundToInt(), top),
+        dstSize = IntSize(destinationWidth, (size.height.roundToInt() - top).coerceAtLeast(1)),
+    )
+}
+
 private fun DrawScope.drawSceneMist(
     time: Float,
     light: Color,
@@ -114,7 +184,7 @@ private fun DrawScope.drawSceneMist(
         val drift = sin(time * 0.085f + index * 1.8f) * 12.dp.toPx()
         drawOval(
             light.copy(alpha = if (isLight) 0.045f else 0.030f),
-            topLeft = Offset(-size.width * 0.10f + drift, size.height * (0.36f + index * 0.055f)),
+            topLeft = Offset(-size.width * 0.10f + drift, size.height * (0.26f + index * 0.06f)),
             size = Size(size.width * 1.20f, size.height * 0.065f),
         )
     }
@@ -125,7 +195,7 @@ private fun DrawScope.drawSceneWater(
     light: Color,
     shade: Color,
 ) {
-    val horizon = size.height * 0.57f
+    val horizon = size.height * WORLD_WATER_HORIZON
     drawRect(
         Brush.verticalGradient(listOf(Color.Transparent, shade.copy(alpha = 0.36f)), startY = horizon),
         topLeft = Offset(0f, horizon),

@@ -40,6 +40,8 @@ Water, mist, caustic accents, droplets, orbital paths, contact rings, shadows an
 
 Use one scene state and one bounded clock for the decorative Compose stage. Separate the far atmosphere, middle water, rear orbit, glass objects, front orbit, near scenery and readable UI planes. Project world-like positions consistently: near forms move and scale more than distant forms; reflections use the object's water-plane position, height and depth. Sort orbital samples by depth so their paths can pass behind and in front of the decorative hero. Do not draw front trails across reading areas or action labels.
 
+The authored lake's source horizon is approximately 51% down the image. The runtime projects that distance into the upper 58% of the viewport and places the world water horizon near 29%, so the hero's contact rings land on water. A separate crop of the actual source water fills the near plane; a bounded overlap fade joins the two planes. The near water, distant image and foreground ferns move at different amplitudes. These are authored/procedural 2.5D layers, without a new renderer or a physical fluid simulation.
+
 | Kit element | Material/motion requirements | Existing app use |
 | --- | --- | --- |
 | Spatial environment | Horizon stays coherent; water has perspective and moving highlights; mist and near scenery use different depth factors. | Shared scenic background in Player, Library, Visuals, Studio and Settings where native render surfaces do not occupy that space. |
@@ -51,6 +53,8 @@ Use one scene state and one bounded clock for the decorative Compose stage. Sepa
 | Projected water response | Elliptical rings belong to the water plane; droplets hit at the corresponding point; reflection changes with object height. | Hero rise/settle and bounded interaction accents. Standard control ripple remains clipped to its own material. |
 
 Author a component preview showing default, focused, pressed, selected and disabled states at normal and large font sizes. Show an awakening/rise/settle sequence, an orbital depth pass, one panel reveal, and a control press with its linked ripple. Review this kit before integrating it into all five destinations. The preview is evidence of the new components; screen integration must use those components rather than a flattened preview image.
+
+The debug-only component activity uses the production background, hero, capsule and lens controls, with real native labels and callbacks. Its Awaken action recreates the same bounded scene clock to record the opening rise, then the review presses both control families and changes selection. CI records each theme at a stated ordinary phone viewport and restores the original device configuration before reviewing MainActivity. Capture metadata records action times and whether they fall inside the video; it never presents an action after the recording ends as visible motion evidence.
 
 ## Motion lifecycle
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -458,43 +459,74 @@ fun CrystalSegmented(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val cs = MaterialTheme.colorScheme
     val tidal = LocalThemePack.current.isJellyGlass
-    val reducedMotion = LocalReducedMotion.current
-    Row(
-        modifier.then(if (tidal) Modifier.selectableGroup() else Modifier),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        options.forEachIndexed { i, label ->
-            val sel = i == selected
-            val interaction = rememberStoneInteraction()
-            val state = rememberStoneState(interaction, selected = sel)
-            Box(
-                Modifier
-                    .weight(1f)
-                    .stonePress(interaction, reducedMotion = reducedMotion)
-                    .defaultMinSize(minHeight = if (tidal) 48.dp else 40.dp)
-                    .selectable(
-                        selected = sel,
-                        role = Role.RadioButton,
-                        interactionSource = interaction,
-                        indication = null,
-                        onClick = { onSelect(i) },
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                StoneSurfaceArt(StoneComponent.CHIP, state, Modifier.matchParentSize(), reducedMotion = reducedMotion)
-                Text(
-                    label,
-                    Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    textAlign = TextAlign.Center,
-                    fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
-                    color =
-                        (LocalFontColor.current ?: cs.onSurface)
-                            .copy(alpha = if (sel) 1f else 0.75f),
+    if (tidal) {
+        FlowRow(
+            modifier.selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            options.forEachIndexed { i, label ->
+                CrystalSegmentedOption(
+                    label = label,
+                    selected = i == selected,
+                    onSelect = { onSelect(i) },
+                    modifier = Modifier.defaultMinSize(minWidth = 88.dp),
                 )
             }
         }
+    } else {
+        Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEachIndexed { i, label ->
+                CrystalSegmentedOption(
+                    label = label,
+                    selected = i == selected,
+                    onSelect = { onSelect(i) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CrystalSegmentedOption(
+    label: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier,
+) {
+    val cs = MaterialTheme.colorScheme
+    val tidal = LocalThemePack.current.isJellyGlass
+    val reducedMotion = LocalReducedMotion.current
+    val interaction = rememberStoneInteraction()
+    val state = rememberStoneState(interaction, selected = selected)
+    Box(
+        modifier
+            .stonePress(interaction, reducedMotion = reducedMotion)
+            .defaultMinSize(minHeight = if (tidal) 48.dp else 40.dp)
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                interactionSource = interaction,
+                indication = null,
+                onClick = onSelect,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        StoneSurfaceArt(StoneComponent.CHIP, state, Modifier.matchParentSize(), reducedMotion = reducedMotion)
+        Text(
+            label,
+            Modifier.padding(horizontal = if (tidal) 16.dp else 10.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = if (tidal) 1 else Int.MAX_VALUE,
+            softWrap = !tidal,
+            overflow = if (tidal) TextOverflow.Ellipsis else TextOverflow.Clip,
+            color =
+                (LocalFontColor.current ?: cs.onSurface)
+                    .copy(alpha = if (selected) 1f else 0.75f),
+        )
     }
 }

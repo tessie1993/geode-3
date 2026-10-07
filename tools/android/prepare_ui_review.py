@@ -28,6 +28,7 @@ PRIMARY_SCREENSHOTS = (
     ("visuals-styles", ("*-visuals-styles.png",)),
     ("studio", ("*-default-studio.png",)),
     ("settings", ("*-theme-tidal-restored.png", "*-settings-look.png", "*-playing-settings.png", "*-default-settings.png")),
+    ("live-visualizer", ("*-live-visualizer.png",)),
 ) + tuple(
     (f"library-{tab}", (f"*-library-{tab}.png",))
     for tab in ("albums", "artists", "folders", "playlists")
@@ -165,6 +166,7 @@ def prepare(source, output):
     copy_screenshots(EXTRA_SCREENSHOTS)
 
     metadata = [smoke / name for name in (
+        "component-kit-display.json", "component-kit-display-restored.json",
         "device.json", "steps.json", "original-device-configuration.json", "motion-video.json",
         "screenrecord.txt", "crash.txt", "meminfo.txt", "gfxinfo.txt",
     )] + [smoke / f"component-motion-{theme}.json" for theme in THEME_SLUGS

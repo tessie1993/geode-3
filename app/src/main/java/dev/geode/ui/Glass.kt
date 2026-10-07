@@ -21,38 +21,39 @@ fun Modifier.readingPlate(
     tint: Color,
     corner: Dp = 0.dp,
     glow: Color? = null,
-): Modifier = composed {
-    if (LocalThemePack.current.isJellyGlass) {
-        return@composed this.jellyMatteSheet(corner, opacity.coerceIn(0.86f, 0.98f))
+): Modifier =
+    composed {
+        if (LocalThemePack.current.isJellyGlass) {
+            return@composed this.jellyMatteSheet(corner, opacity.coerceIn(0.86f, 0.98f))
+        }
+        val a = opacity.coerceIn(0f, 0.92f)
+        val shape: Shape = if (corner > 0.dp) RoundedCornerShape(corner) else RectangleShape
+        this
+            .clip(shape)
+            .background(
+                Brush.verticalGradient(
+                    0f to lerp(tint, Color.Black, 0.4f).copy(alpha = (a + 0.14f).coerceAtMost(0.94f)),
+                    0.14f to tint.copy(alpha = a),
+                    0.86f to tint.copy(alpha = a),
+                    1f to lerp(tint, Color.Black, 0.4f).copy(alpha = (a + 0.1f).coerceAtMost(0.94f)),
+                ),
+            ).then(
+                if (glow == null) {
+                    Modifier
+                } else {
+                    Modifier
+                        .border(
+                            1.dp,
+                            Brush.verticalGradient(
+                                0f to glow.copy(alpha = 0.55f),
+                                0.6f to glow.copy(alpha = 0.14f),
+                                1f to glow.copy(alpha = 0.32f),
+                            ),
+                            shape,
+                        )
+                },
+            )
     }
-    val a = opacity.coerceIn(0f, 0.92f)
-    val shape: Shape = if (corner > 0.dp) RoundedCornerShape(corner) else RectangleShape
-    this
-        .clip(shape)
-        .background(
-            Brush.verticalGradient(
-                0f to lerp(tint, Color.Black, 0.4f).copy(alpha = (a + 0.14f).coerceAtMost(0.94f)),
-                0.14f to tint.copy(alpha = a),
-                0.86f to tint.copy(alpha = a),
-                1f to lerp(tint, Color.Black, 0.4f).copy(alpha = (a + 0.1f).coerceAtMost(0.94f)),
-            ),
-        ).then(
-            if (glow == null) {
-                Modifier
-            } else {
-                Modifier
-                    .border(
-                        1.dp,
-                        Brush.verticalGradient(
-                            0f to glow.copy(alpha = 0.55f),
-                            0.6f to glow.copy(alpha = 0.14f),
-                            1f to glow.copy(alpha = 0.32f),
-                        ),
-                        shape,
-                    )
-            },
-        )
-}
 
 fun Modifier.glassScrim(
     color: Color = Color.Black,

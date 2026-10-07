@@ -336,7 +336,11 @@ private fun GroupList(
     if (sel != null && groups.containsKey(sel)) {
         Column(Modifier.dismissTransform(dismiss)) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).jellyMatteSheet().padding(horizontal = 8.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .jellyMatteSheet()
+                    .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -684,12 +688,19 @@ private fun FoldersTab(
     Column {
         Text(
             stringResource(R.string.folders_library),
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp).jellyMatteSheet(corner = 10.dp).padding(horizontal = 10.dp, vertical = 6.dp),
+            Modifier
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .jellyMatteSheet(corner = 10.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.titleSmall,
         )
         roots.sorted().forEach { root ->
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp).jellyMatteSheet().padding(horizontal = 10.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 3.dp)
+                    .jellyMatteSheet()
+                    .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -726,7 +737,10 @@ private fun FoldersTab(
         }
         Text(
             stringResource(R.string.folders_device),
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp).jellyMatteSheet(corner = 10.dp).padding(horizontal = 10.dp, vertical = 6.dp),
+            Modifier
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .jellyMatteSheet(corner = 10.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.bodySmall,
         )
         GroupList(FolderTree.rows(folders), viewModel)

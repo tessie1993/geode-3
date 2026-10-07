@@ -8,6 +8,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -108,12 +109,12 @@ fun VisualsHub(
             }
         ProvideTextStyle(bodyStyle) {
             Column(Modifier.fillMaxSize().then(plate)) {
-                Row(
+                FlowRow(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Column(Modifier.weight(1f)) {
+                    Column {
                         CrystalOverline(
                             when {
                                 takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
@@ -221,7 +222,11 @@ private fun PresetsTreeTab(
 
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 6.dp),
+            ) {
                 CrystalButton(compact = true, filled = false, onClick = {
                     val pasted = clipboardText(context)
                     importNote =
@@ -268,7 +273,11 @@ private fun PresetsTreeTab(
             if (folder.isNotEmpty() || inFolder.isNotEmpty()) {
                 item(key = "hdr_$folder") {
                     Row(
-                        Modifier.fillMaxWidth().padding(top = 8.dp).jellyMatteSheet().padding(horizontal = 10.dp, vertical = 6.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                            .jellyMatteSheet()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -545,7 +554,11 @@ private fun StylesTab(
     Column(Modifier.fillMaxSize()) {
         suggestedSceneToOffer(viz.suggestedSceneId, viz.sceneId)?.let { suggested ->
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).jellyMatteSheet().padding(10.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .jellyMatteSheet()
+                    .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -713,7 +726,12 @@ private fun MilkDropTab(
         }
         if (viz.sceneId == SceneIds.MILKDROP) {
             viz.shaderError?.let {
-                Text(it, Modifier.jellyMatteSheet().padding(10.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    it,
+                    Modifier.jellyMatteSheet().padding(10.dp),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelSmall,
+                )
             }
             MilkTextureLinkPanel(
                 links = textureLinks,
@@ -908,19 +926,21 @@ internal fun CustomizePanel(
                 shownTitle = titles[it]
             },
         )
-        CustomizeToolbar(viewModel, visualizerView, viz.params, tabs.getOrNull(sub), query) { query = it }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-            val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
-            androidx.compose.runtime.CompositionLocalProvider(
-                LocalParamLocks provides (locked to visualsViewModel::toggleParamLock),
-            ) {
-                ParamSurface(sceneId = viz.sceneId, query = query) {
-                    if (query.isBlank()) {
-                        CustomizeTabBody(viewModel, visualizerView, tabs.getOrNull(sub))
-                    } else {
-                        // Search reaches EVERY tab, not just the one on screen: "where did the
-                        // vignette slider go" is exactly the question search exists to answer.
-                        tabs.filterNotNull().forEach { tab -> CustomizeTabBody(viewModel, visualizerView, tab) }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            CustomizeToolbar(viewModel, visualizerView, viz.params, tabs.getOrNull(sub), query) { query = it }
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
+                androidx.compose.runtime.CompositionLocalProvider(
+                    LocalParamLocks provides (locked to visualsViewModel::toggleParamLock),
+                ) {
+                    ParamSurface(sceneId = viz.sceneId, query = query) {
+                        if (query.isBlank()) {
+                            CustomizeTabBody(viewModel, visualizerView, tabs.getOrNull(sub))
+                        } else {
+                            // Search reaches EVERY tab, not just the one on screen: "where did the
+                            // vignette slider go" is exactly the question search exists to answer.
+                            tabs.filterNotNull().forEach { tab -> CustomizeTabBody(viewModel, visualizerView, tab) }
+                        }
                     }
                 }
             }
@@ -1039,7 +1059,12 @@ private fun CustomizeToolbar(
             label = { Text("Search every parameter", style = MaterialTheme.typography.labelSmall) },
         )
         Row(
-            Modifier.fillMaxWidth().padding(top = 6.dp).jellyMatteSheet().horizontalScroll(rememberScrollState()).padding(6.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp)
+                .jellyMatteSheet()
+                .horizontalScroll(rememberScrollState())
+                .padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -1077,7 +1102,12 @@ private fun CustomizeToolbar(
             )
         }
         Row(
-            Modifier.fillMaxWidth().padding(top = 4.dp).jellyMatteSheet().horizontalScroll(rememberScrollState()).padding(6.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+                .jellyMatteSheet()
+                .horizontalScroll(rememberScrollState())
+                .padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -1205,7 +1235,13 @@ private fun TakesTab(viewModel: StudioViewModel) {
         }
         if (takes.replaying != null) {
             item {
-                Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).jellyMatteSheet().padding(10.dp)) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                        .jellyMatteSheet()
+                        .padding(10.dp),
+                ) {
                     Text(
                         "Replaying ${takes.replaying} — ${formatTakeTime(takes.replayMs)} / " +
                             formatTakeTime(takes.replayEndMs),
@@ -1353,7 +1389,13 @@ private fun TexturesHubTab(
                 }
             }
         }
-        if (textures.isEmpty()) Text("No textures imported yet.", Modifier.jellyMatteSheet().padding(12.dp), style = MaterialTheme.typography.bodySmall)
+        if (textures.isEmpty()) {
+            Text(
+                "No textures imported yet.",
+                Modifier.jellyMatteSheet().padding(12.dp),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
     deletingTexture?.let { name ->
         androidx.compose.material3.AlertDialog(
@@ -1412,7 +1454,12 @@ private fun GlslHubTab(
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
         )
         viz.shaderError?.let {
-            Text(it, Modifier.jellyMatteSheet().padding(10.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+            Text(
+                it,
+                Modifier.jellyMatteSheet().padding(10.dp),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CrystalButton(onClick = { viewModel.applyCustomShader(source) }) { Text("Apply shader") }

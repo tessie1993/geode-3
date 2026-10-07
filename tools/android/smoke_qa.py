@@ -31,6 +31,7 @@ THEMES = (
     ("Malachite", "malachite"), ("Mookaite", "mookaite"), ("Onyx", "onyx"),
 )
 THEME_LABELS = tuple(name for name, _ in THEMES)
+CUSTOMIZE_AB_LABELS = ("A/B", "Set A", "Recall A", "Set B", "Recall B")
 MOTION_LABEL = "Slow the motion down"
 ANIMATION_SETTINGS = (
     "window_animation_scale", "transition_animation_scale", "animator_duration_scale",
@@ -131,6 +132,25 @@ class SmokeRun:
         return None
 
     @staticmethod
+    def fully_visible_action(root, label):
+        node = SmokeRun.action(root, label)
+        if node is None:
+            return None
+        x1, y1, x2, y2 = SmokeRun.bounds(node)
+        parents = {child: parent for parent in root.iter() for child in parent}
+        current = parents.get(node)
+        while current is not None:
+            if current.get("scrollable") == "true":
+                viewport = SmokeRun.bounds(current)
+                if viewport is None:
+                    return None
+                vx1, vy1, vx2, vy2 = viewport
+                if not (vx1 <= x1 < x2 <= vx2 and vy1 <= y1 < y2 <= vy2):
+                    return None
+            current = parents.get(current)
+        return node
+
+    @staticmethod
     def assert_selected(root, label, *, allow_checked=False):
         parents = {child: parent for parent in root.iter() for child in parent}
         for node in SmokeRun.matches(root, label):
@@ -172,7 +192,7 @@ class SmokeRun:
                     return current.get("checked") == "true"
                 current = parents.get(current)
             inspected.append(path)
-        raise AssertionError(f"Labelled switch missing checked semantics: {label}; matching ancestry: {inspected}")
+        raise AssertionError(f"Labelled control missing checked semantics: {label}; matching ancestry: {inspected}")
 
     def swipe(self, root, direction, reverse=False, scroll_labels=None):
         candidates = []
@@ -224,10 +244,13 @@ class SmokeRun:
         self.events.append(f"Scrolled {direction} from {node.get('bounds')}, reverse={reverse}")
         return True
 
-    def seek(self, label, *, clickable=False, scroll=None, reverse=False, scroll_labels=None):
+    def seek(self, label, *, clickable=False, scroll=None, reverse=False, scroll_labels=None, fully_visible=False):
         for attempt in range(8):
             root = self.capture(f"find-{slug(label)}-{attempt}")
-            node = self.action(root, label) if clickable else self.find(root, label, include_disabled=True)
+            if clickable:
+                node = self.fully_visible_action(root, label) if fully_visible else self.action(root, label)
+            else:
+                node = self.find(root, label, include_disabled=True)
             if node is not None:
                 return root, node
             if scroll:
@@ -248,19 +271,43 @@ class SmokeRun:
         self.events.append(f"Tapped {label} from {node.get('bounds')}")
         time.sleep(settle)
 
+    def select_theme(self, name, *, reverse=False):
+        # A checked Compose RadioButton is exported as non-clickable. Prove its
+        # exact labelled checked ancestry before skipping a redundant selection;
+        # an unchecked choice still needs its real enabled action and callback.
+        root, _ = self.seek(name, scroll="horizontal", reverse=reverse, scroll_labels=THEME_LABELS)
+        if self.checked(root, name):
+            self.events.append(f"Theme {name} already checked in its exact labelled ancestry")
+        else:
+            self.tap_current(root, name)
+
     def component_kit(self):
         """Exercise the debug material surface before any production UI or playback."""
         component = f"{PACKAGE}/dev.geode.ui.SpatialComponentKitActivity"
         supports_recording = bool(self.adb("shell", "which", "screenrecord", check=False).strip())
         remote = "/sdcard/geode-component-motion.mp4"
         try:
+            self.shell("wm", "size", "720x1600")
+            self.shell("wm", "density", "320")
+            self.shell("settings", "put", "system", "font_scale", "1.0")
+            self.shell("settings", "put", "system", "accelerometer_rotation", "0")
+            self.shell("settings", "put", "system", "user_rotation", "0")
             for setting in ANIMATION_SETTINGS:
                 self.shell("settings", "put", "global", setting, "1.0")
+            display = {
+                "scope": "debug component kit only; restored before MainActivity",
+                "requested": {"size": "720x1600", "density": 320, "font_scale": 1.0,
+                              "accelerometer_rotation": 0, "user_rotation": 0},
+                "wm_size": self.shell("wm", "size"), "wm_density": self.shell("wm", "density"),
+                "settings": [{"namespace": ns, "key": key, "value": self.shell("settings", "get", ns, key)}
+                             for ns, key in DEVICE_SETTINGS],
+            }
+            (self.output / "component-kit-display.json").write_text(json.dumps(display, indent=2))
             for name, theme_slug in THEMES:
                 self.shell("am", "start", "-S", "-W", "-f", "0x10008000", "-n", component,
                            "--es", "theme_slug", theme_slug)
                 root = self.capture(f"component-kit-{theme_slug}")
-                self.assert_labels(root, "Component kit", name, "Matte reading panel", "Interactions: 0",
+                self.assert_labels(root, "Component kit", name, "Awaken", "Scene: 0", "Matte reading panel", "Interactions: 0",
                                    "Press capsule", "Pressed preview", "Selected capsule", "Disabled capsule",
                                    "Press round button", "Pressed round preview", "Selected round button", "Disabled round button")
                 self.assert_selected(root, name, allow_checked=True)
@@ -272,25 +319,38 @@ class SmokeRun:
                 self.component_movie(root, theme_slug, remote, supports_recording)
             self.events.append("All eleven debug component themes captured; actual capsule/round callbacks and selection verified")
         finally:
-            for setting in ANIMATION_SETTINGS:
-                self.restore_setting("global", setting)
             self.adb("shell", "rm", "-f", remote, check=False)
+            self.restore_configuration()
+            restored = {
+                "scope": "original device configuration restored before MainActivity",
+                "wm_size": self.shell("wm", "size"), "wm_density": self.shell("wm", "density"),
+                "settings": [{"namespace": ns, "key": key, "value": self.shell("settings", "get", ns, key)}
+                             for ns, key in DEVICE_SETTINGS],
+            }
+            (self.output / "component-kit-display-restored.json").write_text(json.dumps(restored, indent=2))
             # MainActivity is started once by run() immediately after this returns.
             self.shell("am", "force-stop", PACKAGE)
 
     def component_movie(self, root, theme_slug, remote, supports_recording):
         stem = f"component-motion-{theme_slug}"
         result = {"scope": "debug shared components; no audio, GL or foreground service", "theme": theme_slug,
-                  "time_limit_seconds": 6, "bit_rate": 900000, "actions": [], "action_elapsed_seconds": {}}
+                  "time_limit_seconds": 14, "bit_rate": 700000, "actions": [], "action_elapsed_seconds": {}}
         recorder = None
         try:
             if supports_recording:
                 recorder = subprocess.Popen(
-                    ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "6",
-                     "--bit-rate", "900000", remote], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "14",
+                     "--bit-rate", "700000", remote], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 )
             started = time.monotonic()
             time.sleep(0.2)
+            self.tap_current(root, "Awaken", settle=0.15)
+            result["actions"].append("Tapped Awaken")
+            result["action_elapsed_seconds"]["Awaken"] = round(time.monotonic() - started, 2)
+            root = self.capture(f"component-awaken-{theme_slug}")
+            self.assert_labels(root, "Scene: 1", "Interactions: 0")
+            self.assert_selected(root, "Selected capsule", allow_checked=True)
+            self.assert_selected(root, "Selected round button", allow_checked=True)
             for count, label in enumerate(("Press capsule", "Press round button", "Selected capsule"), start=1):
                 # The root is the latest actual XML, captured just before this
                 # press. Animation changes pixels, never these measured targets.
@@ -302,7 +362,7 @@ class SmokeRun:
             self.assert_not_selected(root, "Selected capsule", allow_checked=True)
             self.assert_selected(root, "Selected round button", allow_checked=True)
             if recorder is not None:
-                stdout, stderr = recorder.communicate(timeout=15)
+                stdout, stderr = recorder.communicate(timeout=25)
                 (self.output / f"{stem}-screenrecord.txt").write_bytes(stdout + stderr)
                 if recorder.returncode:
                     raise RuntimeError(f"Component screenrecord exited {recorder.returncode}: {theme_slug}")
@@ -671,18 +731,54 @@ class SmokeRun:
                 self.assert_labels(root, "New playlist", "Import playlist…")
             if destination == "Visuals" and label == "Textures":
                 self.assert_labels(root, "Import images", "No textures imported yet.")
-        self.events.append(f"All five {destination} tabs selected and captured")
+            if destination == "Visuals" and label == "Customize":
+                self.customize_toolbar()
+        self.events.append(f"All {len(labels)} {destination} tabs selected and captured")
+
+    def customize_toolbar(self):
+        self.seek("Set A", clickable=True, fully_visible=True, scroll="vertical")
+        root = self.capture("visuals-customize-toolbar-a")
+        self.assert_selected(root, "Visuals")
+        self.assert_selected(root, "Customize")
+        if self.fully_visible_action(root, "Set A") is None:
+            raise AssertionError("Customize Set A action was clipped by its actual scroll viewport")
+        self.seek("Set B", clickable=True, fully_visible=True, scroll="horizontal", scroll_labels=CUSTOMIZE_AB_LABELS)
+        root = self.capture("visuals-customize-toolbar-b")
+        if self.fully_visible_action(root, "Set B") is None:
+            raise AssertionError("Customize Set B action was clipped by its actual scroll viewport")
+        self.events.append("Customize Set A and Set B enabled actions fully contained in their native scroll viewports")
+
+    def live_visualizer(self):
+        # View live expands the existing shared native VisualizerView. Its exact
+        # collapse icon label comes from VisualizerScreen's action_collapse string.
+        self.tap("View live", scroll="vertical", reverse=True)
+        root = self.capture("live-visualizer")
+        self.assert_labels(root, "Collapse")
+        if self.action(root, "Collapse") is None:
+            raise AssertionError("Live visualizer had no enabled native Collapse action")
+        self.tap_current(root, "Collapse")
+        root = self.capture("live-visualizer-collapsed")
+        self.assert_selected(root, "Visuals")
+        self.assert_selected(root, "Takes")
+        self.assert_labels(root, *DESTINATIONS, "View live")
+        if self.find(root, "Collapse") is not None:
+            raise AssertionError("Live visualizer Collapse action remained after dismissal")
+        if not self.shell("pidof", PACKAGE):
+            raise AssertionError("App process died after collapsing the live visualizer")
+        self.events.append("Existing live visualizer opened and collapsed to the original Visuals Takes tab")
 
     def preferences(self):
         self.visit("Settings")
         self.tap("Look", scroll="horizontal", reverse=True)
-        root, _ = self.seek("Tidal Glass", scroll="horizontal")
-        self.assert_selected(root, "Tidal Glass", allow_checked=True)
+        root, _ = self.seek("Tidal Glass", scroll="horizontal", scroll_labels=THEME_LABELS)
+        if not self.checked(root, "Tidal Glass"):
+            raise AssertionError("Fresh-install default theme RadioButton was not checked: Tidal Glass")
         self.events.append("Fresh-install default theme is Tidal Glass")
         for name, theme_slug in THEMES:
-            self.tap(name, scroll="horizontal", scroll_labels=THEME_LABELS)
+            self.select_theme(name)
             root = self.capture(f"glass-picker-{theme_slug}")
-            self.assert_selected(root, name, allow_checked=True)
+            if not self.checked(root, name):
+                raise AssertionError(f"Theme RadioButton was not checked after selection: {name}")
             self.visit("Player", f"glass-{theme_slug}")
             self.seek("Search", scroll="vertical", reverse=True)
             root = self.capture(f"glass-theme-{theme_slug}")
@@ -691,13 +787,15 @@ class SmokeRun:
             self.visit("Settings", f"glass-{theme_slug}")
             self.tap("Look", scroll="horizontal", reverse=True)
         self.events.append("All eleven built-in themes selected and captured with the actual loaded PlayerHero")
-        self.tap("Tidal Glass", scroll="horizontal", reverse=True, scroll_labels=THEME_LABELS)
-        self.assert_selected(self.capture("theme-tidal-restored"), "Tidal Glass", allow_checked=True)
+        self.select_theme("Tidal Glass", reverse=True)
+        if not self.checked(self.capture("theme-tidal-restored"), "Tidal Glass"):
+            raise AssertionError("Restored theme RadioButton was not checked: Tidal Glass")
         self.restart("theme-tidal-restart")
         self.visit("Settings", "tidal-theme-persisted")
         self.tap("Look", scroll="horizontal", reverse=True)
         root, _ = self.seek("Tidal Glass", scroll="horizontal", scroll_labels=THEME_LABELS)
-        self.assert_selected(root, "Tidal Glass", allow_checked=True)
+        if not self.checked(root, "Tidal Glass"):
+            raise AssertionError("Restored theme RadioButton was not checked after restart: Tidal Glass")
         self.events.append("Restored Tidal Glass theme persisted across process restart")
         self.ensure_playing("tidal-theme")
         self.visit("Settings", "tidal-theme")
@@ -810,7 +908,7 @@ class SmokeRun:
             "api": self.shell("getprop", "ro.build.version.sdk"),
             "model": self.shell("getprop", "ro.product.model"),
             "package": PACKAGE, "variant": "debug", "runs": 1,
-            "scope": "eleven debug component kits, fresh onboarding, empty queue, generated WAV playback, five destinations, search, ten Library/Visuals tabs, seven Settings tabs, eleven themes, preferences, process restart, adaptive UI",
+            "scope": "eleven debug component kits, fresh onboarding, empty queue, generated WAV playback, five destinations, search, ten Library/Visuals tabs, Customize toolbar visibility, native live visualizer collapse, seven Settings tabs, eleven themes, preferences, process restart, adaptive UI",
             "performance_scope": "emulator gfxinfo/meminfo only; no physical latency, GPU or frame-rate guarantee",
             "profiles": {"compact-font-200": {"size": "1080x1920", "density": 480, "font_scale": 2.0},
                          "landscape": {"size": "1080x1920", "density": 480, "font_scale": 1.0, "user_rotation": 1}},
@@ -841,6 +939,7 @@ class SmokeRun:
         self.tabs("Library", LIBRARY_TABS)
         self.playback()
         self.tabs("Visuals", VISUALS_TABS)
+        self.live_visualizer()
         root = self.visit("Studio")
         self.assert_labels(root, "Open a video…", "NOTHING RENDERED YET")
         self.tabs("Settings", SETTINGS_TABS)

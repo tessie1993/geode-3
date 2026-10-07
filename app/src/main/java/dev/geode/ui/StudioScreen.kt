@@ -287,7 +287,13 @@ private fun ClipRow(
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             VideoFrame(clip.uri, atMs = clip.durationMs / 3, modifier = Modifier.width(96.dp).height(56.dp))
-            Column(Modifier.weight(1f).padding(start = 12.dp).jellyMatteSheet(corner = 12.dp).padding(8.dp)) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+                    .jellyMatteSheet(corner = 12.dp)
+                    .padding(8.dp),
+            ) {
                 Text(
                     clip.name,
                     style = MaterialTheme.typography.bodyMedium,
