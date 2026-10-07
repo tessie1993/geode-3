@@ -5,11 +5,11 @@ completion report.** The user-facing scope is [FEATURE_SPEC.md](FEATURE_SPEC.md)
 the technical contract is [ARCHITECTURE.md](ARCHITECTURE.md). Read actual branch
 changes and evidence in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
-This plan expands `docs/rebuild/PLAN.md`. The owner's current C++/Media3/**Oboe**
-instruction supersedes the earlier instruction to remove Oboe. Preserve Oboe for
-native low-latency input; migrate ordinary music output to Media3. Keep the Fluid
-family, eight raymarched styles and projectM compatibility. Style removal follows
-replacement and saved-data migration, not an arbitrary count target.
+This plan expands `docs/rebuild/PLAN.md`. Owner decision (7 October 2026): Oboe is
+removed with the native player (PR #10); native low-latency input uses AAudio
+directly; ordinary music output is Media3. Keep the Fluid family, eight raymarched
+styles and projectM compatibility. The older styles are removed with saved-preset
+migration. Package ownership is in [README.md](README.md#ownership-owner-decision-7-october-2026).
 
 The premium release architecture proposed here includes a small purchase
 verification backend and optional identity. That changes the historical
@@ -29,7 +29,7 @@ not a substitute for this package. Google/Drive remains optional for local use.
 
 At the inspected baseline, Media3 playback, native visual families, presets,
 wallpaper and export paths exist. Audit findings still require fixes or verified
-closure. Full Studio composition, six signature 3D scenes, Oboe microphone,
+closure. Full Studio composition, six signature 3D scenes, AAudio microphone,
 production purchases, optional identity/backup and Play readiness cannot be
 marked complete from that code's presence. Branch patches are tracked separately;
 this document does not claim that newly written tests have been executed.
@@ -63,11 +63,11 @@ this document does not claim that newly written tests have been executed.
 |---|---|---|---|
 | D00 Baseline and CI | A1, R4/R5 | None | Reproducible build/evidence pipeline, verified repository state |
 | D01 Contracts, migration and security model | R1–R5 | D00 | Stable data/source/scene/project contracts and threat inventory |
-| D02 Media3 output migration | A2, part A3 | D01 | One supported music output path; Oboe retained |
+| D02 Media3 output migration | A2, part A3 | D01 | One supported music output path; native player and Oboe removed (PR #10) |
 | D03 Engine correctness | B2 | D01 | Safe native lifetime, real beat response, clocks and pause behavior |
 | D04 Service-owned player | A3 | D02 | Player rules survive UI loss and cold external launch |
 | D05 projectM repair | B3 | D03 | Stable PCM, presets, resize and deterministic time |
-| D06 Oboe input and source routing | A2b | D02–D04 | Low-latency mic and explicit single-source ownership |
+| D06 AAudio input and source routing | A2b | D02–D04 | Low-latency mic and explicit single-source ownership |
 | D07 Data and integration interfaces | A4/A5 foundation | D01, D04 | Durable repositories, migrations and integration boundaries |
 | D08 3D route prototype | B4 | D03, D05 | Measured renderer go/no-go with live/export scene |
 | D09 3D foundation | B5 | D08 | Camera, scene controls, post-processing and tier contracts |
@@ -146,8 +146,8 @@ from the specification map to packages and tests. No bulk style deletion yet.
 ### D02–D04 — Supported playback and engine correctness
 
 **D02:** migrate saved NativePlayer/bit-perfect/crossfade choices to supported
-Media3 behavior; remove unsupported promises and controls. Retain Oboe native
-dependency for D06. Keep queue IDs, resume positions, EQ and user media intact.
+Media3 behavior; remove unsupported promises and controls. The native player and
+Oboe are removed (PR #10). Keep queue IDs, resume positions, EQ and user media intact.
 Tap app-processed PCM at the chosen DSP position and document device/hardware
 effects outside that tap. Never run duplicate audible output engines.
 
@@ -188,9 +188,9 @@ not close the full D03 contract.
 black-frame/preset resets; deterministic export checkpoints; malformed pack and
 interrupted-install tests; compliance materials for the actual linked version.
 
-### D06 — Oboe microphone and source arbitration
+### D06 — AAudio microphone and source arbitration
 
-- Implement a C++ Oboe input owner, control thread and preallocated callback queue.
+- Implement a C++ AAudio input owner, control thread and preallocated callback queue.
   Negotiate actual rate/format/channels; try supported low-latency options and
   implement shared/backend fallback and disconnect/reopen recovery.
 - Keep allocation, locks, FFT, JNI and storage/network work outside the callback.
@@ -199,7 +199,7 @@ interrupted-install tests; compliance materials for the actual linked version.
 - Grant one producer lease to local music, microphone, eligible playback capture
   or silent drive. Reject callbacks from obsolete epochs after switching.
 - Keep MediaProjection consent and AudioRecord for eligible other-app capture;
-  Oboe does not replace platform consent. Handle permission denial/revocation,
+  AAudio does not replace platform consent. Handle permission denial/revocation,
   no input, route changes and screen/background service rules explicitly.
 
 **Acceptance:** callback audit, source-switch tests and real-device input-latency

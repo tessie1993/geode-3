@@ -12,7 +12,7 @@ Status: target specification, not a list of completed features. Source baseline:
 | Primary users | Music listeners, generative-art explorers, musicians and video creators |
 | Platform | Android phones, tablets and foldables; Android Auto browsing is a player surface, not a visualizer surface |
 | Compatibility baseline | Existing minSdk 26, targetSdk 36, compileSdk 37; arm64-v8a and x86_64; GLES capability probes; 16 KB native support |
-| Native implementation | C++20, NDK/CMake, GLES 3.x, Oboe, KISS FFT and isolated projectM library |
+| Native implementation | C++20, NDK/CMake, GLES 3.x, AAudio, KISS FFT and isolated projectM library |
 | Android implementation | Kotlin, Compose, Media3, Hilt, coroutines/StateFlow, Room/DataStore as migrations justify them |
 | Audio sources | Local music; optional microphone; eligible Android playback capture; silent generative drive |
 | Output | Live visualization, wallpaper, still image, offline MP4 H.264/AAC; HEVC/4K only when encoder capability and quality tests pass |
@@ -38,7 +38,7 @@ hidden omission. "Present" below means code exists, not device-certified.
 | P05 | EQ, ReplayGain, speed/pitch, skip silence | Present / R0 | Only supported controls shown; effects survive UI teardown and rate changes; no clipping beyond defined limiter behavior |
 | P06 | Sleep timer, A-B repeat, history and long-track resume | UI-owned portions need migration / R1 | Rules run under service lifetime; process restoration and seek boundaries tested |
 | P07 | Timed lyrics, track details, playlist import/export | Partial / R1 | Malformed metadata fails safely; file-format round trip; no writing user audio tags in initial release |
-| P08 | Native low-latency microphone via Oboe | Planned; current mic is AudioRecord / R1 | Measured callback-to-feature latency, negotiated sample rate, route/disconnect recovery and denied permission |
+| P08 | Native low-latency microphone via AAudio | Planned; current mic is AudioRecord / R1 | Measured callback-to-feature latency, negotiated sample rate, route/disconnect recovery and denied permission |
 | P09 | Device playback capture | Present / R1 | Consent each session as required; token revocation stops service; ineligible source clearly reported |
 | P10 | Explicit source arbitration | Rebuild / R0 | Exactly one selected PCM producer; switching resets epoch without mixing unrelated sources |
 | P11 | Android Auto and widget | Present / R1 | Browsing/control on a cold process, missing art, process death and system-selected track |
