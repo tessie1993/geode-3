@@ -4,8 +4,9 @@
 # Usage: tools/import-theme-pack.sh <extracted-pack-dir> [<pack-dir> ...]
 #
 # Pass EVERY pack the app should ship, in the order they should appear in the
-# theme picker: this imports their assets and regenerates ThemePackCatalog.kt
-# to list exactly that set. Adding a crystal is then a folder drop plus one
+# theme picker after the native Tidal Glass default: this imports their assets
+# and regenerates ThemePackCatalog.kt. Kyanite is required as its fallback.
+# Adding a crystal is then a folder drop plus one
 # re-run - no hand-written Kotlin.
 #
 # A pack is the unpacked `MusicViz-<Stone>-Theme-Pack/` folder (the packs keep
@@ -38,13 +39,32 @@ RES="$SCRIPT_DIR/../app/src/main/res"
 DRAWABLE="$RES/drawable-nodpi"
 RAW="$RES/raw"
 FONT="$RES/font"
-mkdir -p "$DRAWABLE" "$RAW" "$FONT"
 
 # 18 component families x 5 interaction states, exactly as the packs ship them.
 STATES="default focused pressed selected disabled"
 FAMILIES="album-tile bottom-sheet card chip compact-button dialog icon-button \
 knob list-row mini-player navigation-bar primary-button progress-ring \
 secondary-button slider-thumb slider-track text-field toggle"
+
+# The native waterglass pack reuses Kyanite's full component-state fallback.
+# Check before writing assets or replacing the catalog so regeneration cannot
+# produce an unresolved base reference or silently remove the native default.
+TIDAL_BASE_PRESENT=0
+for PACK in "$@"; do
+    [ -f "$PACK/manifest.json" ] || { echo "not a theme pack: $PACK" >&2; exit 1; }
+    if grep -Eq '"slug"[[:space:]]*:[[:space:]]*"tidal[-_]glass"' "$PACK/manifest.json"; then
+        echo "Tidal Glass is a reserved native theme; do not import it as a crystal pack" >&2
+        exit 1
+    fi
+    if grep -Eq '"slug"[[:space:]]*:[[:space:]]*"kyanite"' "$PACK/manifest.json"; then
+        TIDAL_BASE_PRESENT=1
+    fi
+done
+if [ "$TIDAL_BASE_PRESENT" -ne 1 ]; then
+    echo "Kyanite is required as the Tidal Glass fallback pack" >&2
+    exit 1
+fi
+mkdir -p "$DRAWABLE" "$RAW" "$FONT"
 
 # Quality 90 measured at 12.9% of PNG across all ten packs, with no visible
 # difference on crystal surfaces. Raise it before reaching for PNG again.
@@ -140,7 +160,7 @@ package dev.geode.ui.theme
 import androidx.compose.ui.graphics.Color
 import dev.geode.R
 
-/** Every crystal pack this build ships, in theme-picker order. */
+/** The native waterglass default, followed by crystal packs in theme-picker order. */
 object ThemePackCatalog {
 HEADER
 
@@ -228,8 +248,10 @@ EOK
 EOK
     done
 
+    echo "    val tidalGlass = TidalThemePack.create(kyanite)"
+    echo ""
     echo "    /** Picker order; the first entry is the app default. */"
-    echo "    val all: List<ThemePack> = listOf($(echo $NAMES | sed 's/ /, /g'))"
+    echo "    val all: List<ThemePack> = listOf(tidalGlass, $(echo $NAMES | sed 's/ /, /g'))"
     echo ""
     echo "    /** Pack for a persisted slug, or the default when unknown. */"
     echo "    fun bySlug(slug: String?): ThemePack = all.firstOrNull { it.slug == slug } ?: all.first()"

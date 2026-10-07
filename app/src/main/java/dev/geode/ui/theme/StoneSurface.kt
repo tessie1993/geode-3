@@ -18,6 +18,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import dev.geode.ui.TidalSurfaceArt
+import dev.geode.ui.tidalPressRipple
 
 @Composable
 fun StoneSurfaceArt(
@@ -27,6 +29,10 @@ fun StoneSurfaceArt(
     reducedMotion: Boolean = false,
 ) {
     val pack = LocalThemePack.current
+    if (pack.isTidalGlass) {
+        TidalSurfaceArt(component, state, modifier)
+        return
+    }
     val art = pack.surface(component)
     val motion = pack.motion
 
@@ -35,7 +41,7 @@ fun StoneSurfaceArt(
         val visible = state == target
         val durationMs =
             when {
-                reducedMotion -> motion.reduceMotionCrossfadeMs
+                reducedMotion || LocalReducedMotion.current -> 0
                 target == StoneState.PRESSED || state == StoneState.PRESSED -> motion.pressDurationMs
                 target == StoneState.FOCUSED || state == StoneState.FOCUSED -> motion.focusDurationMs
                 else -> motion.selectedDurationMs
@@ -75,23 +81,30 @@ fun Modifier.stonePress(
     interaction: InteractionSource,
     reducedMotion: Boolean = false,
 ): Modifier {
-    val motion = LocalThemePack.current.motion
+    val pack = LocalThemePack.current
+    val motion = pack.motion
+    val motionDisabled =
+        reducedMotion || LocalReducedMotion.current ||
+            (pack.isTidalGlass && !LocalMaterialResumed.current)
     val pressed by interaction.collectIsPressedAsState()
     val view = LocalView.current
     LaunchedEffect(pressed) {
         if (pressed) view.performStoneHaptic(StoneHapticCue.TAP)
     }
     val scale by animateFloatAsState(
-        targetValue = if (pressed && !reducedMotion) motion.pressScale else 1f,
+        targetValue = if (pressed && !motionDisabled) motion.pressScale else 1f,
         animationSpec =
-            if (pressed) {
+            if (motionDisabled) {
+                tween(0)
+            } else if (pressed) {
                 tween(motion.pressDurationMs)
             } else {
                 spring(dampingRatio = 0.78f, stiffness = 380f)
             },
         label = "stone-press",
     )
-    return scale(scale)
+    val relief = scale(scale)
+    return if (pack.isTidalGlass) relief.tidalPressRipple(interaction, motionDisabled) else relief
 }
 
 @Composable

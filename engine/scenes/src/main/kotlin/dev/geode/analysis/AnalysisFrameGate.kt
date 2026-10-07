@@ -23,6 +23,5 @@ internal class AnalysisFrameGate(
         return true
     }
 
-    private fun matches(configuredRateHz: Int): Boolean =
-        currentRateHz() == configuredRateHz && isCurrentSnapshot()
+    private fun matches(configuredRateHz: Int): Boolean = currentRateHz() == configuredRateHz && isCurrentSnapshot()
 }

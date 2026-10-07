@@ -2004,7 +2004,9 @@ object ThemePackCatalog {
                 ),
         )
 
-    val all: List<ThemePack> = listOf(lapisLazuli, sugilite, amethyst, clearQuartz, azurite, firestone, kyanite, malachite, mookaite, onyx)
+    val tidalGlass = TidalThemePack.create(kyanite)
+
+    val all: List<ThemePack> = listOf(tidalGlass, lapisLazuli, sugilite, amethyst, clearQuartz, azurite, firestone, kyanite, malachite, mookaite, onyx)
 
     fun bySlug(slug: String?): ThemePack = all.firstOrNull { it.slug == slug } ?: all.first()
 }

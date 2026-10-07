@@ -37,11 +37,17 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.geode.R
 import dev.geode.render.VisualizerView
+import dev.geode.ui.theme.LocalBackgroundDim
+import dev.geode.ui.theme.LocalMaterialResumed
+import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.ThemePack
 import dev.geode.ui.theme.colorScheme
+import dev.geode.ui.theme.isTidalGlass
 import dev.geode.ui.theme.stoneTypography
+import dev.geode.ui.theme.tidalTypography
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -51,6 +57,9 @@ internal fun CrystalMaterialTheme(
     gui: GuiPrefs,
     content: @Composable () -> Unit,
 ) {
+    val systemMotionDisabled = rememberSystemMotionDisabled()
+    val reducedMotion = gui.reducedMotion || systemMotionDisabled
+    val resumed = rememberMaterialResumed()
     val fontColor = pack.resolvedFontColor(gui.fontColorOverride, gui.backgroundDim)
     val scheme =
         pack.colorScheme(
@@ -60,13 +69,23 @@ internal fun CrystalMaterialTheme(
         )
     CompositionLocalProvider(
         LocalThemePack provides pack,
+        LocalReducedMotion provides reducedMotion,
+        LocalBackgroundDim provides gui.backgroundDim,
+        LocalMaterialResumed provides resumed,
         LocalFontColor provides fontColor?.let { Color(it) },
         LocalContentColor provides scheme.onBackground,
     ) {
         MaterialTheme(
             colorScheme = scheme,
             shapes = gui.cornerStyle.shapes(),
-            typography = crystalTypography(gui.textScale),
+            typography =
+                if (pack.isTidalGlass) {
+                    tidalTypography(
+                        gui.textScale.coerceIn(GuiPrefs.TEXT_SCALE_MIN, GuiPrefs.TEXT_SCALE_MAX),
+                    )
+                } else {
+                    crystalTypography(gui.textScale)
+                },
             content = content,
         )
     }
@@ -163,6 +182,19 @@ fun Modifier.crystalPanel(
 ): Modifier =
     composed {
         val pack = LocalThemePack.current
+        if (pack.isTidalGlass) {
+            return@composed this.tidalPanel(
+                capsule = ImageBitmap.imageResource(R.drawable.tidal_glass_capsule),
+                opacity = opacity,
+                tint = tint,
+                glow = glow,
+                corner = corner,
+                glowStrength = glowStrength,
+                facets = facets,
+                prismatic = prismatic,
+                sheen = sheen,
+            )
+        }
         val tile = ImageBitmap.imageResource(pack.material.tile)
         val alpha = opacity.coerceIn(0f, 1f)
         val texAlpha = (pack.material.surfaceOpacity * facets.coerceIn(0f, 1.5f)).coerceIn(0f, 1f)
@@ -228,9 +260,13 @@ fun Modifier.luminousHairline(glow: Color): Modifier =
 @Composable
 fun CrystalBackground(
     modifier: Modifier = Modifier,
-    @Suppress("UNUSED_PARAMETER") reducedMotion: Boolean = false,
+    reducedMotion: Boolean = false,
 ) {
     val pack = LocalThemePack.current
+    if (pack.isTidalGlass) {
+        TidalForestBackground(modifier, reducedMotion)
+        return
+    }
     val cs = MaterialTheme.colorScheme
     BoxWithConstraints(modifier) {
         val art =

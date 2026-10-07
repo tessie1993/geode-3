@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -31,6 +33,9 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -107,7 +112,7 @@ private fun ThemePickerRow(
     viewModel: SettingsViewModel,
     current: dev.geode.ui.theme.ThemePack,
 ) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    LazyRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items(dev.geode.ui.theme.ThemePackCatalog.all) { t ->
             val sel = t.slug == current.slug
             CompositionLocalProvider(dev.geode.ui.theme.LocalThemePack provides t) {
@@ -122,7 +127,8 @@ private fun ThemePickerRow(
                             glowStrength = if (sel) 1.1f else 0.35f,
                             prismatic = sel,
                             sheen = t.palette.secondary,
-                        ).clickable { viewModel.setTheme(t) }
+                        ).selectable(selected = sel, role = Role.RadioButton, onClick = { viewModel.setTheme(t) })
+                        .semantics { contentDescription = t.name }
                         .padding(horizontal = 8.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp),
