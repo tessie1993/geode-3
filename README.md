@@ -31,37 +31,39 @@ ABIs arm64-v8a and x86_64. The full version history is in
   in-app GLSL editor; the GPU fluid family (nine Fluid looks over one solver,
   plus Curl Flow and Water);
   Cymatics; MilkDrop via projectM 4 built in-tree from a git submodule. Every
-  scene is rendered by the native core; the Customize panel exposes every
-  parameter with per-param locks, a randomizer, LFO and ADSR modulation, a
-  palette maker, presets (JSON + `.milk`) and photosensitivity clamps.
+  scene is rendered by the native core. Customize includes parameter locks,
+  randomization, LFO/ADSR mapping, palettes and presets (JSON + `.milk`). The
+  audit identifies inert controls and incomplete saved-state coverage; see the
+  blueprint's bug audit and active work queue for fixes and verification.
 - **Studio** — a multi-lane timeline (visual, media, text, overlay, audio
   lanes) with trim, split, ripple, snapping, markers, tap-in, auto-cut from the
   analysed track, keyframe curves for scene and clip parameters, GL
   Transitions between clips, speed ramps, `.cube` LUTs and per-channel gamma,
-  captions from lyrics or SRT (import and export). The visualizer export is
-  frame-exact from the analysis timeline; the cut export runs on Media3
-  Transformer. Both encode H.264 or HEVC, with H.264 as the fallback when a
-  device has no HEVC encoder.
+  captions from lyrics or SRT (import and export). The visualizer export uses an
+  analysis timeline; cut export uses Media3 Transformer. Full Visual/Overlay lane
+  composition and live-performance fidelity remain incomplete. Codec support
+  depends on the device and must be verified on the release candidate.
 - **Live wallpaper** — the visualizer as a home-screen wallpaper, with an idle
   drive so it keeps moving without audio.
-- **Other apps' audio** — Android 10+ playback capture feeds the same PCM ring
-  buffer the player's tap and the microphone share, so every scene, the
-  exporter and the wallpaper work unchanged on foreign audio.
+- **Other apps' audio** — eligible Android 10+ playback capture feeds live
+  visualization. Current export reads the selected local track; it does not
+  record or mux captured other-app audio. Actual audiovisual performance
+  recording is a separate implementation package.
 
 ## Build
 
-```bash
-git submodule update --init --recursive   # projectM, kissfft, oboe, taglib
-./gradlew assembleDebug                   # debug APK, native core included
-./gradlew installDebug                    # install on a connected device
-./gradlew ktlintCheck detekt              # style and static analysis
-```
+Use the **Android Build** GitHub Actions workflow on a pull request, main push
+or manual run. It checks out native submodules and installs SDK 37.0, NDK
+`30.0.16248370`, CMake `4.1.2`, JDK 21 for Gradle/analysis and JDK 25 for the
+compiler. A controlled source rebuild prepares the AndroidX native dependency
+before Gradle resolves it.
 
-Requires JDK 25, the Android SDK with `platforms;android-37.0`, NDK
-`30.0.16248370` and CMake 4.1.2; `local.properties` must point at the SDK.
-`tools/setup-android-sdk.sh` installs those packages on a machine without
-them. The workflows under `.github/workflows` build the debug APK, ship a
-signed APK and cut a Play Store release; they check out the submodules.
+After compilation and packaging validation, the run uploads `Geode-debug.apk`,
+instrumentation APK, checksums and native-dependency provenance. Emulator and
+quality jobs verify that build. A signed Play AAB is an opt-in job gated on all
+checks and signing configuration; the workflow does not publish to Play. Check
+the exact run result before treating an artifact as verified. See
+[CI instructions](docs/blueprint/CI.md).
 
 ## Architecture
 
@@ -82,7 +84,7 @@ dynamically linked):
 |---|---|
 | `core/api` | `geode_api.h`, the `extern "C"` ABI — the only thing JNI calls |
 | `core/analysis` | FFT (kissfft), bands, onsets, tempo, beats, bars, key, structure, stereo field; the feature frame |
-| `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the superformula driver (`FormDrive`) that modulates every family's parameters with the music, transitions, safety clamps, every scene family |
+| `core/viz` | GL capability probing, program cache, scene/trails/composite rendering, continuous MotionField inputs, transitions, safety controls and every native scene family; legacy FormDrive controls still require repair |
 | `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter |
 | `core/audio/player` | AMediaCodec decode, resampling, a lock-free mixer with gapless and crossfade, Oboe output |
 | `core/library` | TagLib tag reading over a file descriptor |

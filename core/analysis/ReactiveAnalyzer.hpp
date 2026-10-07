@@ -67,7 +67,7 @@ public:
     float harmonicity() const { return harmonicity_; }
     float warmup() const { return range_.warmup(); }
 
-    void analyze(const float* samples, float dtSeconds);
+    void analyze(const float* samples, float dtSeconds, const float* side = nullptr);
     void reset();
     void spectrumInto(float* out) const;
 
@@ -81,7 +81,7 @@ private:
     void silenceOutputs();
     void toDb(const float* power, float* out) const;
     void smooth(const float* source, float dtSeconds);
-    float rmsOf(const float* samples) const;
+    float rmsOf(const float* samples, const float* side) const;
     float normalizedCentroid() const;
     float macroEnergyOf(float level, float dtSeconds);
     float mean(const std::vector<float>& values, int from, int to) const;

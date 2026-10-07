@@ -4,10 +4,9 @@ import dev.geode.analysis.AudioFeatures
 import dev.geode.data.PaletteStore
 import dev.geode.data.Preset
 import dev.geode.render.LiveSignal
-import dev.geode.render.scene.MilkdropEngine
-import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.StateFlow
+import kotlin.random.Random
 
 /** A switch waits for a hit this strong — the live transient, not a tracked beat. */
 private const val STRONG_MOMENT_IMPULSE = 0.6f
@@ -15,6 +14,9 @@ private const val STRONG_MOMENT_IMPULSE = 0.6f
 internal class AutoVisualsController(
     private val prefsStore: AutoVisualsPrefsStore,
     private val host: Host,
+    private val clockMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
+    private val sceneIds: () -> List<String> = { LayersBus.availableScenes.value },
+    private val randomRng: Random = Random.Default,
 ) {
     interface Host {
         val vizState: StateFlow<VizUiState>
@@ -27,6 +29,7 @@ internal class AutoVisualsController(
         fun features(): AudioFeatures
 
         val presetLocked: Boolean
+        val currentJourney: VisualJourneyKey
 
         fun selectScene(sceneId: String)
 
@@ -45,9 +48,12 @@ internal class AutoVisualsController(
     private var lastVizSwitchMs = 0L
     private var vizPlaylistIndex = 0
     private var lastRandomSwitchMs = 0L
-    private val randomRng = kotlin.random.Random(android.os.SystemClock.elapsedRealtime())
+    private val shuffle = VisualJourneyShuffle(randomRng)
+    private var heldSinceMs: Long? = null
 
     private var cachedMilkFiles: List<MilkFile> = emptyList()
+    private var milkCacheLoaded = false
+    private var milkCacheLoading = false
 
     fun addToVizPlaylist(entry: VizPlaylistEntry) {
         val s = host.vizState.value
@@ -75,7 +81,7 @@ internal class AutoVisualsController(
                 randomEnabled = if (enabled) false else it.randomEnabled,
             )
         }
-        lastVizSwitchMs = android.os.SystemClock.elapsedRealtime()
+        lastVizSwitchMs = clockMs()
         persistAutoVisuals()
     }
 
@@ -90,9 +96,10 @@ internal class AutoVisualsController(
     }
 
     fun advanceVizPlaylist() {
+        if (syncHold()) return
         val s = host.vizState.value
         if (!s.vizPlaylistEnabled || s.vizPlaylist.size < 2 || !host.isPlaying) return
-        val now = android.os.SystemClock.elapsedRealtime()
+        val now = clockMs()
         val elapsed = now - lastVizSwitchMs
         val intervalMs = s.vizPlaylistIntervalSec * 1000L
         val due =
@@ -116,7 +123,7 @@ internal class AutoVisualsController(
                 vizPlaylistEnabled = if (enabled) false else it.vizPlaylistEnabled,
             )
         }
-        lastRandomSwitchMs = android.os.SystemClock.elapsedRealtime()
+        lastRandomSwitchMs = clockMs()
         if (enabled && host.vizState.value.randomIncludeMilk) refreshMilkCache()
         if (enabled) randomStepNow()
         persistAutoVisuals()
@@ -153,12 +160,34 @@ internal class AutoVisualsController(
         persistAutoVisuals()
     }
 
+    /** Hold pauses dwell and keeps the playlist cursor; released section staging waits for a new section. */
+    private fun syncHold(): Boolean {
+        val now = clockMs()
+        if (host.presetLocked) {
+            if (heldSinceMs == null) heldSinceMs = now
+            return true
+        }
+        heldSinceMs?.let { heldAt ->
+            lastVizSwitchMs += (now - maxOf(heldAt, lastVizSwitchMs)).coerceAtLeast(0L)
+            lastRandomSwitchMs += (now - maxOf(heldAt, lastRandomSwitchMs)).coerceAtLeast(0L)
+            lastStagedSection = currentSectionIndex()
+            heldSinceMs = null
+        }
+        return false
+    }
+
     private fun persistAutoVisuals() {
         prefsStore.save(host.vizState.value)
     }
 
     private fun refreshMilkCache() {
-        host.milkFilesAsync { cachedMilkFiles = it }
+        if (milkCacheLoading) return
+        milkCacheLoading = true
+        host.milkFilesAsync {
+            cachedMilkFiles = it
+            milkCacheLoaded = true
+            milkCacheLoading = false
+        }
     }
 
     private fun currentSectionIndex(): Int {
@@ -179,6 +208,7 @@ internal class AutoVisualsController(
     }
 
     fun advanceSectionStaging() {
+        if (syncHold()) return
         val s = host.vizState.value
         if (!s.sectionStaging || !host.isPlaying) return
         val index = currentSectionIndex()
@@ -189,7 +219,10 @@ internal class AutoVisualsController(
             return
         }
         val pool = s.presets.filter { it.sceneId == s.sceneId }
-        if (pool.isNotEmpty()) host.applyPreset(pool[index % pool.size])
+        if (pool.isNotEmpty()) {
+            val preset = pool[index % pool.size]
+            applyVizEntry(VizPlaylistEntry(preset.sceneId, presetName = preset.name, label = preset.name))
+        }
     }
 
     fun setSectionStaging(enabled: Boolean) {
@@ -205,9 +238,10 @@ internal class AutoVisualsController(
     }
 
     fun advanceRandomMode() {
+        if (syncHold()) return
         val s = host.vizState.value
         if (!s.randomEnabled || !host.isPlaying) return
-        val now = android.os.SystemClock.elapsedRealtime()
+        val now = clockMs()
         val elapsed = now - lastRandomSwitchMs
         val intervalMs = s.randomIntervalSec * 1000L
         val due =
@@ -223,30 +257,20 @@ internal class AutoVisualsController(
     }
 
     fun randomStepNow() {
-        if (host.presetLocked) return
+        if (syncHold()) return
         val s = host.vizState.value
-        lastRandomSwitchMs = android.os.SystemClock.elapsedRealtime()
-        val choices = mutableListOf<VizPlaylistEntry>()
-        val sceneIds =
-            dev.geode.render.scene.VisualStyleCatalog.silkIds +
-                dev.geode.render.scene.VisualStyleCatalog.lifeIds +
-                dev.geode.render.scene.VisualStyleCatalog.mycoIds +
-                dev.geode.render.scene.VisualStyleCatalog.acidIds +
-                dev.geode.render.scene.SceneCapabilities.SHADER_SCENES.keys
-        if (s.randomIncludeStyles) sceneIds.forEach { choices += VizPlaylistEntry(sceneId = it, label = it) }
-        if (s.randomIncludePresets) {
-            s.presets.forEach { choices += VizPlaylistEntry(sceneId = it.sceneId, presetName = it.name, label = it.name) }
-        }
-        if (s.randomIncludeMilk && MilkdropEngine.available) {
-            cachedMilkFiles.forEach {
-                choices += VizPlaylistEntry(sceneId = SceneIds.MILKDROP, milkPath = it.path, label = it.name)
-            }
-        }
-        if (choices.isEmpty()) return
-        var pick = choices[randomRng.nextInt(choices.size)]
-        if (choices.size > 1 && pick.sceneId == s.sceneId && pick.presetName == null && pick.milkPath == null) {
-            pick = choices[randomRng.nextInt(choices.size)]
-        }
+        if (s.randomIncludeMilk && !milkCacheLoaded) refreshMilkCache()
+        val choices =
+            visualJourneyChoices(
+                sceneIds(),
+                s.presets,
+                cachedMilkFiles,
+                s.randomIncludeStyles,
+                s.randomIncludePresets,
+                s.randomIncludeMilk,
+            )
+        val pick = shuffle.next(choices, host.currentJourney) ?: return
+        lastRandomSwitchMs = clockMs()
         applyVizEntry(pick)
         if (s.randomizeColors) {
             val palette = randomRng.nextInt(SceneParams.PALETTES.size)

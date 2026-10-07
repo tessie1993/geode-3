@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="premium_preview_action">Preview premium screen</string>
+    <string name="premium_preview_notice_title">Premium preview</string>
+    <string name="premium_preview_notice_body">Purchases and sign-in are unavailable in this review build. The production privacy policy and purchase terms must be published and connected before purchases are enabled.</string>
+</resources>

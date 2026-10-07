@@ -25,6 +25,10 @@ internal class VisualSettingsController(
     }
 
     private val state get() = vizStateStore.state
+    private var selectedJourney: VisualJourneyKey? = null
+
+    val currentJourney: VisualJourneyKey
+        get() = selectedJourney?.takeIf { it.sceneId == state.value.sceneId } ?: VisualJourneyKey(state.value.sceneId)
 
     private val _vizApply = MutableSharedFlow<VizApply>(extraBufferCapacity = 8)
     val vizApply: SharedFlow<VizApply> = _vizApply
@@ -33,10 +37,14 @@ internal class VisualSettingsController(
     val morphFade: SharedFlow<Float> = _morphFade
 
     fun emitApply(apply: VizApply) {
+        if (apply.milkPath != null) {
+            selectedJourney = VisualJourneyKey(apply.sceneId ?: state.value.sceneId, milkPath = apply.milkPath)
+        }
         _vizApply.tryEmit(apply)
     }
 
     fun selectScene(sceneId: String) {
+        selectedJourney = VisualJourneyKey(sceneId)
         state.update { it.copy(sceneId = sceneId) }
         vizStateStore.persist()
     }
@@ -102,6 +110,7 @@ internal class VisualSettingsController(
     }
 
     fun applyPreset(preset: Preset) {
+        selectedJourney = VisualJourneyKey(preset.sceneId, presetName = preset.name)
         engine.attack = preset.attack
         engine.decay = preset.decay
         state.update {

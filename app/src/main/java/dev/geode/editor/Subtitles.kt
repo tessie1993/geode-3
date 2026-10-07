@@ -1,6 +1,8 @@
 package dev.geode.editor
 
 import dev.geode.ui.LyricLine
+import java.io.IOException
+import java.io.InputStream
 
 data class SubtitleCue(
     val startMs: Long,
@@ -15,21 +17,56 @@ object Subtitles {
     const val MAX_LYRIC_CUE_MS: Long = 8_000L
     private const val MIN_CUE_MS: Long = MIN_CLIP_DURATION_MS
 
-    fun parseSrt(text: String): List<SubtitleCue> =
-        text
-            .replace("\r\n", "\n")
-            .split(Regex("\n\\s*\n"))
-            .mapNotNull(::cueFromBlock)
-            .sortedBy { it.startMs }
+    const val MAX_INPUT_BYTES = 1024 * 1024
+    const val MAX_CUES = 2000
+    private const val MAX_LINE_CHARS = 4096
+    private const val MAX_CUE_CHARS = 8192
+    private const val MAX_LINES = 16_000
 
-    private fun cueFromBlock(block: String): SubtitleCue? {
-        val lines = block.lines().map(String::trim).filter(String::isNotEmpty)
-        val timingIndex = lines.indexOfFirst { TIMING.containsMatchIn(it) }
-        val match = lines.getOrNull(timingIndex)?.let { TIMING.find(it) } ?: return null
-        val start = stampMs(match.groupValues, 1)
-        val end = stampMs(match.groupValues, 5)
+    /** A rejected document produces no cues; imports never retain a partially parsed file. */
+    fun readSrt(input: InputStream): List<SubtitleCue>? =
+        try {
+            parseSrt(EditorTextInput.readUtf8(input, MAX_INPUT_BYTES)).takeIf { it.isNotEmpty() }
+        } catch (_: IOException) {
+            null
+        }
+
+    fun parseSrt(text: String): List<SubtitleCue> {
+        if (!EditorTextInput.withinByteLimit(text, MAX_INPUT_BYTES)) return emptyList()
+        val cues = ArrayList<SubtitleCue>()
+        val block = ArrayList<String>()
+        var blockChars = 0
+        var lineCount = 0
+        for (raw in text.removePrefix("\uFEFF").lineSequence()) {
+            if (++lineCount > MAX_LINES || raw.length > MAX_LINE_CHARS || raw.any { it < ' ' && it != '\t' }) return emptyList()
+            val line = raw.trim()
+            if (line.isEmpty()) {
+                if (block.isNotEmpty()) {
+                    if (cues.size >= MAX_CUES) return emptyList()
+                    cues += cueFromBlock(block) ?: return emptyList()
+                    block.clear()
+                    blockChars = 0
+                }
+            } else {
+                blockChars += line.length
+                if (blockChars > MAX_CUE_CHARS) return emptyList()
+                block += line
+            }
+        }
+        if (block.isNotEmpty()) {
+            if (cues.size >= MAX_CUES) return emptyList()
+            cues += cueFromBlock(block) ?: return emptyList()
+        }
+        return cues.sortedBy { it.startMs }
+    }
+
+    private fun cueFromBlock(lines: List<String>): SubtitleCue? {
+        val timingIndex = if (lines[0].all(Char::isDigit)) 1 else 0
+        val match = lines.getOrNull(timingIndex)?.let(TIMING::matchEntire) ?: return null
+        val start = stampMs(match.groupValues, 1) ?: return null
+        val end = stampMs(match.groupValues, 5) ?: return null
         val body = lines.drop(timingIndex + 1).joinToString("\n")
-        return if (end > start && body.isNotBlank()) SubtitleCue(start, end, body) else null
+        return if (end - start >= MIN_CUE_MS && body.isNotBlank()) SubtitleCue(start, end, body) else null
     }
 
     fun toSrt(cues: List<SubtitleCue>): String =
@@ -69,10 +106,11 @@ object Subtitles {
     private fun stampMs(
         groups: List<String>,
         first: Int,
-    ): Long {
+    ): Long? {
         val h = groups[first].toLong()
         val m = groups[first + 1].toLong()
         val s = groups[first + 2].toLong()
+        if (m !in 0..59 || s !in 0..59) return null
         val ms = groups[first + 3].padEnd(3, '0').take(3).toLong()
         return ((h * 60 + m) * 60 + s) * 1000 + ms
     }

@@ -30,6 +30,8 @@ public:
     virtual void acceptPcm(const float* samples, int count) { (void) samples; (void) count; }
     virtual void setFlow(GLuint texture, float strength) { (void) texture; (void) strength; }
     virtual void setPaletteLut(GLuint texture) { (void) texture; }
+    virtual bool ownsNativeSpatialMotion() const { return false; }
+    virtual void setReducedMotion(bool on) { (void) on; }
     virtual void setTouchField(const TouchField* field) { (void) field; }
     virtual void setFragmentSource(const std::string& source) { (void) source; }
     // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.

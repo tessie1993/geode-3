@@ -55,7 +55,7 @@ void AnalysisSession::reset() {
 
 void AnalysisSession::analyze(const float* mid, const float* side, size_t frames, float dtSeconds, GeodeFeatureFrame& out) {
     if (frames < static_cast<size_t>(fftSize_)) return;
-    analyzer_.analyze(mid, dtSeconds);
+    analyzer_.analyze(mid, dtSeconds, side);
     analyzer_.spectrumInto(spectrum_.data());
     chroma_.step(spectrum_.data(), static_cast<int>(spectrum_.size()), sampleRateHz_, fftSize_);
     fill(mid, side, out);
@@ -102,7 +102,7 @@ bool AnalysisSession::pull(GeodeFeatureFrame& out) {
     if (buffered_ < static_cast<size_t>(fftSize_)) return false;
     const float* mid = buffer_.data();
     const float* side = sideBuffer_.data();
-    analyzer_.analyze(mid, 1.0f / hopRateHz_);
+    analyzer_.analyze(mid, 1.0f / hopRateHz_, side);
     analyzer_.spectrumInto(spectrum_.data());
     key_.accumulate(spectrum_.data(), static_cast<int>(spectrum_.size()), sampleRateHz_, fftSize_);
     chroma_.step(spectrum_.data(), static_cast<int>(spectrum_.size()), sampleRateHz_, fftSize_);

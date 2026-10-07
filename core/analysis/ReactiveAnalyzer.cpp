@@ -43,8 +43,8 @@ void ReactiveAnalyzer::setSensitivity(float value) {
     drums_->setSensitivity(value);
 }
 
-void ReactiveAnalyzer::analyze(const float* samples, float dtSeconds) {
-    rms_ = rmsOf(samples);
+void ReactiveAnalyzer::analyze(const float* samples, float dtSeconds, const float* side) {
+    rms_ = rmsOf(samples, side);
     if (rms_ < kSilenceRms) {
         lastFrameSilent_ = true;
         silentSeconds_ += dtSeconds;
@@ -60,6 +60,12 @@ void ReactiveAnalyzer::analyze(const float* samples, float dtSeconds) {
     silentSeconds_ = 0.0f;
     window_.applyInto(samples, fftSize_, 0, windowed_.data());
     spectrum_.compute(windowed_.data());
+    if (side) {
+        // M=(L+R)/2 and S=(L-R)/2: M power + S power equals the mean
+        // channel power, including anti-phase stereo. Keep waveform sign intact.
+        window_.applyInto(side, fftSize_, 0, windowed_.data());
+        spectrum_.addPower(windowed_.data());
+    }
 
     logBands_.energy(spectrum_.magnitudes().data(), bandPower_.data());
     toDb(bandPower_.data(), bandDb_.data());
@@ -213,11 +219,15 @@ void ReactiveAnalyzer::smooth(const float* source, float dtSeconds) {
     }
 }
 
-float ReactiveAnalyzer::rmsOf(const float* samples) const {
+float ReactiveAnalyzer::rmsOf(const float* samples, const float* side) const {
     double acc = 0.0;
     for (int i = 0; i < fftSize_; i++) {
         const double v = samples[i];
         acc += v * v;
+        if (side) {
+            const double s = side[i];
+            acc += s * s;
+        }
     }
     return std::clamp(static_cast<float>(std::sqrt(acc / fftSize_)), 0.0f, 1.0f);
 }

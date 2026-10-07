@@ -35,6 +35,10 @@ float Renderer::beginFrame(double timeSeconds) {
         std::lock_guard<std::mutex> lock(stateLock_);
         pending.swap(pendingShaders_);
         frameFeatures_ = features_;
+        frameFreshFeatures_ = freshFeatures_;
+        freshFeatures_ = false;
+        frameOffscreen_ = offscreen_;
+        pcm_.beginFrame();
         frameLayerMix_ = layerMix_;
         frameLayerBlend_ = layerBlend_;
         frameTransitionId_ = transitionId_;
@@ -90,18 +94,23 @@ SceneParams Renderer::resolveParams(float dt) {
     const auto& lfoValues = lfo_.tick(dt, frameFeatures_, envRate_.data(), envDepth_.data());
     SceneParams p = lfo_.apply(displayedParams_, lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
-    // The continuous motion system: the one stage every family's parameters
-    // pass through, fed only the feature frame (never a one-hop PCM/drum
-    // impulse), ahead of the safety clamp so nothing it adds can exceed the
-    // flash and motion limits.
+    // Spatial directors own their music-driven travel and framing. Keep a
+    // safety-clamped pre-MotionField snapshot so they do not receive a second,
+    // hidden audio modulation of speed/zoom. Legacy styles retain their path.
     motionField_.step(frameFeatures_, dt);
     const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
-    p = motionField_.apply(p, reducedMotion);
-    p = safety::apply(p, reducedMotion);
-    if (!thermalTierInfo(thermal_.tier()).optionalPasses) {
-        p.flowEnabled = false;
-        p.rippleOverlayEnabled = false;
+    nativeSpatialParams_ = safety::apply(p, reducedMotion);
+    if (requested.motionAmount == 0.0f) nativeSpatialParams_.motionAmount = 0.0f;
+    if (requested.audioDrive == 0.0f) nativeSpatialParams_.audioDrive = 0.0f;
+    if (reducedMotion || nativeSpatialParams_.motionAmount == 0.0f) {
+        nativeSpatialParams_.rotation = 0.0f;
     }
+    legacyMotionParams_ = safety::apply(motionField_.apply(p, reducedMotion), reducedMotion);
+    if (!thermalTierInfo(thermal_.tier()).optionalPasses) {
+        nativeSpatialParams_.flowEnabled = legacyMotionParams_.flowEnabled = false;
+        nativeSpatialParams_.rippleOverlayEnabled = legacyMotionParams_.rippleOverlayEnabled = false;
+    }
+    p = activeScene_ && activeScene_->ownsNativeSpatialMotion() ? nativeSpatialParams_ : legacyMotionParams_;
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
     postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
@@ -136,17 +145,16 @@ bool Renderer::ensureTargets() {
 }
 
 void Renderer::deliverPcm(Scene& scene) {
-    // Copy out under the lock, then hand the scene its own scratch buffer
-    // once unlocked: acceptPcm() (a copy of up to 4096 samples plus
-    // fillPcmRow) must never run while stateLock_ is held, or pushPcm() on
-    // the PCM producer thread blocks behind a scene upload.
-    int count = 0;
-    {
-        std::lock_guard<std::mutex> lock(stateLock_);
-        count = pcmCount_;
-        if (count > 0) std::copy(pcm_.begin(), pcm_.begin() + count, pcmDeliverScratch_.begin());
-    }
-    if (count > 0) scene.acceptPcm(pcmDeliverScratch_.data(), count);
+    // beginFrame() consumed the pending input exactly once under stateLock_.
+    // This immutable frame view reaches every participating scene, outside the
+    // lock; a later producer write cannot change it or starve a transition.
+    // Track export currently supplies timeline waveforms, not decoded PCM.
+    // Preserve that approximation explicitly for MilkDrop offscreen only, and
+    // only for a newly published timeline frame. Live feature snapshots must
+    // never impersonate new PCM when playback pauses or the producer stalls.
+    const bool timelinePcm = frameOffscreen_ && frameFreshFeatures_ && scene.family() == SceneFamily::Milkdrop;
+    const auto pcm = pcm_.view(timelinePcm, frameFeatures_.waveform, GEODE_WAVEFORM_POINTS);
+    if (pcm.count > 0) scene.acceptPcm(pcm.data, pcm.count);
 }
 
 void Renderer::bindSecondaryTarget() {
@@ -158,11 +166,13 @@ void Renderer::bindSecondaryTarget() {
 float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     float progress = 1.0f;
     if (layerScene_) {
+        const SceneParams& lp = layerScene_->ownsNativeSpatialMotion() ? nativeSpatialParams_ : legacyMotionParams_;
         bindSecondaryTarget();
-        wireFlow(*layerScene_, p);
-        layerScene_->setParams(p);
+        wireFlow(*layerScene_, lp);
+        layerScene_->setParams(lp);
+        layerScene_->setReducedMotion(reducedMotion_.load(std::memory_order_relaxed));
         deliverPcm(*layerScene_);
-        layerScene_->update(gainAdjusted(frameFeatures_, p), dt);
+        layerScene_->update(gainAdjusted(frameFeatures_, lp), dt);
         layerScene_->draw(timeSeconds_);
     }
     if (outgoingScene_) {
@@ -172,8 +182,13 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             outgoingParams_.reset();
         } else {
             bindSecondaryTarget();
-            const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
+            SceneParams op = outgoingParams_ ? *outgoingParams_ : p;
+            if (outgoingScene_->ownsNativeSpatialMotion() && nativeSpatialParams_.motionAmount == 0.0f) {
+                op.motionAmount = 0.0f;
+                op.rotation = 0.0f;
+            }
             outgoingScene_->setParams(op);
+            outgoingScene_->setReducedMotion(reducedMotion_.load(std::memory_order_relaxed));
             deliverPcm(*outgoingScene_);
             outgoingScene_->update(gainAdjusted(frameFeatures_, op), dt);
             outgoingScene_->draw(timeSeconds_);
@@ -193,6 +208,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     }
     wireFlow(scene, p);
     scene.setParams(p);
+    scene.setReducedMotion(reducedMotion_.load(std::memory_order_relaxed));
     deliverPcm(scene);
     scene.update(gainAdjusted(frameFeatures_, p), dt);
     scene.draw(timeSeconds_);

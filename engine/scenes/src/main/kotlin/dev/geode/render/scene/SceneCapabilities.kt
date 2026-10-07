@@ -78,12 +78,13 @@ object SceneCapabilities {
             // above they DO spend the Detail budget and both join MARCHED_SCENES.
             SceneIds.CURL_BLOOM to "shaders/curl_bloom_frag.glsl",
             SceneIds.NECTAR_FLOW to "shaders/nectar_flow_frag.glsl",
+            SceneIds.PRISMATIC_PASSAGE to "shaders/prismatic_passage_frag.glsl",
         )
 
     /**
      * The fragment styles that raymarch, and so spend the [MarchBudget] the Detail control sets.
      *
-     * A per-STYLE set rather than a [SceneKind], because only eight of the 39 shader styles march;
+     * A per-STYLE set rather than a [SceneKind], because only nine of the 40 shader styles march;
      * scoping Detail to `SceneKind.SHADER` would put a dead slider in front of anyone looking at
      * Plasma, which is exactly what [ParamScope]'s no-dead-controls rule exists to prevent.
      */
@@ -99,6 +100,7 @@ object SceneCapabilities {
             // Different loops, but Detail is the budget for both.
             SceneIds.CURL_BLOOM,
             SceneIds.NECTAR_FLOW,
+            SceneIds.PRISMATIC_PASSAGE,
         )
 
     /**

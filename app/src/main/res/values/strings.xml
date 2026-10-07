@@ -782,4 +782,14 @@
     <string name="palette_none_yet">None yet — build a gradient above and save it.</string>
     <string name="palette_edit">Edit</string>
     <string name="palette_delete">Delete</string>
+    <string name="milk_import_failed">This preset could not be imported. Check that it is a valid MilkDrop preset under 2 MB. Your previous preset has been kept.</string>
+    <string name="texture_import_summary">Imported %1$d textures.</string>
+    <string name="studio_input_loading">Checking document…</string>
+    <string name="studio_lut_invalid">Could not load this LUT. Choose a readable UTF-8 .cube file up to 16 MB with a complete 1D or 3D table (2–65 entries per axis).</string>
+    <string name="studio_srt_invalid">Could not import captions. Choose a valid UTF-8 SRT file up to 1 MB and 2,000 cues. Existing captions were kept.</string>
+    <string name="studio_srt_save_failed">Could not save captions. Choose another destination and try again.</string>
+    <string name="spatial_camera_heading">Passage camera</string>
+    <string name="spatial_camera_motion">Motion</string>
+    <string name="spatial_camera_orbit">Camera orbit</string>
+    <string name="spatial_camera_hint">Motion controls travel and form movement. Zero holds the camera; music can still shape the surfaces. Reduced motion also holds the camera.</string>
 </resources>

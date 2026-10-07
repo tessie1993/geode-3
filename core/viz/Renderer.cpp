@@ -5,6 +5,7 @@
 #include <cmath>
 
 #include "util/Log.hpp"
+#include "viz/InputAdmission.hpp"
 
 namespace geode::viz {
 
@@ -12,7 +13,6 @@ namespace {
 constexpr const char* kTag = "GeodeRenderer";
 constexpr int kPaletteSize = 256;
 constexpr int kPaletteRows = 5;
-constexpr int kPcmCapacity = 512 * 8;
 }  // namespace
 
 Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
@@ -24,30 +24,52 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); }}),
-      compositePass_(assets_, &programCache_),
-      pcm_(kPcmCapacity, 0.0f),
-      pcmDeliverScratch_(kPcmCapacity, 0.0f) {
+      compositePass_(assets_, &programCache_) {
     programCache_.install(cacheDir_);
 }
 
 Renderer::~Renderer() = default;
 
 void Renderer::setParams(const SceneParams& params) {
+    if (!params.valid()) {
+        fail("Invalid scene parameter frame");
+        return;
+    }
     std::lock_guard<std::mutex> lock(stateLock_);
     requestedParams_ = params;
 }
 
+void Renderer::setParamFrame(const float* values, int count) {
+    SceneParams next;
+    if (!next.setFrame(values, count)) {
+        fail("Invalid scene parameter frame");
+        return;
+    }
+    setParams(next);
+}
+
 bool Renderer::setParam(const std::string& key, float value) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    return requestedParams_.set(key, value);
+    if (requestedParams_.set(key, value)) return true;
+    lastError_ = "Unknown or invalid scene parameter: " + key;
+    return false;
 }
 
 void Renderer::setFeatures(const GeodeFeatureFrame& features) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    features_ = features;
+    if (!admission::publishFeatures(features_, features)) {
+        lastError_ = "Invalid audio feature frame";
+        return;
+    }
+    freshFeatures_ = true;
 }
 
 void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {
+    if (!admission::range(mix, 0.0f, 1.0f) || blendOrdinal < 0 ||
+        blendOrdinal > static_cast<int>(BlendMode::Darken)) {
+        fail("Invalid visual layer configuration");
+        return;
+    }
     std::lock_guard<std::mutex> lock(stateLock_);
     layerSceneId_ = sceneId;
     layerMix_ = mix;
@@ -64,18 +86,42 @@ void Renderer::setTransition(const std::string& id, int64_t durationMs) {
 }
 
 void Renderer::beginParamMorph(float seconds) {
+    // ThemeStore.PRESET_MORPH_SECONDS_MAX (seconds).
+    if (!std::isfinite(seconds) || seconds > 8.0f) {
+        fail("Invalid parameter morph duration");
+        return;
+    }
     if (seconds <= 0.0f) return;
     std::lock_guard<std::mutex> lock(stateLock_);
     morphFadeSec_ = seconds;
     morphRemainSec_ = seconds * 3.0f;
 }
 
+void Renderer::submitTouchPoints(const float* xy, int count) {
+    const int retained = std::clamp(count, 0, TouchField::kMaxPoints);
+    if (retained > 0 && !xy) return;
+    for (int i = 0; i < retained * 2; ++i) {
+        if (!std::isfinite(xy[i])) return;
+    }
+    touchField_.submit(xy, retained);
+}
+
 void Renderer::pushPcm(const float* samples, int count) {
+    if (!samples || count <= 0) return;
+    const int retained = std::min(count, static_cast<int>(FramePcm::kCapacity));
+    for (int i = count - retained; i < count; ++i) {
+        if (!std::isfinite(samples[i])) return;
+    }
     std::lock_guard<std::mutex> lock(stateLock_);
-    const int n = std::min(count, kPcmCapacity);
-    if (n <= 0) return;
-    std::copy(samples + (count - n), samples + count, pcm_.begin());
-    pcmCount_ = n;
+    pcm_.push(samples, count);
+}
+
+void Renderer::setOffscreen(bool on) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    if (offscreen_ == on) return;
+    offscreen_ = on;
+    if (on) thermal_.beginOffscreenRender();
+    else thermal_.endOffscreenRender();
 }
 
 void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
@@ -88,6 +134,9 @@ double Renderer::monotonicSeconds() {
 }
 
 void Renderer::queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength) {
+    if (!admission::range(nx, 0.0f, 1.0f) || !admission::range(ny, 0.0f, 1.0f) ||
+        !admission::range(ndx, -1.0f, 1.0f) || !admission::range(ndy, -1.0f, 1.0f) ||
+        !std::isfinite(dt) || dt < 0.0f || !admission::range(strength, 0.0f, 2.0f)) return;
     overlays_.queueTouchStroke(nx, ny, ndx, ndy, dt, strength, monotonicSeconds());
 }
 
@@ -199,6 +248,10 @@ void Renderer::setUnderlayRgba(const uint32_t* pixels, int width, int height, in
         underlayWidth_ = 0;
         underlayHeight_ = 0;
     } else {
+        if (!admission::range(amount, 0.0f, 1.0f) || blend < 0 || blend > 2) {
+            lastError_ = "Invalid underlay blend configuration";
+            return;
+        }
         underlayPixels_.assign(pixels, pixels + static_cast<size_t>(width) * static_cast<size_t>(height));
         underlayWidth_ = width;
         underlayHeight_ = height;
@@ -259,11 +312,23 @@ void Renderer::applyOverlayUploads() {
 }
 
 void Renderer::setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs) {
+    for (const auto& config : configs) {
+        if (!admission::validLfo(config)) {
+            fail("Invalid LFO configuration");
+            return;
+        }
+    }
     std::lock_guard<std::mutex> lock(stateLock_);
     lfo_.configs = configs;
 }
 
 void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs) {
+    for (const auto& config : configs) {
+        if (!admission::validAdsr(config)) {
+            fail("Invalid envelope configuration");
+            return;
+        }
+    }
     std::lock_guard<std::mutex> lock(stateLock_);
     adsr_.configs = configs;
 }
@@ -326,6 +391,9 @@ void Renderer::onSurfaceCreated() {
     overlays_.recreate();
     {
         std::lock_guard<std::mutex> lock(stateLock_);
+        // PCM from the previous surface/session must not survive GL recovery.
+        // Fresh producer input is latched by the next rendered frame.
+        pcm_.clear();
         if (!fluidForceSrc_.empty() || !fluidDyeSrc_.empty()) fluidInjectionDirty_ = true;
         // W00: the compositePass_.releaseStaleTextures() call above already dropped the overlay/
         // underlay GL textures, so re-arm from the retained pixel buffers to reupload them once

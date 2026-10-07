@@ -7,9 +7,10 @@ changes and evidence in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
 This plan expands `docs/rebuild/PLAN.md`. The owner's current C++/Media3/**Oboe**
 instruction supersedes the earlier instruction to remove Oboe. Preserve Oboe for
-native low-latency input; migrate ordinary music output to Media3. Keep the Fluid
-family, eight raymarched styles and projectM compatibility. Style removal follows
-replacement and saved-data migration, not an arbitrary count target.
+native low-latency input; migrate ordinary music output to Media3. Keep **every
+existing C++ style and MilkDrop**. The historical style-removal package is canceled.
+Add native psychedelic tunnels/objects and generative music-driven camera motion;
+record the realized performance. See [VISUAL_STYLE_CAMERA.md](VISUAL_STYLE_CAMERA.md).
 
 The premium release architecture proposed here includes a small purchase
 verification backend and optional identity. That changes the historical
@@ -36,10 +37,10 @@ this document does not claim that newly written tests have been executed.
 
 ## 2. Delivery discipline
 
-1. Maintain **at most two active implementation workers**, one package each.
-   Before starting, publish its allowed files, interfaces, acceptance criteria,
-   dependencies and expected migration. No shared file ownership and no nested
-   expansion into an uncontrolled worker fleet.
+1. Assign one owner per bounded fix package, with separate independent bug and
+   feature review as the owner requested. Before starting, publish allowed files,
+   interfaces, acceptance criteria, dependencies and migration. Use isolated
+   worktrees and disjoint file ownership; coordinate any shared interface changes.
 2. Use one branch/PR per independently reviewable package. Larger packages below
    become several ordered PRs under the same acceptance gate. Merge shared
    contracts first; regenerate the second worker's base before dependent work.
@@ -66,7 +67,7 @@ this document does not claim that newly written tests have been executed.
 | D02 Media3 output migration | A2, part A3 | D01 | One supported music output path; Oboe retained |
 | D03 Engine correctness | B2 | D01 | Safe native lifetime, real beat response, clocks and pause behavior |
 | D04 Service-owned player | A3 | D02 | Player rules survive UI loss and cold external launch |
-| D05 projectM repair | B3 | D03 | Stable PCM, presets, resize and deterministic time |
+| D05 projectM repair | B3 | D03 | Stable PCM, presets, resize and explicit presentation time |
 | D06 Oboe input and source routing | A2b | D02–D04 | Low-latency mic and explicit single-source ownership |
 | D07 Data and integration interfaces | A4/A5 foundation | D01, D04 | Durable repositories, migrations and integration boundaries |
 | D08 3D route prototype | B4 | D03, D05 | Measured renderer go/no-go with live/export scene |
@@ -74,7 +75,7 @@ this document does not claim that newly written tests have been executed.
 | D10 Premium verification service | A4 expanded | D07, operational decision | Server-authoritative purchase state and test integration |
 | D11 Signature scenes | B6 | D09 | Six original art-directed scenes, one or two per reviewed PR |
 | D12 Optional identity and backup | A5 | D07, D10 interfaces | Google/Drive with safe restore and deletion |
-| D13 Exporter core | C1 | D03, D05, D07, D09 | One deterministic export pipeline with accurate timing |
+| D13 Exporter core | C1 | D03, D05, D07, D09 | One capture/export pipeline preserving realized performance and accurate timing |
 | D14 Full Studio | C2 | D13 | Preview and export agree across every advertised lane/effect |
 | D15 New UI, controls and catalog migration | B1, B7 | D04–D09, initial D11, D14 | Design system and complete Listen/Explore/Customize/Studio journeys |
 | D16 Premium gates and account polish | A4/A5, F1 | D10, D12, D14, D15 | Fair purchase/restore/gating in real user journeys |
@@ -230,15 +231,16 @@ CI duration, projectM coexistence, context replacement and offscreen export on
 arm64/x86_64. Document a go/no-go. Retaining GLES is the fallback and current
 baseline; Vulkan/interop does not enter the critical path without evidence.
 
-**D09:** implement seeded camera splines/springs, bounded velocity/acceleration,
+**D09:** implement generative native camera splines/springs, bounded velocity,
+acceleration and jerk, shared tunnel path/geometry state,
 timestamped audio uniform/history inputs, common scene lifecycle and per-scene
 macro adapters. Establish the post stack and final visual-safety composite.
 Budget render targets, transparent overdraw, simulation/geometry density and
 optional effects per tier. Make tier changes preserve scene/preset state.
 
 **Acceptance:** one complete scene in live view and offline export, no context
-leaks over repeated surface changes, measured tier budgets, reproducible time and
-seed behavior. Repeated palette variants do not satisfy the scene architecture.
+leaks over repeated surface changes, measured tier budgets, fresh live journeys
+and faithful captured takes. Repeated palette variants do not satisfy the scene architecture.
 
 ### D10 — Premium service and verified entitlements
 
@@ -276,10 +278,11 @@ are the proposed Geode architecture, not a claim that a backend already exists.
 
 ### D11 — Six signature scenes
 
-Implement the six briefs in [DESIGN.md](DESIGN.md), one or two per PR, retaining
-the existing production catalog until replacements and migrations pass. Every
+Implement the six briefs in [DESIGN.md](DESIGN.md), refined by the owner's image
+references and native camera contract, one or two per PR. Retain the full existing
+production catalog permanently; add versioned upgrades and new IDs. Every
 scene includes original assets/licence records, camera choreography, audio
-mapping, universal-control extremes, quality tiers and deterministic export.
+mapping, universal-control extremes, quality tiers and faithful performance capture.
 
 **Acceptance:** art review plus the common scene/device suite; silence, varied
 music, source changes, interaction, context replacement and sustained thermal
@@ -313,7 +316,8 @@ and the primary integration references in [OPEN_SOURCE.md](OPEN_SOURCE.md).
   building on the analysis timeline. Separate offline backpressure from live
   overload behavior; include mono/high-rate and corrupt-input fixtures.
 - Freeze an immutable project/preset snapshot with integer/rational timestamps,
-  explicit seed and all dependency fingerprints. Evaluate frame time from index.
+  realized scene/camera state and all dependency fingerprints. Evaluate frame
+  time from index; do not regenerate a captured take from a new random journey.
 - Implement the native-visual/Media3 frame adapter or measured intermediate-file
   route; prove EGL/encoder ownership and texture lifetime. Shared API names do
   not establish that custom C++ visual layers are automatically composed.
@@ -347,8 +351,8 @@ export at specified timestamps and verify resulting audio/video streams.
 
 **D15:** implement the design tokens and all loading/empty/denied/offline/error
 states, Listen/Explore/Studio navigation, immersive transport, five universal
-macros, advanced mappings, presets, undo and wallpaper. Migrate old style IDs
-and removed settings only after replacement coverage is proven. Keep original
+macros, advanced mappings, presets, undo and wallpaper. Preserve every existing
+style ID and saved look. Introduce versioned adapters for upgraded behavior. Keep original
 saved presets/projects recoverable; remove old screens/mirrors only after routing
 and saved-state tests pass.
 
@@ -392,7 +396,7 @@ fixture, parameters, thermal state, result and attached evidence.
 
 | Layer | Required coverage |
 |---|---|
-| Portable native | DSP/hop/buffer units, rate/angle math, event delivery, epochs, deterministic camera/evaluator, parser bounds; supported sanitizer coverage |
+| Portable native | DSP/hop/buffer units, rate/angle math, event delivery, epochs, camera continuity/bounds with controlled test fixtures, parser bounds; supported sanitizer coverage |
 | Kotlin/domain | Service rules with virtual time; analysis lifecycle; repository/undo/migrations; source arbitration; billing/account/backup/export state machines |
 | Android instrumentation | Permission/picker denial, service cold launch/UI death, notification/widget/Auto commands, capture revocation, URI grants, foreground export and lifecycle restoration |
 | Graphics | Low/mid/high GPU classes; GLES capability fallback; 100 scene switches; context replacement; each scene and projectM; device frame pacing |

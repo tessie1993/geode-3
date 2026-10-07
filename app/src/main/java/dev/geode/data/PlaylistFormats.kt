@@ -1,5 +1,9 @@
 package dev.geode.data
 
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.InputStream
+
 enum class PlaylistFormat { M3U, PLS, XSPF }
 
 data class PlaylistEntry(
@@ -29,6 +33,23 @@ data class PlaylistResolution(
 object PlaylistFormats {
     const val UNKNOWN_DURATION = -1L
 
+    // Admission budgets apply even when a document provider reports no size.
+    const val MAX_BYTES = 4 * 1024 * 1024
+    const val MAX_ENTRIES = 10_000
+
+    fun readText(stream: InputStream): String {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        while (true) {
+            val count = stream.read(buffer, 0, minOf(buffer.size, MAX_BYTES - output.size() + 1))
+            if (count < 0) break
+            if (count == 0) throw IOException("playlist provider made no progress")
+            if (output.size() + count > MAX_BYTES) throw IOException("playlist exceeds byte limit")
+            output.write(buffer, 0, count)
+        }
+        return output.toString(Charsets.UTF_8.name())
+    }
+
     private const val DETECT_WINDOW = 512
 
     private const val EXTINF = "#EXTINF:"
@@ -51,11 +72,14 @@ object PlaylistFormats {
         fileName: String,
         text: String,
     ): PlaylistParse {
+        if (text.length > MAX_BYTES || text.toByteArray(Charsets.UTF_8).size > MAX_BYTES) {
+            return PlaylistParse.Unreadable("playlist exceeds byte limit")
+        }
         val body = text.removePrefix("\uFEFF")
         return when (formatOf(fileName, body)) {
             null -> PlaylistParse.Unreadable("not an M3U, PLS or XSPF playlist")
-            PlaylistFormat.M3U -> parseM3u(fileName, body.lines())
-            PlaylistFormat.PLS -> parsePls(fileName, body.lines())
+            PlaylistFormat.M3U -> parseM3u(fileName, body.lineSequence())
+            PlaylistFormat.PLS -> parsePls(fileName, body.lineSequence())
             PlaylistFormat.XSPF -> parseXspf(fileName, body)
         }
     }
@@ -112,7 +136,7 @@ object PlaylistFormats {
 
     private fun parseM3u(
         fileName: String,
-        lines: List<String>,
+        lines: Sequence<String>,
     ): PlaylistParse {
         var name = ""
         var title = ""
@@ -120,6 +144,7 @@ object PlaylistFormats {
         val entries = ArrayList<PlaylistEntry>()
         for (line in lines.map(String::trim).filter(String::isNotEmpty)) {
             if (!line.startsWith("#")) {
+                if (entries.size == MAX_ENTRIES) return tooManyEntries()
                 entries += PlaylistEntry(line, title, durationMs)
                 title = ""
                 durationMs = UNKNOWN_DURATION
@@ -143,7 +168,7 @@ object PlaylistFormats {
 
     private fun parsePls(
         fileName: String,
-        lines: List<String>,
+        lines: Sequence<String>,
     ): PlaylistParse {
         val files = HashMap<Int, String>()
         val titles = HashMap<Int, String>()
@@ -158,6 +183,9 @@ object PlaylistFormats {
                 key.startsWith("title") -> titles[index] = value
                 key.startsWith("length") -> lengths[index] = value.toLongOrNull() ?: UNKNOWN_DURATION
             }
+            if (files.size > MAX_ENTRIES || titles.size > MAX_ENTRIES || lengths.size > MAX_ENTRIES) {
+                return tooManyEntries()
+            }
         }
         val entries =
             files.keys.sorted().map { i ->
@@ -170,19 +198,24 @@ object PlaylistFormats {
         fileName: String,
         text: String,
     ): PlaylistParse {
-        val list = trackListTag.find(text)
-        return when {
-            docType.containsMatchIn(text) ->
-                PlaylistParse.Unreadable("refused: a playlist with a DOCTYPE can name files the user did not pick")
-            list == null -> PlaylistParse.Unreadable("no <trackList> element")
-            else ->
-                PlaylistParse.Parsed(
-                    PlaylistFormat.XSPF,
-                    xspfName(text.substring(0, list.range.first), fileName),
-                    trackTag.findAll(list.groupValues[1]).mapNotNull(::xspfTrack).toList(),
-                )
+        if (docType.containsMatchIn(text)) {
+            return PlaylistParse.Unreadable("refused: a playlist with a DOCTYPE can name files the user did not pick")
         }
+        val list = trackListTag.find(text) ?: return PlaylistParse.Unreadable("no <trackList> element")
+        val entries = ArrayList<PlaylistEntry>()
+        var trackCount = 0
+        for (match in trackTag.findAll(list.groupValues[1])) {
+            if (++trackCount > MAX_ENTRIES) return tooManyEntries()
+            xspfTrack(match)?.let(entries::add)
+        }
+        return PlaylistParse.Parsed(
+            PlaylistFormat.XSPF,
+            xspfName(text.substring(0, list.range.first), fileName),
+            entries,
+        )
     }
+
+    private fun tooManyEntries(): PlaylistParse = PlaylistParse.Unreadable("playlist exceeds entry limit")
 
     private fun xspfName(
         header: String,

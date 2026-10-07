@@ -1,7 +1,6 @@
 package dev.geode.data
 
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.net.Uri
 import java.io.File
 import java.security.MessageDigest
@@ -22,6 +21,7 @@ data class TextureImportResult(
 data class TextureImportOutcome(
     val results: List<TextureImportResult>,
     val textures: List<MilkTexture>,
+    val issue: String? = null,
 )
 
 data class TextureRemoveOutcome(
@@ -45,55 +45,31 @@ class TextureStore(
 
     fun import(uris: List<Uri>): List<MilkTexture> = importDetailed(uris).textures
 
-    fun importDetailed(uris: List<Uri>): TextureImportOutcome = TextureImportOutcome(uris.map(::importOne), list())
-
-    private fun importOne(uri: Uri): TextureImportResult {
-        val name = displayName(uri) ?: "texture_${System.currentTimeMillis()}.png"
-        val skipped = { reason: String -> TextureImportResult(name, null, reason) }
-        val ext = name.substringAfterLast('.', "").lowercase()
-        if (ext !in IMAGE_EXTS) {
-            return skipped("not a supported image type (" + IMAGE_EXTS.sorted().joinToString(", ") + ")")
-        }
-        val tooLarge = "larger than ${MAX_TEXTURE_BYTES / (1024 * 1024)} MB"
-        if ((declaredSize(uri) ?: 0L) > MAX_TEXTURE_BYTES) return skipped(tooLarge)
-        val bytes = readBounded(uri) ?: return skipped("could not be read, or is $tooLarge")
-        if (bytes.isEmpty()) return skipped("file is empty")
-        validateImage(bytes, ext)?.let { return skipped(it) }
-        val storedName = safeTextureFileName(name)
-        val ok = runCatching { AtomicWrite.stream(File(dir, storedName)) { out -> out.write(bytes) } }.getOrDefault(false)
-        return if (ok) TextureImportResult(name, storedName, null) else skipped("could not be written")
-    }
-
-    private fun validateImage(
-        bytes: ByteArray,
-        ext: String,
-    ): String? =
-        when (ext) {
-            "dds" ->
-                if (bytes.size >= 4 &&
-                    bytes[0] == 'D'.code.toByte() &&
-                    bytes[1] == 'D'.code.toByte() &&
-                    bytes[2] == 'S'.code.toByte() &&
-                    bytes[3] == ' '.code.toByte()
-                ) {
-                    null
-                } else {
-                    "not a DDS texture (missing DDS header)"
-                }
-            "tga" -> if (isTgaHeader(bytes)) null else "not a TGA image (unrecognized header)"
-            else -> {
-                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) }
-                if (opts.outWidth > 0 && opts.outHeight > 0) null else "not a decodable image"
+    fun importDetailed(uris: List<Uri>): TextureImportOutcome =
+        synchronized(MilkAssetAdmission.importLock) {
+            val budget = MilkAssetAdmission.Budget()
+            val results = uris.take(MilkAssetAdmission.MAX_BATCH_FILES).map { importOne(it, budget) }.toMutableList()
+            val remaining = uris.size - results.size
+            if (remaining > 0) {
+                results += TextureImportResult("$remaining additional files", null, "import file-count limit reached")
             }
+            TextureImportOutcome(results, list())
         }
 
-    private fun isTgaHeader(b: ByteArray): Boolean {
-        if (b.size < 18) return false
-        val colorMapType = b[1].toInt() and 0xff
-        val imageType = b[2].toInt() and 0xff
-        val pixelDepth = b[16].toInt() and 0xff
-        return colorMapType <= 1 && imageType in TGA_IMAGE_TYPES && pixelDepth in TGA_PIXEL_DEPTHS
+    private fun importOne(
+        uri: Uri,
+        budget: MilkAssetAdmission.Budget,
+    ): TextureImportResult {
+        val name = displayName(uri) ?: "texture_${System.currentTimeMillis()}.png"
+        MilkAssetAdmission.fileNameIssue(name)?.let { return TextureImportResult(name.take(240), null, it) }
+        val storedName = safeTextureFileName(name.substringAfterLast('/').substringAfterLast('\\'))
+        val reason = MilkAssetAdmission.store(
+            target = File(dir, storedName),
+            extension = name.substringAfterLast('.', "").lowercase(),
+            budget = budget,
+            replaceExisting = true,
+        ) { appContext.contentResolver.openInputStream(uri) }
+        return TextureImportResult(name, if (reason == null) storedName else null, reason)
     }
 
     fun remove(name: String): List<MilkTexture> = removeDetailed(name).textures
@@ -116,37 +92,6 @@ class TextureStore(
             textures = remaining,
         )
     }
-
-    /**
-     * The picked file, or null if it cannot be read or runs past [MAX_TEXTURE_BYTES].
-     *
-     * A texture arrives from the system picker, so its size is whatever the user chose -
-     * and DDS masters in MilkDrop packs run to tens of megabytes. Reading one straight
-     * into a ByteArray put that number in the app's heap unbounded; this stops at the cap
-     * instead, which is why it does not use readBytes().
-     */
-    private fun readBounded(uri: Uri): ByteArray? =
-        runCatching {
-            appContext.contentResolver.openInputStream(uri)?.use { input ->
-                val out = java.io.ByteArrayOutputStream()
-                val buffer = ByteArray(READ_BUFFER_BYTES)
-                while (true) {
-                    val n = input.read(buffer)
-                    if (n < 0) break
-                    out.write(buffer, 0, n)
-                    if (out.size() > MAX_TEXTURE_BYTES) return@use null
-                }
-                out.toByteArray()
-            }
-        }.getOrNull()
-
-    /** What the provider claims the file weighs, so an oversized pick is refused before it is read. */
-    private fun declaredSize(uri: Uri): Long? =
-        runCatching {
-            appContext.contentResolver
-                .query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)
-                ?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null }
-        }.getOrNull()
 
     private fun displayName(uri: Uri): String? =
         runCatching {
@@ -203,16 +148,7 @@ class TextureStore(
     }
 
     internal companion object {
-        val IMAGE_EXTS = setOf("png", "jpg", "jpeg", "bmp", "tga", "dds", "dib")
-
-        /** Comfortably above any real MilkDrop texture, far below what exhausts the heap. */
-        private const val MAX_TEXTURE_BYTES = 16 * 1024 * 1024
-
-        private const val READ_BUFFER_BYTES = 64 * 1024
-
-        private val TGA_IMAGE_TYPES = setOf(1, 2, 3, 9, 10, 11)
-
-        private val TGA_PIXEL_DEPTHS = setOf(8, 15, 16, 24, 32)
+        val IMAGE_EXTS = MilkAssetAdmission.textureExtensions
 
         internal fun safeTextureFileName(name: String): String {
             val rawBase = name.substringBeforeLast('.')

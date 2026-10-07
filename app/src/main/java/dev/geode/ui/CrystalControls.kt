@@ -74,7 +74,7 @@ fun CrystalButton(
         modifier
             .stonePress(interaction)
             .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
-            .defaultMinSize(minHeight = if (compact) 36.dp else 48.dp),
+            .defaultMinSize(minHeight = 48.dp),
     ) {
         StoneSurfaceArt(component, state, Modifier.matchParentSize())
         Row(

@@ -36,17 +36,17 @@ internal class TextureController(
 
     fun importTextures(
         uris: List<Uri>,
-        onImported: () -> Unit,
+        onImported: (dev.geode.data.TextureImportOutcome) -> Unit,
     ) {
         if (uris.isEmpty()) return
         scope.launch(Dispatchers.IO) {
-            val updated = store.import(uris)
+            val outcome = store.importDetailed(uris)
             // A texture that just arrived may be exactly what a broken preset has been waiting
             // for, and a substitution may now have its real match - re-resolve everything.
-            links.relinkAll()
+            val linked = runCatching { links.relinkAll() }
             withContext(Dispatchers.Main) {
-                _textures.value = updated
-                onImported()
+                _textures.value = outcome.textures
+                onImported(outcome.copy(issue = "Texture links could not be refreshed.".takeIf { linked.isFailure }))
             }
         }
     }

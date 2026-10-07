@@ -3,6 +3,7 @@ package dev.geode.data
 import android.content.Context
 import androidx.annotation.WorkerThread
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 data class TakeInfo(
     val name: String,
@@ -12,13 +13,27 @@ data class TakeInfo(
     val sizeBytes: Long,
 )
 
-class TakeStore(
-    context: Context,
+sealed interface TakeWrite {
+    data class Saved(
+        val name: String,
+    ) : TakeWrite
+
+    data object Failed : TakeWrite
+}
+
+class TakeStore internal constructor(
+    private val dir: File,
+    private val writeText: (File, String) -> Boolean = AtomicWrite::text,
 ) {
-    private val dir = File(context.filesDir, "takes").apply { mkdirs() }
+    constructor(context: Context) : this(File(context.filesDir, "takes"))
+
+    private val directoryLock = locks.computeIfAbsent(dir.absolutePath) { Any() }
 
     init {
-        migrateLegacyFileNames()
+        synchronized(directoryLock) {
+            dir.mkdirs()
+            migrateLegacyFileNames()
+        }
     }
 
     private fun migrateLegacyFileNames() {
@@ -59,34 +74,43 @@ class TakeStore(
     fun save(
         name: String,
         json: String,
-    ): String {
-        var candidate = name
-        var n = 2
-        while (fileOf(candidate).exists()) {
-            candidate = "$name $n"
-            n++
-        }
-        val body =
-            if (candidate == name) {
-                json
-            } else {
+    ): TakeWrite =
+        synchronized(directoryLock) {
+            val requested = name.trim()
+            if (requested.isEmpty()) return@synchronized TakeWrite.Failed
+            var candidate = requested
+            var n = 2
+            while (fileOf(candidate).exists()) {
+                candidate = "$requested $n"
+                n++
+            }
+            val body =
                 runCatching {
                     org.json
                         .JSONObject(json)
                         .put("name", candidate)
                         .toString()
-                }.getOrDefault(json)
+                }.getOrNull() ?: return@synchronized TakeWrite.Failed
+            if (!runCatching { writeText(fileOf(candidate), body) }.getOrDefault(false)) {
+                return@synchronized TakeWrite.Failed
             }
-        AtomicWrite.text(fileOf(candidate), body)
-        return candidate
-    }
+            TakeWrite.Saved(candidate)
+        }
 
     @WorkerThread
     fun delete(name: String) {
-        fileOf(name).delete()
+        synchronized(directoryLock) { fileOf(name).delete() }
     }
 
     fun rename(
+        from: String,
+        to: String,
+    ): Boolean =
+        synchronized(directoryLock) {
+            renameLocked(from, to)
+        }
+
+    private fun renameLocked(
         from: String,
         to: String,
     ): Boolean {
@@ -102,8 +126,12 @@ class TakeStore(
                     .put("name", target)
                     .toString()
             }.getOrNull() ?: return false
-        if (!AtomicWrite.text(dest, updated)) return false
+        if (!writeText(dest, updated)) return false
         src.delete()
         return true
+    }
+
+    private companion object {
+        val locks = ConcurrentHashMap<String, Any>()
     }
 }

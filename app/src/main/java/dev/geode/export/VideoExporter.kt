@@ -1,6 +1,5 @@
 package dev.geode.export
 
-import android.content.ContentValues
 import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
@@ -10,7 +9,7 @@ import android.media.MediaMuxer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
-import android.provider.MediaStore
+import dev.geode.R
 import dev.geode.analysis.FeatureTimeline
 import dev.geode.render.SceneFactory
 import dev.geode.render.offscreen.OffscreenRenderSpec
@@ -19,6 +18,7 @@ import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.nio.ByteBuffer
 
 enum class ExportCodec(
@@ -160,61 +160,45 @@ class VideoExporter(
                     isCancelled,
                 )
             }
-            val resolver = context.contentResolver
-            val values =
-                ContentValues().apply {
-                    put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
-                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Geode")
-                        put(MediaStore.Video.Media.IS_PENDING, 1)
-                    }
-                }
-            val outUri =
-                resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                    ?: return@withContext Result.Failed(
-                        "Your Videos library would not accept a new file. Check that storage is not full, " +
-                            "or render to a folder you choose instead.",
-                    )
-            val pfd = resolver.openFileDescriptor(outUri, "w")
-            if (pfd == null) {
-                bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
-                return@withContext Result.Failed("The new file in your Videos library could not be opened for writing.")
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+                return@withContext Result.Failed(context.getString(R.string.export_output_choose_folder))
             }
-            try {
-                pfd.use {
-                    encodeInto(
-                        it,
-                        audioUri,
-                        timeline,
-                        sceneFactory,
-                        aspect,
-                        sceneParams,
-                        lfoConfigs,
-                        adsrConfigs,
-                        reducedMotion,
-                        requestedFps,
-                        paramsAt,
-                        loopSafe,
-                        range,
-                        codec,
-                        onProgress,
-                        isCancelled,
-                    )
-                }
-                if (isCancelled()) {
-                    bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
-                    Result.Cancelled
-                } else {
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
-                        resolver.update(outUri, done, null, null)
+            val resolver = context.contentResolver
+            val savedUri =
+                try {
+                    publishMediaStoreVideo(PendingVideoStore(resolver, fileName)) { outUri ->
+                        val pfd =
+                            resolver.openFileDescriptor(outUri, "w")
+                                ?: throw IOException(context.getString(R.string.export_output_open_failed))
+                        pfd.use {
+                            encodeInto(
+                                it,
+                                audioUri,
+                                timeline,
+                                sceneFactory,
+                                aspect,
+                                sceneParams,
+                                lfoConfigs,
+                                adsrConfigs,
+                                reducedMotion,
+                                requestedFps,
+                                paramsAt,
+                                loopSafe,
+                                range,
+                                codec,
+                                onProgress,
+                                isCancelled,
+                            )
+                        }
+                        !isCancelled()
                     }
-                    Result.Saved(outUri, measureLoudness(outUri, loudnessTarget))
+                } catch (error: MediaStorePublicationException) {
+                    return@withContext Result.Failed(context.getString(error.messageResource))
                 }
-            } catch (e: Exception) {
-                bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
-                throw e
+            if (savedUri == null) {
+                Result.Cancelled
+            } else {
+                Result.Saved(savedUri, measureLoudness(savedUri, loudnessTarget))
             }
         }
 
@@ -238,13 +222,10 @@ class VideoExporter(
         isCancelled: () -> Boolean,
     ): Result {
         val resolver = context.contentResolver
-        val pfd =
-            resolver.openFileDescriptor(destination, "w")
-                ?: return Result.Failed(
-                    "The folder you chose would not let the file be written. Some cloud providers refuse " +
-                        "this; try your Videos library or a folder on the device.",
-                )
         return try {
+            val pfd =
+                resolver.openFileDescriptor(destination, "w")
+                    ?: throw IOException(context.getString(R.string.export_output_open_failed))
             pfd.use {
                 encodeInto(
                     it,

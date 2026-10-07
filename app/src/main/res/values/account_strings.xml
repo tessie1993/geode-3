@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_premium_title">Geode Premium</string>
+    <string name="account_premium_close">Close</string>
+    <string name="account_premium_intro">Choose an available plan. Review the price, billing period and full offer terms before continuing.</string>
+    <string name="account_premium_loading">Loading current offers…</string>
+    <string name="account_premium_unconfigured">Purchases and restore are not available in this build. You can keep using Geode without signing in.</string>
+    <string name="account_premium_no_offers">No offers are available right now. You can keep using Geode.</string>
+    <string name="account_premium_catalog_error">Offers could not be loaded. Try again when connected.</string>
+    <string name="account_premium_offer_unavailable">This offer is not currently available.</string>
+    <string name="account_premium_continue">Continue with Google Play</string>
+    <string name="account_premium_restore">Restore purchases</string>
+    <string name="account_premium_restore_unavailable">Purchase restore is currently unavailable. Connect to Google Play and try again.</string>
+    <string name="account_premium_retry">Try again</string>
+    <string name="account_premium_purchasing">Opening Google Play…</string>
+    <string name="account_premium_pending">Payment is pending. New premium access starts only after payment and verification are complete.</string>
+    <string name="account_premium_verifying">Verifying your purchase…</string>
+    <string name="account_premium_restoring">Checking your purchases…</string>
+    <string name="account_premium_restore_finished">Purchase check finished. Your access reflects the verified result.</string>
+    <string name="account_premium_operation_error">The purchase check could not be completed. Your local music and projects remain available.</string>
+    <string name="account_premium_owned">Premium is active</string>
+    <string name="account_premium_manage">Manage purchase</string>
+    <string name="account_premium_local_access">Local playback, visual safety controls and access to your files remain free. Google sign-in is optional.</string>
+    <string name="account_premium_privacy">Privacy</string>
+    <string name="account_premium_terms">Terms</string>
+</resources>

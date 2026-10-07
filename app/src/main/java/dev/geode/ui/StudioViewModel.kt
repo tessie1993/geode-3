@@ -80,6 +80,8 @@ class StudioViewModel
 
         fun stopRecording(name: String? = null) = session.stopRecording(name)
 
+        fun retryTakeSave() = session.retryTakeSave()
+
         fun playTake(name: String) = session.playTake(name)
 
         fun stopReplay() = session.stopReplay()

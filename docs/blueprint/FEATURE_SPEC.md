@@ -3,6 +3,11 @@
 Status: target specification, not a list of completed features. Source baseline:
 `9848b28`; see `IMPLEMENTATION_STATUS.md` for this branch's actual changes.
 
+Owner update: every existing C++ style and MilkDrop stays. New psychedelic spatial
+looks extend the catalog. Live camera/scene movement is generative with fresh
+variation, while recordings preserve the realized performance. Follow
+[VISUAL_STYLE_CAMERA.md](VISUAL_STYLE_CAMERA.md) and the supplied-image evidence.
+
 ## Spec sheet
 
 | Field | Specification |
@@ -48,7 +53,7 @@ hidden omission. "Present" below means code exists, not device-certified.
 
 | ID | Feature | Baseline / priority | Acceptance evidence |
 |---|---|---|---|
-| V01 | Curated Fluid, raymarched and MilkDrop catalog | Present, needs repair/curation / R0 | All advertised styles render on supported tiers; fallback never goes black |
+| V01 | Entire existing C++ catalog and MilkDrop | Present, needs repair/curation / R0 | Every existing stable ID remains supported; saved looks/projects survive; all styles render on supported tiers |
 | V02 | Six signature spatial looks | New / R1 | Distinct silhouettes/materials/camera behavior; each meets scene contract and device budget |
 | V03 | Beat/band/structure response | Broken/inconsistent paths / R0 | Synthetic impulses and musical fixtures exercise advertised controls; silence settles correctly |
 | V04 | Presentation-aligned motion | Needs repair / R0 | Video of audible pulse + image response establishes measured offset by output route |
@@ -62,6 +67,10 @@ hidden omission. "Present" below means code exists, not device-certified.
 | V12 | Safe visual defaults / reduced motion | Partial / R0 | Persisted setting affects every family and final composite; safety is never a paid feature |
 | V13 | Immersive / landscape / PiP | Partial / R1 | PiP continues rendering if offered; transitions preserve scene; controls have accessible alternatives |
 | V14 | External display, MIDI, gamepad, NDI/Cast | R2 | Separate latency, network, permission and compatibility matrix before advertising |
+| V15 | Psychedelic spatial tunnels and bead/particle corridors | New/additive / R1 | Shared geometric path and camera, visible parallax/occlusion, distinct motifs, no clipping or speed-change teleport |
+| V16 | Morphing 3D objects | New/additive / R1 | Off-axis views prove spatial form; music deforms geometry/material independently from camera; original scene IDs remain valid |
+| V17 | Native generative music-driven camera | New / R1 | Fresh sessions vary; pose continuity, motion bounds, touch interruption, recenter and stationary reduced-motion framing are verified |
+| V18 | Separate geometry, atmosphere and camera customization | Partial/new / R1 | Saved controls visibly affect only their stated role; camera/object motion and audio response can each be held independently |
 
 ## Studio and output
 
@@ -75,7 +84,7 @@ hidden omission. "Present" below means code exists, not device-certified.
 | E06 | Captions, lyrics/SRT, LUT, loudness | Partial / R1 | Unicode/layout, timing and colour management verified in exported file |
 | E07 | Resolution/aspect/codec presets | Present / R1 | Query encoder support; 9:16, 16:9 and 1:1 validated; honest fallback shown before start |
 | E08 | Background export, progress, ETA, cancel | Partial / R0 | Service owns job, cancel removes partial output, full disk and process death recover without corrupt project |
-| E09 | Deterministic rendering | Incomplete / R0 | Fixed seed and timestamps; repeat exports match visual checkpoints within GPU tolerance |
+| E09 | Captured performance fidelity | Incomplete / R0 | Export preserves realized camera, scene evolution, touches, audio and transitions; rerender uses captured state rather than a newly generated journey |
 | E10 | Project/template backup, duplicate and version migration | Partial / R1 | Atomic write; malformed/newer versions preserved; imported project cannot escape its storage root |
 
 ## Accounts, premium and polish

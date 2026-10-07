@@ -59,11 +59,7 @@ std::optional<std::string> MilkdropScene::takeError() {
 }
 
 void MilkdropScene::acceptPcm(const float* samples, int count) {
-    const int n = std::min(count, kPcmCapacity);
-    if (n <= 0) return;
-    if (pcmCount_ + n > kPcmCapacity) pcmCount_ = 0;
-    std::copy(samples + (count - n), samples + count, pcm_.begin() + pcmCount_);
-    pcmCount_ += n;
+    pcm_.push(samples, count);
 }
 
 void MilkdropScene::queueMilkPreset(const std::string& path) {
@@ -134,6 +130,7 @@ void MilkdropScene::ensureEngine(double now) {
             return;
         }
         reportedCreateFailure_ = false;
+        enginePcmSamples_ = projectm_pcm_get_max_samples();
         projectm_set_fps(engine_.get(), 60);
         projectm_set_mesh_size(engine_.get(), 48, 32);
         projectm_set_soft_cut_duration(engine_.get(), 3.0);
@@ -167,16 +164,7 @@ void MilkdropScene::update(const GeodeFeatureFrame& features, float dt) {
     zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     beatPulse_ = std::max(std::max(live::hit(features), beatPulse_ - dt * 3.0f), 0.0f);
-    if (!engine_) return;
-    if (pcmCount_ > 0) {
-        const int n = std::min(pcmCount_, kEnginePcmSamples);
-        if (n < pcmCount_) std::copy(pcm_.begin() + (pcmCount_ - n), pcm_.begin() + pcmCount_, pcm_.begin());
-        pcmCount_ = 0;
-        projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(n), PROJECTM_MONO);
-    } else {
-        const int n = std::min(GEODE_WAVEFORM_POINTS, kEnginePcmSamples);
-        projectm_pcm_add_float(engine_.get(), features.waveform + (GEODE_WAVEFORM_POINTS - n), static_cast<unsigned int>(n), PROJECTM_MONO);
-    }
+    pcm_.advance(dt);
 }
 
 void MilkdropScene::loadPendingPreset(double now) {
@@ -229,6 +217,12 @@ void MilkdropScene::draw(float timeSeconds) {
     const double now = nowSeconds();
     ensureEngine(now);
     if (!engine_ || !frame_.ensure(engineWidth_, engineHeight_)) return;
+    // Submit after engine creation so the first visible frame receives its
+    // audio too. The bounded queue is consumed once and never reads a cached
+    // feature waveform; Renderer supplies explicit timeline input for export.
+    pcm_.submit(enginePcmSamples_, [this](const float* samples, unsigned int count) {
+        projectm_pcm_add_float(engine_.get(), samples, count, PROJECTM_MONO);
+    });
     loadPendingPreset(now);
     const SceneParams& p = params_;
     projectm_set_beat_sensitivity(engine_.get(), std::clamp(0.2f + p.beatResponse, 0.2f, 3.0f));
@@ -315,6 +309,8 @@ void MilkdropScene::drainEngineErrors() {
 }
 
 void MilkdropScene::release() {
+    pcm_.clear();
+    enginePcmSamples_ = 0;
     engine_.reset();
     engineWidth_ = 0;
     engineHeight_ = 0;

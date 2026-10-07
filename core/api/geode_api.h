@@ -101,9 +101,10 @@ GEODE_API geode_viz*  geode_viz_create(AAssetManager* assets, const char* cache_
 GEODE_API void        geode_viz_destroy(geode_viz*);
 GEODE_API int         geode_viz_param_count(void);
 GEODE_API const char* geode_viz_param_name(int index);   /* NULL past the end */
-/* Every scene parameter in geode_viz_param_name order; ints and flags travel as floats. */
+/* Every scene parameter in geode_viz_param_name order; ints and flags travel as floats.
+ * Invalid frames are rejected atomically, preserving the prior state; see geode_viz_last_error. */
 GEODE_API void        geode_viz_set_params(geode_viz*, const float* values, int count);
-GEODE_API int         geode_viz_set_param(geode_viz*, const char* name, float value);   /* 1 = known name */
+GEODE_API int         geode_viz_set_param(geode_viz*, const char* name, float value);   /* 1 = accepted name and value */
 GEODE_API void        geode_viz_set_features(geode_viz*, const GeodeFeatureFrame*);
 GEODE_API void        geode_viz_set_reduced_motion(geode_viz*, int on);
 GEODE_API void        geode_viz_set_layer(geode_viz*, const char* scene_id, float mix, int blend_mode); /* "" = none */

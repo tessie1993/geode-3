@@ -22,6 +22,7 @@ class VisualizerWallpaperService : WallpaperService() {
         private var glView: WallpaperGlSurfaceView? = null
         private var renderer: VisualizerRenderer? = null
         private val idle = IdleFeatures()
+        private val pcmFeed = AudioBus.createSurfacePcmFeed()
         private var lastFrameMs = 0L
         private var feeder: Thread? = null
 
@@ -82,7 +83,7 @@ class VisualizerWallpaperService : WallpaperService() {
             val engine = VisualizerRenderer(this@VisualizerWallpaperService)
             renderer = engine
             restoreLiveState(engine)
-            engine.pcmProvider = { null }
+            engine.pcmProvider = pcmFeed::read
             glView =
                 WallpaperGlSurfaceView(this@VisualizerWallpaperService).apply {
                     setEGLContextClientVersion(3)
@@ -111,6 +112,7 @@ class VisualizerWallpaperService : WallpaperService() {
         private fun startFeeding(engine: VisualizerRenderer) {
             if (feeder != null) return
             AudioBus.addConsumer()
+            val pcmGeneration = pcmFeed.start()
             val generation = ++feedGeneration
             running = true
             lastFrameMs = android.os.SystemClock.elapsedRealtime()
@@ -120,7 +122,10 @@ class VisualizerWallpaperService : WallpaperService() {
                         val now = android.os.SystemClock.elapsedRealtime()
                         val dt = ((now - lastFrameMs).coerceIn(1, 100)) / 1000f
                         lastFrameMs = now
-                        engine.features = AudioBus.features() ?: idle.tick(dt)
+                        val live = AudioBus.features()
+                        val features = live ?: idle.tick(dt)
+                        pcmFeed.publishIdle(pcmGeneration, if (live == null) features.waveform else null)
+                        engine.features = features
                         Thread.sleep(FEED_INTERVAL_MS)
                     }
                 }.apply {
@@ -131,6 +136,7 @@ class VisualizerWallpaperService : WallpaperService() {
         }
 
         private fun stopFeeding() {
+            pcmFeed.stop()
             val thread = feeder ?: return
             running = false
             feedGeneration++

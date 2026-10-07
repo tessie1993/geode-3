@@ -29,4 +29,14 @@ int Spectrum::peakBin() const {
     return best;
 }
 
+void Spectrum::addPower(const float* windowed) {
+    kiss_fftr(cfg_.get(), windowed, bins_.data());
+    for (size_t k = 0; k < magnitudes_.size(); k++) {
+        const float re = bins_[k].r;
+        const float im = bins_[k].i;
+        const float previous = magnitudes_[k];
+        magnitudes_[k] = std::sqrt(previous * previous + re * re + im * im);
+    }
+}
+
 }  // namespace geode::analysis

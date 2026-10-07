@@ -99,6 +99,15 @@ class SmokeRun:
             time.sleep(1)
         raise AssertionError(f"UI action missing after polling and scroll: {label}")
 
+    @staticmethod
+    def assert_restarted(root):
+        # ElementTree leaf nodes are falsey even when they are valid matches.
+        # Test existence explicitly so the guard also detects repeated onboarding.
+        if SmokeRun.find(root, "I understand") is not None or SmokeRun.find(root, "Not now") is not None:
+            raise AssertionError("Onboarding did not persist across process restart")
+        if SmokeRun.find(root, "Player") is None:
+            raise AssertionError("Player navigation missing after restart")
+
     def run(self):
         metadata = {
             "serial": self.serial,
@@ -133,10 +142,7 @@ class SmokeRun:
         self.shell("am", "start", "-W", "-n", component)
         time.sleep(2)
         root = self.capture("restart")
-        if self.find(root, "I understand") or self.find(root, "Not now"):
-            raise AssertionError("Onboarding did not persist across process restart")
-        if not self.find(root, "Player"):
-            raise AssertionError("Player navigation missing after restart")
+        self.assert_restarted(root)
         self.events.append("Onboarding persisted across process restart")
 
     def finish(self):

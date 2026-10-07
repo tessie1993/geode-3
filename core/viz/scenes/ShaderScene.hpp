@@ -8,8 +8,10 @@
 #include <vector>
 
 #include "viz/MotionField.hpp"
+#include "viz/CameraDirector.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
+#include "viz/SpatialCameraDirector.hpp"
 #include "viz/Texture.hpp"
 
 namespace geode::viz {
@@ -34,6 +36,8 @@ public:
     void acceptPcm(const float* samples, int count) override;
     void setFlow(GLuint texture, float strength) override;
     void setPaletteLut(GLuint texture) override { paletteLutTex_ = texture; }
+    bool ownsNativeSpatialMotion() const override { return spatialCamera_.has_value(); }
+    void setReducedMotion(bool on) override { reducedMotion_ = on; }
     void setTouchField(const TouchField* field) override { touchField_ = field; }
     void setFragmentSource(const std::string& source) override;
 
@@ -77,6 +81,7 @@ private:
     void uploadParams();
     void uploadMotion();
     void uploadTouch();
+    void uploadSpatialCamera();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
 
@@ -116,6 +121,10 @@ private:
     // Wave three: the continuous replacement for the old spike-latched state
     // (uSpike/uMoveDir/uSpawnSeed/uSpawnAge/uFormPhase). See MotionField.hpp.
     MotionField motionField_;
+    CameraDirector cameraDirector_;
+    // Only the additive spatial style allocates this native session state.
+    std::optional<SpatialCameraDirector> spatialCamera_;
+    bool reducedMotion_ = false;
     SceneParams params_;
     float rotationAngle_ = 0.0f;
     float zoomPhase_ = 0.0f;

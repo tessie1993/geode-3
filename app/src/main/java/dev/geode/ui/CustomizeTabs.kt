@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.geode.R
 import dev.geode.analysis.IntelligenceMode
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -187,6 +189,16 @@ internal fun MotionTab(
     onChange: (SceneParams) -> Unit,
 ) {
     Column {
+        if (LocalSceneId.current == SceneIds.PRISMATIC_PASSAGE) {
+            SectionHeader(stringResource(R.string.spatial_camera_heading))
+            LabeledSlider(stringResource(R.string.spatial_camera_motion), p.motionAmount, 0f..1f) {
+                onChange(p.copy(motionAmount = it))
+            }
+            LabeledSlider(stringResource(R.string.spatial_camera_orbit), p.motionOrbit, 0f..1f) {
+                onChange(p.copy(motionOrbit = it))
+            }
+            ControlHint(stringResource(R.string.spatial_camera_hint))
+        }
         SectionHeader("Movement")
         LabeledSlider(ParamKeys.SPEED, p.speed, 0.05f..4f) { onChange(p.copy(speed = it)) }
         LabeledSlider(ParamKeys.ZOOM, p.zoom, 0.3f..3f) { onChange(p.copy(zoom = it)) }
@@ -197,8 +209,8 @@ internal fun MotionTab(
         SectionHeader("Drift")
         LabeledSlider(ParamKeys.DRIFT_X, p.driftX, -1f..1f) { onChange(p.copy(driftX = it)) }
         LabeledSlider(ParamKeys.DRIFT_Y, p.driftY, -1f..1f) { onChange(p.copy(driftY = it)) }
-        SectionHeader("Transient motion")
-        ControlHint("How far the picture swells and jumps on each hit the music actually plays.")
+        SectionHeader("Transient motion", ParamScope.LEGACY_IMPULSE)
+        ControlHint("How far the picture swells and jumps on each hit the music actually plays.", ParamScope.LEGACY_IMPULSE)
         LabeledSlider(ParamKeys.BEAT_PULSE, p.pulse, 0f..1f) { onChange(p.copy(pulse = it)) }
         LabeledSlider(ParamKeys.BEAT_SHAKE, p.shake, 0f..1f) { onChange(p.copy(shake = it)) }
         SectionHeader(ParamKeys.ENDLESS_ZOOM, ParamScope.ENDLESS_ZOOM)
@@ -347,12 +359,14 @@ internal fun ReactivityTab(
                 "envelopes, spectral brightness and the stereo field. Nothing here waits for a " +
                 "tempo to be worked out, so live input behaves exactly like a file.",
         )
-        LabeledSlider(ParamKeys.AUDIO_DRIVE, p.audioDrive, 0.2f..2.5f) { onChange(p.copy(audioDrive = it)) }
+        val audioDriveRange = if (LocalSceneId.current == SceneIds.PRISMATIC_PASSAGE) 0f..2.5f else 0.2f..2.5f
+        LabeledSlider(ParamKeys.AUDIO_DRIVE, p.audioDrive, audioDriveRange) { onChange(p.copy(audioDrive = it)) }
         ControlHint(
             "Form drive is the superformula: one shape the music keeps redrawing - snares change " +
                 "its lobe count, kicks pinch it, the spectrum fattens or thins it, drops reset it - " +
                 "and every style is moved through it: zoom, spin, warp, twist, tiling, the fluid " +
                 "and plate forces, the palette span. Zero switches it off.",
+            ParamScope.LEGACY_IMPULSE,
         )
         LabeledSlider(ParamKeys.FORM_DRIVE, p.formDrive, 0f..1f) { onChange(p.copy(formDrive = it)) }
         LabeledSlider(ParamKeys.BEAT_RESPONSE, p.beatResponse, 0f..2f) { onChange(p.copy(beatResponse = it)) }

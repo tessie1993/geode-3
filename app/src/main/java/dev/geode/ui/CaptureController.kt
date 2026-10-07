@@ -166,6 +166,9 @@ internal class CaptureController(
             return
         }
         if (!micCapture.hasPermission()) {
+            // Consent can complete after RECORD_AUDIO was revoked. The service
+            // already owns a projection here, even though no capture pump started.
+            PlaybackCaptureService.stop(application)
             _externalAudio.update {
                 it.copy(awaitingConsent = false, failure = CaptureFailure.PERMISSION)
             }

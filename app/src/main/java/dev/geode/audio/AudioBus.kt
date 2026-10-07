@@ -5,6 +5,14 @@ import dev.geode.analysis.AudioFeatures
 object AudioBus {
     private const val STALE_MS = 1_500L
 
+    private val pcmSources = PcmSourceRegistry()
+
+    internal fun attachPcmSource(ring: PcmRingBuffer) = pcmSources.attach(ring)
+
+    internal fun detachPcmSource(ring: PcmRingBuffer) = pcmSources.detach(ring)
+
+    internal fun createSurfacePcmFeed(): SurfacePcmFeed = pcmSources.createFeed()
+
     @Volatile
     private var latest: AudioFeatures? = null
 

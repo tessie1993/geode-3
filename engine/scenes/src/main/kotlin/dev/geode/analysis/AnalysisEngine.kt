@@ -1,6 +1,5 @@
 package dev.geode.analysis
 
-import dev.geode.engine.audio.MidSideWindow
 import dev.geode.engine.audio.ReactiveAnalyzer
 import dev.geode.engine.audio.SampleRing
 import kotlinx.coroutines.CoroutineDispatcher
@@ -18,7 +17,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicBoolean
 
 class AnalysisEngine(
     private val ring: SampleRing,
@@ -32,8 +30,13 @@ class AnalysisEngine(
             hopRateHz = HOP_RATE_HZ,
         )
 
-    @Volatile
-    var sampleRateHz: Int = 44100
+    private val input = AnalysisInput(ring, fftSize, initialRateHz = 44100)
+
+    var sampleRateHz: Int
+        get() = input.sampleRateHz
+        set(value) {
+            input.setSampleRate(value) { _features.value = AudioFeatures.empty(bandCount) }
+        }
 
     @Volatile
     var attack: Float = DEFAULT_ATTACK
@@ -56,11 +59,8 @@ class AnalysisEngine(
     private val _features = MutableStateFlow(AudioFeatures.empty(bandCount))
     val features: StateFlow<AudioFeatures> = _features
 
-    private val resetPending = AtomicBoolean(false)
-
     fun reset() {
-        resetPending.set(true)
-        _features.value = AudioFeatures.empty(bandCount)
+        input.reset { _features.value = AudioFeatures.empty(bandCount) }
     }
 
     /**
@@ -98,7 +98,7 @@ class AnalysisEngine(
     }
 
     private inner class Pass {
-        private val window = MidSideWindow(ring, fftSize)
+        private val window = input.openWindow { _features.value = AudioFeatures.empty(bandCount) }
         private val beat = PulseHold()
         private val beatStrength = PulseHold()
         private val transient = PulseHold()
@@ -109,18 +109,46 @@ class AnalysisEngine(
         private val sectionBoundary = PulseHold()
         private val drop = PulseHold()
         private val arrival = PulseHold()
+        private var sourceEpoch: Int? = null
+        private var sourceGeneration: Long? = null
+        private var lastInputNs = System.nanoTime()
+        private var quiet = true
+
+        init {
+            reset()
+        }
 
         fun reset() {
             analyzer.reset()
             listOf(beat, beatStrength, transient, kick, snare, hat, downbeat, sectionBoundary, drop, arrival)
                 .forEach(PulseHold::reset)
+            _features.value = AudioFeatures.empty(bandCount)
+            quiet = true
         }
 
         fun tick(): Boolean {
-            if (!window.refresh()) return false
-            analyzer.analyze(window.mid, window.side, DT_SECONDS)
+            val now = System.nanoTime()
+            if (sourceEpoch != null && sourceEpoch != ring.epoch) {
+                reset()
+                sourceEpoch = ring.epoch
+            }
+            val frame = window.refresh()
+            if (frame == null) {
+                if (!quiet && now - lastInputNs >= INPUT_IDLE_NS) reset()
+                return false
+            }
+            if (sourceEpoch != frame.position.epoch || sourceGeneration != frame.generation) {
+                reset()
+                sourceEpoch = frame.position.epoch
+                sourceGeneration = frame.generation
+            }
+            // Capture the rate once with the PCM window. A format callback can
+            // update the requested rate during JNI, but cannot retune this FFT.
+            applyConfiguration(frame.sampleRateHz)
+            if (!input.isCurrent(frame)) return false
+            analyzer.analyze(frame.mid, frame.side, DT_SECONDS)
 
-            _features.value =
+            val next =
                 AudioFeatures(
                     bands = analyzer.bands.copyOf(),
                     waveform = analyzer.waveform.copyOf(),
@@ -159,6 +187,14 @@ class AnalysisEngine(
                     harmonicity = analyzer.harmonicity,
                     warmup = analyzer.warmup,
                 )
+            // Publication and lifecycle invalidation serialize without holding a
+            // lock during JNI or array copies. A late FFT cannot revive old audio.
+            if (!input.publishIfCurrent(frame) { _features.value = next }) {
+                reset()
+                return false
+            }
+            lastInputNs = now
+            quiet = false
             return true
         }
     }
@@ -167,8 +203,7 @@ class AnalysisEngine(
 
     // Settings are published by UI/audio threads, but only this worker touches
     // ReactiveAnalyzer: its native handle and tuning are not thread safe.
-    private fun applyConfiguration() {
-        val rate = sampleRateHz
+    private fun applyConfiguration(rate: Int) {
         val attackSeconds = BeatTuning.envelopeSeconds(attack)
         val releaseSeconds = BeatTuning.envelopeSeconds(decay)
         val sensitivity = beatSensitivity
@@ -184,8 +219,6 @@ class AnalysisEngine(
         val pass = Pass()
         var deadlineNs = System.nanoTime()
         while (currentCoroutineContext().isActive) {
-            applyConfiguration()
-            if (resetPending.getAndSet(false)) pass.reset()
             pass.tick()
             deadlineNs += TICK_NS
             val now = System.nanoTime()
@@ -197,20 +230,27 @@ class AnalysisEngine(
 
     fun start(scope: CoroutineScope) = worker.start(scope)
 
-    fun stop() = worker.stop()
+    fun stop() {
+        worker.stop()
+        reset()
+    }
 
     /** Schedules safe native teardown without blocking the caller on an in-flight FFT. */
     fun close() {
         worker.close()
+        reset()
     }
 
     /** Waits for the same teardown scheduled by [close], including native destruction. */
     suspend fun closeAndJoin() {
+        close()
         worker.close().await()
     }
 
     companion object {
         private const val TICK_NS = 16_000_000L
+        // Covers ordinary decoder block jitter, but never sustains a paused hit.
+        private const val INPUT_IDLE_NS = 250_000_000L
 
         // Three hops is 48 ms: one 30 fps display frame plus scheduling jitter.
         private const val PULSE_HOLD_HOPS = 3

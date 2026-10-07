@@ -12,6 +12,7 @@ public:
     int fftSize() const { return fftSize_; }
     double binHz(int sampleRateHz) const { return static_cast<double>(sampleRateHz) / fftSize_; }
     void compute(const float* windowed);
+    void addPower(const float* windowed);
     int peakBin() const;
     const std::vector<float>& magnitudes() const { return magnitudes_; }
 

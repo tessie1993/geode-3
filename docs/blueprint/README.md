@@ -4,7 +4,7 @@ Research date: **7 October 2026** (Europe/Amsterdam). Repository inspected at
 `9848b2854f173ac5875a4cc4cd7761f2745bfa74`.
 
 **Product:** a premium Android music player and audiovisual instrument. Listen,
-explore fluid and spatial visuals, shape a look, and turn it into a repeatable
+explore fluid and spatial visuals, shape a look, and capture an evolving
 performance, wallpaper or edited video. The implementation uses **C++20,
 Media3 and Oboe**, with Kotlin/Compose for Android integration and UI.
 
@@ -22,11 +22,14 @@ Store listing inspection does not establish how a competitor behaves on a device
 | [Feature specification](FEATURE_SPEC.md) | Spec sheet, complete feature inventory, release scope and measurable acceptance criteria |
 | [Architecture](ARCHITECTURE.md) | Android/C++ boundaries, audio ownership, clocks, threading, rendering, storage and export |
 | [Design specification](DESIGN.md) | Visual direction, screens, journeys, controls, accessibility and scene art direction |
+| [Visual references](VISUAL_REFERENCE_EVIDENCE.md) | All nine supplied screenshots, eight reference apps and code-reuse boundaries |
+| [Native style and camera contract](VISUAL_STYLE_CAMERA.md) | Additive psychedelic 3D tunnels/objects, generative motion and shared native camera |
 | [Authentication, premium and security](SECURITY_AUTH_PREMIUM.md) | Identity, verified purchases, backend API contract, threat model and abuse tests |
 | [Build and delivery plan](DELIVERY_PLAN.md) | Ordered work packages, dependencies, migration, verification and completion gates |
 | [Play release plan](PLAY_RELEASE.md) | Signing, native compatibility, Console tasks, privacy, listing and rollout |
 | [GitHub Actions](CI.md) | Debug APK download, build/test jobs, emulator evidence and opt-in signed AAB |
 | [Implementation status](IMPLEMENTATION_STATUS.md) | Changes in this branch and evidence still needed |
+| [Active ownership](WORK_QUEUE.md) | Fix packages, independent review and configuration policy |
 
 ## Relationship to the existing plan
 
@@ -38,9 +41,16 @@ capture; a competing native music player is not required to satisfy that choice.
 The current native player must be repaired or retired through a tested migration.
 
 Retain the planned Music, Visualizer, Customize, Studio, optional Google and
-premium capabilities. Do not delete the approximately 82 older styles until
-replacement coverage, saved-preset migration and user-visible quality are proven.
-Preserve the Fluid family, eight raymarched styles and MilkDrop boundary.
+premium capabilities. **Keep every existing C++ style and MilkDrop.** The owner's
+latest instruction cancels the historical style cull entirely. Preserve stable
+IDs and saved looks while adding or upgrading spatial variants.
+
+The visual direction is psychedelic 3D tunnels, sculptural/morphing objects,
+bead and particle corridors, and music-driven camera movement. All visual,
+simulation and camera logic is native C++ with GPU shaders. Live journeys use
+fresh generative variation; they do not replay a fixed track/preset route.
+Recording preserves the performance that actually happened. The detailed
+[camera contract](VISUAL_STYLE_CAMERA.md) governs these decisions.
 
 GitHub Actions remains the compile/test/lint gate for this work, as specified by
 the existing plan. Device checks are separate gates. No production release or

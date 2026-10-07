@@ -110,16 +110,55 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Fresh PCM fanout and silence
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+            core/tests/PcmDeliveryTest.cpp -o "$RUNNER_TEMP/pcm-delivery-test"
+          "$RUNNER_TEMP/pcm-delivery-test"
+      - name: Native stereo energy and spectrum
+        run: |
+          gcc -O2 -Ithird_party/kissfft -c third_party/kissfft/kiss_fft.c -o "$RUNNER_TEMP/kiss_fft.o"
+          gcc -O2 -Ithird_party/kissfft -c third_party/kissfft/kiss_fftr.c -o "$RUNNER_TEMP/kiss_fftr.o"
+          g++ -std=c++20 -O2 -Wall -Wextra -Icore -Icore/tests/include -Ithird_party/kissfft \
+            core/tests/StereoAnalysisTest.cpp core/analysis/*.cpp \
+            "$RUNNER_TEMP/kiss_fft.o" "$RUNNER_TEMP/kiss_fftr.o" -lm -o "$RUNNER_TEMP/stereo-analysis-test"
+          "$RUNNER_TEMP/stereo-analysis-test"
+      - name: Native log-band frequency mapping
+        run: |
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore \
+            core/tests/LogBandsTest.cpp core/analysis/LogBands.cpp -o "$RUNNER_TEMP/log-bands-test"
+          "$RUNNER_TEMP/log-bands-test"
       - name: Native motion across angle wraps
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
             core/tests/MotionFieldTest.cpp core/viz/MotionField.cpp \
             -o "$RUNNER_TEMP/motion-test"
           "$RUNNER_TEMP/motion-test"
+      - name: Native parameter and feature admission
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore/tests/include -Icore \
+            core/tests/InputAdmissionTest.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            -o "$RUNNER_TEMP/input-admission-test"
+          "$RUNNER_TEMP/input-admission-test"
       - name: Release validation regressions
         run: python3 -m unittest discover -s tools/release/tests -v
+      - name: Native spatial camera and audio response
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+            core/tests/SpatialCameraDirectorTest.cpp core/viz/SpatialCameraDirector.cpp \
+            -o "$RUNNER_TEMP/spatial-camera-test"
+          "$RUNNER_TEMP/spatial-camera-test"
+      - name: Retained Rod Tunnel camera response
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+            core/tests/CameraDirectorTest.cpp -o "$RUNNER_TEMP/camera-director-test"
+          "$RUNNER_TEMP/camera-director-test"
       - name: Native dependency packaging regression
         run: python3 -m unittest discover -s tools/android/tests -v
+      - name: Purchase domain regressions
+        run: PYTHONPATH=server python3 -m unittest discover -s server/tests -v
 
   emulator:
     name: Test the built APK on an emulator

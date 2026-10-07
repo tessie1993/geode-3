@@ -22,7 +22,9 @@ interface PresetRepository {
     suspend fun save(
         preset: Preset,
         folder: String = "",
-    )
+        reservedNames: Set<String> = emptySet(),
+        replacing: Preset? = null,
+    ): PresetWrite
 
     suspend fun delete(name: String)
 
@@ -59,9 +61,21 @@ class FilePresetRepository(
     override suspend fun save(
         preset: Preset,
         folder: String,
-    ) {
-        withContext(Dispatchers.IO) { store.save(preset, folder) }
-        refreshFolders()
+        reservedNames: Set<String>,
+        replacing: Preset?,
+    ): PresetWrite {
+        val result = withContext(Dispatchers.IO) { store.save(preset, folder, reservedNames, replacing) }
+        // Folder refresh is derived state. It must not erase a successful durable result.
+        if (result is PresetWrite.Saved) {
+            try {
+                refreshFolders()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // The next library refresh will reconcile folder metadata from disk.
+            }
+        }
+        return result
     }
 
     override suspend fun delete(name: String) {

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "viz/Framebuffer.hpp"
+#include "viz/PcmDelivery.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
@@ -21,7 +22,7 @@ namespace geode::viz {
 // The engine never touches the window surface, so the scene is independent of the EGL config.
 class MilkdropScene : public Scene {
 public:
-    MilkdropScene(ProgramLoader loader, SceneHost host) : loader_(loader), host_(std::move(host)), pcm_(kPcmCapacity, 0.0f) {}
+    MilkdropScene(ProgramLoader loader, SceneHost host) : loader_(loader), host_(std::move(host)) {}
     ~MilkdropScene() override { release(); }
 
     const std::string& id() const override { return id_; }
@@ -45,8 +46,6 @@ private:
     static constexpr double kCreateRetrySeconds = 2.0;
     static constexpr int kDiagFrames = 90;
     static constexpr int kDiagWarmup = 20;
-    static constexpr int kPcmCapacity = 8192;
-    static constexpr int kEnginePcmSamples = 576;
     static constexpr float kTwoPi = 6.2831853f;
 
     struct EngineDeleter {
@@ -69,8 +68,8 @@ private:
     std::string id_ = "milkdrop";
     ProgramLoader loader_;
     SceneHost host_;
-    std::vector<float> pcm_;
-    int pcmCount_ = 0;
+    MilkdropPcm pcm_;
+    unsigned int enginePcmSamples_ = 0;
     Engine engine_;
     int width_ = 0;
     int height_ = 0;

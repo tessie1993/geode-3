@@ -16,7 +16,7 @@ class MusicPlaylistStore(
     private val dir = File(context.filesDir, "music-playlists").apply { mkdirs() }
 
     init {
-        migrateLegacyFileNames()
+        synchronized(writeLock) { migrateLegacyFileNames() }
     }
 
     private fun migrateLegacyFileNames() {
@@ -39,12 +39,25 @@ class MusicPlaylistStore(
             ?.sortedBy { it.name.lowercase() }
             .orEmpty()
 
-    fun save(playlist: MusicPlaylist) {
-        AtomicWrite.text(fileOf(playlist.name), toJson(playlist))
-    }
+    fun save(playlist: MusicPlaylist): Boolean =
+        synchronized(writeLock) {
+            runCatching { AtomicWrite.text(fileOf(playlist.name), toJson(playlist)) }.getOrDefault(false)
+        }
+
+    /** Name reservation and durable publication are one transaction, including across store instances. */
+    fun saveUnique(playlist: MusicPlaylist): MusicPlaylist? =
+        synchronized(writeLock) {
+            val base = playlist.name.trim().ifBlank { "Playlist" }.take(MAX_IMPORT_NAME_LENGTH)
+            var name = base
+            var suffix = 2
+            val names = list().map { it.name }.toSet()
+            while (name in names || fileOf(name).exists()) name = "$base (${suffix++})"
+            val unique = playlist.copy(name = name)
+            if (save(unique)) unique else null
+        }
 
     fun delete(name: String) {
-        fileOf(name).delete()
+        synchronized(writeLock) { fileOf(name).delete() }
     }
 
     fun addTrack(
@@ -61,13 +74,14 @@ class MusicPlaylistStore(
     fun rename(
         oldName: String,
         newName: String,
-    ): Boolean {
-        val current = list().firstOrNull { it.name == oldName } ?: return false
-        if (newName.isBlank() || list().any { it.name == newName }) return false
-        if (!AtomicWrite.text(fileOf(newName), toJson(current.copy(name = newName)))) return false
-        if (sanitize(oldName) != sanitize(newName)) delete(oldName)
-        return true
-    }
+    ): Boolean =
+        synchronized(writeLock) {
+            val current = list().firstOrNull { it.name == oldName } ?: return@synchronized false
+            if (newName.isBlank() || list().any { it.name == newName }) return@synchronized false
+            if (!AtomicWrite.text(fileOf(newName), toJson(current.copy(name = newName)))) return@synchronized false
+            if (sanitize(oldName) != sanitize(newName)) delete(oldName)
+            true
+        }
 
     fun move(
         name: String,
@@ -93,6 +107,12 @@ class MusicPlaylistStore(
         val updated = current.copy(trackUris = current.trackUris.filterNot { it == uri })
         save(updated)
         return updated
+    }
+
+    private companion object {
+        val writeLock = Any()
+        // safeFileName produces ASCII; leave filesystem room for its hash and numbered copies.
+        const val MAX_IMPORT_NAME_LENGTH = 160
     }
 
     private fun current(name: String): MusicPlaylist? {

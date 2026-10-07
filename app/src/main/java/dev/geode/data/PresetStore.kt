@@ -17,15 +17,18 @@ data class Preset(
     val milkPreset: String? = null,
 )
 
-class PresetStore(
-    context: Context,
+class PresetStore internal constructor(
+    filesDir: File,
+    private val writeText: (File, String) -> Boolean = AtomicWrite::text,
 ) {
-    private val dir = File(context.filesDir, "presets").apply { mkdirs() }
+    constructor(context: Context) : this(context.filesDir)
 
-    private val milkDir = File(context.filesDir, "milk")
+    private val dir = File(filesDir, "presets").apply { mkdirs() }
+    private val milkDir = File(filesDir, "milk")
+    private val transactionLock = transactionLocks.computeIfAbsent(dir.canonicalPath) { Any() }
 
     init {
-        migrateLegacyFileNames()
+        synchronized(transactionLock) { migrateLegacyFileNames() }
     }
 
     private fun migrateLegacyFileNames() {
@@ -34,7 +37,8 @@ class PresetStore(
             .filter { it.isFile && it.extension == "json" }
             .toList()
             .forEach { f ->
-                val name = runCatching { fromJson(f.readText()).name }.getOrNull() ?: return@forEach
+                val name = runCatching { PresetAdmission.decode(f.inputStream().use(PresetAdmission::readText)).name }
+                    .getOrNull() ?: return@forEach
                 val stem = safeFileName(name)
                 if (f.nameWithoutExtension == stem) return@forEach
                 val target = File(f.parentFile, "$stem.json")
@@ -63,24 +67,26 @@ class PresetStore(
             .toList()
 
     fun addFolder(path: String) {
-        File(dir, sanitize(path)).mkdirs()
+        synchronized(transactionLock) { File(dir, sanitize(path)).mkdirs() }
     }
 
     fun renameFolder(
         from: String,
         to: String,
     ) {
-        val src = File(dir, sanitize(from))
-        if (src.isDirectory) src.renameTo(File(dir, sanitize(to)))
+        synchronized(transactionLock) {
+            val src = File(dir, sanitize(from))
+            if (src.isDirectory) src.renameTo(File(dir, sanitize(to)))
+        }
     }
 
-    fun removeFolder(name: String): Boolean {
-        if (name.isBlank()) return false
+    fun removeFolder(name: String): Boolean = synchronized(transactionLock) {
+        if (name.isBlank()) return@synchronized false
         val f = File(dir, sanitize(name))
         val isRoot = runCatching { f.canonicalPath == dir.canonicalPath }.getOrDefault(true)
-        if (isRoot || !f.isDirectory) return false
-        if (f.walkTopDown().any { it.isFile }) return false
-        return f.deleteRecursively()
+        if (isRoot || !f.isDirectory) return@synchronized false
+        if (f.walkTopDown().any { it.isFile }) return@synchronized false
+        f.deleteRecursively()
     }
 
     @WorkerThread
@@ -88,9 +94,12 @@ class PresetStore(
         name: String,
         folder: String,
     ) {
-        val f = findFile(name) ?: return
-        val destDir = if (folder.isEmpty()) dir else File(dir, sanitize(folder)).apply { mkdirs() }
-        f.renameTo(File(destDir, f.name))
+        synchronized(transactionLock) {
+            val f = findFile(name) ?: return
+            val destDir = if (folder.isEmpty()) dir else File(dir, sanitize(folder)).apply { mkdirs() }
+            val target = File(destDir, f.name)
+            if (!target.exists()) f.renameTo(target)
+        }
     }
 
     fun fileOf(name: String): File? = findFile(name)
@@ -119,7 +128,7 @@ class PresetStore(
             .walkTopDown()
             .filter { it.isFile && it.extension == "json" }
             .mapNotNull { f ->
-                runCatching { fromJson(f.readText()) }
+                runCatching { PresetAdmission.decode(f.inputStream().use(PresetAdmission::readText)) }
                     .onFailure { dev.geode.RingLog.note("PresetStore", "unreadable preset skipped: ${f.name}", it) }
                     .getOrNull()
             }.sortedBy { it.name }
@@ -129,21 +138,62 @@ class PresetStore(
     fun save(
         preset: Preset,
         folder: String = "",
-    ) {
-        val destDir = if (folder.isEmpty()) dir else File(dir, sanitize(folder)).apply { mkdirs() }
-        val dest = File(destDir, safeFileName(preset.name) + ".json")
-        val previous = findFile(preset.name)?.takeIf { it != dest }
-        if (AtomicWrite.text(dest, toJson(preset))) previous?.delete()
+        reservedNames: Set<String> = emptySet(),
+        replacing: Preset? = null,
+    ): PresetWrite = synchronized(transactionLock) {
+        try {
+            PresetAdmission.validate(JSONObject(toJson(preset)))
+            val files = dir.walkTopDown().filter { it.isFile && it.extension == "json" }.toList()
+            val dest: File
+            val saved: Preset
+            if (replacing != null) {
+                // A confirmation authorizes this exact snapshot, never a later same-name edit.
+                val candidates = files.filter { it.nameWithoutExtension == safeFileName(replacing.name) }
+                if (preset.name != replacing.name || preset.name in reservedNames || candidates.size != 1) {
+                    return@synchronized PresetWrite.Failed(PresetFailure.CONFLICT)
+                }
+                dest = candidates.single()
+                val current = PresetAdmission.decode(dest.inputStream().use(PresetAdmission::readText))
+                if (current != replacing) return@synchronized PresetWrite.Failed(PresetFailure.CONFLICT)
+                saved = preset
+            } else {
+                // Both display names and filenames count, including unreadable/legacy records.
+                // Allocate while holding the directory lock, before any success is published.
+                val names = files.mapNotNull { file ->
+                    runCatching { fromJson(file.inputStream().use(PresetAdmission::readText)).name }.getOrNull()
+                }.toSet() + reservedNames
+                val stems = files.map { it.nameWithoutExtension }.toSet() + reservedNames.map(::safeFileName)
+                var name = preset.name
+                var suffix = 2
+                while (name in names || safeFileName(name) in stems) {
+                    val tail = " ${suffix++}"
+                    name = preset.name.take(PresetAdmission.MAX_NAME_LENGTH - tail.length) + tail
+                }
+                saved = preset.copy(name = name)
+                val destDir = if (folder.isEmpty()) dir else File(dir, sanitize(folder))
+                dest = File(destDir, safeFileName(name) + ".json")
+            }
+            if (writeText(dest, toJson(saved))) PresetWrite.Saved(saved) else PresetWrite.Failed(PresetFailure.IO)
+        } catch (e: PresetAdmissionException) {
+            PresetWrite.Failed(e.reason, e.field)
+        } catch (_: org.json.JSONException) {
+            PresetWrite.Failed(PresetFailure.INVALID_VALUE)
+        } catch (_: Exception) {
+            PresetWrite.Failed(PresetFailure.IO)
+        }
     }
 
     @WorkerThread
     fun delete(name: String) {
-        findFile(name)?.delete()
+        synchronized(transactionLock) { findFile(name)?.delete() }
     }
 
     companion object {
+        private val transactionLocks = java.util.concurrent.ConcurrentHashMap<String, Any>()
+
         internal fun toJson(p: Preset): String =
             JSONObject()
+                .put("schemaVersion", PresetAdmission.SCHEMA_VERSION)
                 .put("name", p.name)
                 .put("sceneId", p.sceneId)
                 .put("attack", p.attack.toDouble())
@@ -294,7 +344,7 @@ class PresetStore(
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
 
-        internal val ENVELOPE_KEYS = setOf("name", "sceneId", "attack", "decay", "customShader", "milkPreset")
+        internal val ENVELOPE_KEYS = setOf("schemaVersion", "name", "sceneId", "attack", "decay", "customShader", "milkPreset")
 
         internal fun milkFileName(presetName: String): String = safeFileName(presetName.removeSuffix(".milk")) + ".milk"
 

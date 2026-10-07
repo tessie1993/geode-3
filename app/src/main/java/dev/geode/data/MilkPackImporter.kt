@@ -9,74 +9,72 @@ object MilkPackImporter {
         val open: () -> InputStream?,
     )
 
+    data class EntryResult(
+        val name: String,
+        val storedPath: String? = null,
+        val skipReason: String? = null,
+    )
+
     data class Report(
         val presets: Int,
         val textures: Int,
         val skipped: Int,
         val presetsMissingTextures: Int,
+        val results: List<EntryResult> = emptyList(),
+        val issue: String? = null,
     ) {
         val total: Int get() = presets + textures
     }
 
-    private val TEXTURE_EXTENSIONS = setOf("png", "jpg", "jpeg", "bmp", "tga", "dds")
-
     fun import(
         entries: List<Entry>,
         milkDir: File,
-    ): Report {
-        val textureDir = File(milkDir, "textures")
-        milkDir.mkdirs()
-        textureDir.mkdirs()
-        var presets = 0
-        var textures = 0
-        var skipped = 0
-        val importedPresets = mutableListOf<File>()
-        for (entry in entries) {
-            val extension = entry.name.substringAfterLast('.', "").lowercase()
-            val target = targetFor(entry.name, extension, milkDir, textureDir) ?: continue
-            val written = if (target.exists()) false else copy(entry, target)
-            when {
-                !written -> skipped++
-                extension == "milk" -> {
-                    presets++
-                    importedPresets += target
+    ): Report =
+        synchronized(MilkAssetAdmission.importLock) {
+            val textureDir = File(milkDir, "textures")
+            val budget = MilkAssetAdmission.Budget()
+            val results = entries.take(MilkAssetAdmission.MAX_BATCH_FILES).map { entry ->
+                val extension = entry.name.substringAfterLast('.', "").lowercase()
+                val nameIssue = MilkAssetAdmission.fileNameIssue(entry.name)
+                val target = if (nameIssue == null) targetFor(entry.name, extension, milkDir, textureDir) else null
+                val reason = if (target == null) {
+                    nameIssue ?: "unsupported file type"
+                } else {
+                    MilkAssetAdmission.store(target, extension, budget, replaceExisting = false, entry.open)
                 }
-                else -> textures++
+                EntryResult(entry.name.take(240), if (reason == null) target?.absolutePath else null, reason)
             }
+            val imported = results.mapNotNull { it.storedPath?.let(::File) }
+            val importedPresets = imported.filter { it.extension == "milk" }
+            Report(
+                presets = importedPresets.size,
+                textures = imported.size - importedPresets.size,
+                skipped = entries.size - imported.size,
+                presetsMissingTextures = importedPresets.count { missesATexture(it, textureDir) },
+                results = results,
+                issue = if (entries.size > results.size) "Import stopped at the ${MilkAssetAdmission.MAX_BATCH_FILES}-file limit." else null,
+            )
         }
-        return Report(
-            presets = presets,
-            textures = textures,
-            skipped = skipped,
-            presetsMissingTextures = importedPresets.count { missesATexture(it, textureDir) },
-        )
-    }
 
     private fun targetFor(
         name: String,
         extension: String,
         milkDir: File,
         textureDir: File,
-    ): File? =
-        when {
-            extension == "milk" -> File(milkDir, PresetStore.milkFileName(name))
-            extension in TEXTURE_EXTENSIONS -> File(textureDir, name.substringAfterLast('/'))
+    ): File? {
+        val leaf = name.substringAfterLast('/').substringAfterLast('\\')
+        return when {
+            extension == "milk" -> File(milkDir, PresetStore.milkFileName(leaf))
+            extension in MilkAssetAdmission.textureExtensions -> File(textureDir, TextureStore.safeTextureFileName(leaf))
             else -> null
         }
-
-    private fun copy(
-        entry: Entry,
-        target: File,
-    ): Boolean =
-        runCatching {
-            entry.open()?.use { input -> AtomicWrite.stream(target) { out -> input.copyTo(out) } } ?: false
-        }.getOrDefault(false)
+    }
 
     fun missesATexture(
         preset: File,
         textureDir: File,
     ): Boolean {
-        val text = runCatching { preset.readText() }.getOrDefault("")
+        val text = runCatching { MilkAssetAdmission.readPresetText(preset) }.getOrDefault("")
         if (text.isEmpty()) return false
         val available =
             textureDir

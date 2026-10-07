@@ -10,7 +10,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,36 +24,57 @@ class ExportService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onCreate() {
-        super.onCreate()
-        bestEffort(TAG, "startForegroundNotification(ExportRun.state.v...") { startForegroundNotification(ExportRun.state.value) }
-        watcher =
-            scope.launch {
-                ExportRun.state.collectLatest { state ->
-                    if (!state.running) {
-                        stopSelf()
-                        return@collectLatest
-                    }
-                    bestEffort(TAG, "startForegroundNotification(state)") { startForegroundNotification(state) }
-                }
-            }
-    }
+    private var admission: ExportAdmission? = null
 
     override fun onStartCommand(
         intent: Intent?,
         flags: Int,
         startId: Int,
-    ): Int = START_NOT_STICKY
+    ): Int {
+        val lease = intent?.getLongExtra(EXTRA_RUN_ID, -1L)?.let(ExportRun::current)
+        if (lease == null) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        admission = lease
+        try {
+            startForegroundNotification(ExportRun.state.value)
+            lease.promoted()
+        } catch (failure: RuntimeException) {
+            lease.cancel("Unable to start export foreground service: ${failure.message ?: failure.javaClass.simpleName}")
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        watcher?.cancel()
+        watcher = scope.launch {
+            ExportRun.state.collectLatest { state ->
+                if (!state.running || state.runId != lease.id) {
+                    stopSelf(startId)
+                    return@collectLatest
+                }
+                try {
+                    startForegroundNotification(state)
+                } catch (failure: RuntimeException) {
+                    lease.cancel("Export foreground notification failed: ${failure.message ?: failure.javaClass.simpleName}")
+                    stopSelf(startId)
+                }
+            }
+        }
+        return START_NOT_STICKY
+    }
 
     override fun onTimeout(
         startId: Int,
         fgsType: Int,
     ) {
-        ExportRun.requestCancel()
+        admission?.cancel("Android stopped export because its foreground time limit was reached")
         stopSelf()
     }
 
     override fun onDestroy() {
+        admission?.let { lease ->
+            ExportRun.current(lease.id)?.cancel("Export foreground service stopped before export finished")
+        }
         watcher?.cancel()
         scope.cancel()
         super.onDestroy()
@@ -119,17 +139,17 @@ class ExportService : Service() {
         private const val NOTIFICATION_ID = 4711
         private const val PROGRESS_MAX = 1000
 
-        fun start(context: Context) {
-            runCatching {
-                val intent = Intent(context, ExportService::class.java)
+        private const val EXTRA_RUN_ID = "dev.geode.export.RUN_ID"
+
+        internal fun start(context: Context, admission: ExportAdmission) {
+            val intent = Intent(context, ExportService::class.java).putExtra(EXTRA_RUN_ID, admission.id)
+            val component =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
                 } else {
                     context.startService(intent)
                 }
-            }
+            checkNotNull(component) { "Android could not start the export foreground service" }
         }
     }
 }
-
-private const val TAG = "ExportService"

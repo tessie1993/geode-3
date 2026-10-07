@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/InputAdmission.hpp"
 #include "viz/Renderer.hpp"
 
 struct geode_viz {
@@ -25,20 +26,6 @@ using namespace geode::viz;
 
 static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
-
-constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::Lfo3Depth) + 1;
-constexpr int kLfoWaveCount = static_cast<int>(LfoWave::Random) + 1;
-constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
-constexpr int kModCurveCount = static_cast<int>(ModCurve::Smooth) + 1;
-constexpr int kEnvBandCount = static_cast<int>(EnvBand::Width) + 1;
-
-template <typename E>
-E enumAt(float value, int count) {
-    return static_cast<E>(std::clamp(static_cast<int>(std::lround(value)), 0, count - 1));
-}
-
-bool flag(float value) { return value > 0.5f; }
 
 std::string text(const char* s) { return s ? std::string(s) : std::string(); }
 
@@ -65,11 +52,7 @@ const char* geode_viz_param_name(int index) {
 }
 
 void geode_viz_set_params(geode_viz* v, const float* values, int count) {
-    if (!v || !values || count != SceneParams::kFieldCount) return;
-    const auto& names = SceneParams::fieldNames();
-    SceneParams p;
-    for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
-    v->renderer.setParams(p);
+    if (v) v->renderer.setParamFrame(values, count);
 }
 
 int geode_viz_set_param(geode_viz* v, const char* name, float value) {
@@ -152,37 +135,18 @@ size_t geode_viz_custom_shader(geode_viz* v, const char* scene_id, char* out, si
 }
 
 void geode_viz_set_lfo(geode_viz* v, int slot, const float* c, int count) {
-    if (!v || !c || slot < 0 || slot >= GEODE_LFO_SLOTS || count < GEODE_LFO_CONFIG_FLOATS) return;
+    if (!v || slot < 0 || slot >= GEODE_LFO_SLOTS) return;
     LfoConfig cfg;
-    cfg.enabled = flag(c[0]);
-    cfg.source = enumAt<ModSource>(c[1], kModSourceCount);
-    cfg.target = enumAt<LfoTarget>(c[2], kLfoTargetCount);
-    cfg.wave = enumAt<LfoWave>(c[3], kLfoWaveCount);
-    cfg.rateSeconds = c[4];
-    cfg.depth = c[5];
-    cfg.polarity = enumAt<ModPolarity>(c[6], kModPolarityCount);
-    cfg.curve = enumAt<ModCurve>(c[7], kModCurveCount);
+    if (!admission::decodeLfo(c, count, cfg)) return;
     std::lock_guard<std::mutex> lock(v->configLock);
     v->lfo[static_cast<size_t>(slot)] = cfg;
     v->renderer.setLfoConfigs(v->lfo);
 }
 
 void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
-    if (!v || !c || slot < 0 || slot >= GEODE_ADSR_SLOTS || count < GEODE_ADSR_CONFIG_FLOATS) return;
+    if (!v || slot < 0 || slot >= GEODE_ADSR_SLOTS) return;
     AdsrConfig cfg;
-    cfg.enabled = flag(c[0]);
-    cfg.attack = c[1];
-    cfg.decay = c[2];
-    cfg.sustain = c[3];
-    cfg.release = c[4];
-    cfg.amount = c[5];
-    cfg.band = enumAt<EnvBand>(c[6], kEnvBandCount);
-    cfg.gateThreshold = c[7];
-    cfg.sustainTrack = flag(c[8]);
-    cfg.retrigger = flag(c[9]);
-    for (int i = GEODE_ADSR_CONFIG_FLOATS; i < count; ++i) {
-        cfg.targets.push_back(enumAt<LfoTarget>(c[i], kLfoTargetCount));
-    }
+    if (!admission::decodeAdsr(c, count, cfg)) return;
     std::lock_guard<std::mutex> lock(v->configLock);
     v->adsr[static_cast<size_t>(slot)] = std::move(cfg);
     v->renderer.setAdsrConfigs(v->adsr);
@@ -195,16 +159,11 @@ void geode_viz_set_thermal(geode_viz* v, int platform_status, float headroom) {
 }
 
 void geode_viz_set_paced_fps(geode_viz* v, float fps) {
-    if (v) v->renderer.thermal().setPacedFps(fps);
+    if (v && std::isfinite(fps) && fps >= 0.0f) v->renderer.thermal().setPacedFps(fps);
 }
 
 void geode_viz_set_offscreen(geode_viz* v, int on) {
-    if (!v) return;
-    if (on) {
-        v->renderer.thermal().beginOffscreenRender();
-    } else {
-        v->renderer.thermal().endOffscreenRender();
-    }
+    if (v) v->renderer.setOffscreen(on != 0);
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {
@@ -269,7 +228,7 @@ void geode_viz_cut(geode_viz* v) {
 }
 
 void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
-    if (v) v->renderer.render(time_seconds, target_fbo);
+    if (v && std::isfinite(time_seconds) && time_seconds >= 0.0) v->renderer.render(time_seconds, target_fbo);
 }
 
 void geode_viz_release_scenes(geode_viz* v) {

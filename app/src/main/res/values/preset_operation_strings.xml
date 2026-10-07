@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preset_saved_durably">Saved “%1$s”.</string>
+    <string name="preset_write_io">Could not read or save the preset. Check storage access and try again.</string>
+    <string name="preset_write_too_large">This preset exceeds the 4 MiB import limit.</string>
+    <string name="preset_write_malformed">This is not a valid Geode preset document.</string>
+    <string name="preset_write_version">This preset uses an unsupported format version. The original file was not changed.</string>
+    <string name="preset_write_field">This preset contains settings this version of Geode cannot preserve. It was not imported.</string>
+    <string name="preset_write_scene">This preset requires a visual style unavailable in this version of Geode.</string>
+    <string name="preset_write_value">This preset contains an invalid or out-of-range setting. No values were substituted.</string>
+    <string name="preset_write_conflict">This preset changed since you selected it. Save a copy or select it again before replacing.</string>
+    <string name="preset_save_copy">Save copy</string>
+    <string name="preset_save">Save</string>
+    <string name="preset_saving">Saving…</string>
+    <string name="preset_importing">Importing…</string>
+</resources>

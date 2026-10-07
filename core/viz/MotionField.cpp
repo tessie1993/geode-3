@@ -1,7 +1,10 @@
 #include "viz/MotionField.hpp"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cmath>
+#include <cstdint>
 
 #include "viz/VisualSafety.hpp"
 
@@ -12,9 +15,21 @@ namespace {
 // here (rather than only at the ratio) keeps a ratio computed against it from
 // blowing up when the passage has been quiet for a while.
 constexpr float kAvgFloor = 0.02f;
+
+unsigned int liveSeed() {
+    // Variation, not a security secret. No entropy calls or allocation in step().
+    static std::atomic<uint64_t> serial{0};
+    uint64_t value = static_cast<uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count()) +
+                     serial.fetch_add(0x9e3779b97f4a7c15ULL, std::memory_order_relaxed);
+    value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
+    return static_cast<unsigned int>(value ^ (value >> 31));
+}
 }  // namespace
 
-MotionField::MotionField() { reset(); }
+MotionField::MotionField() : MotionField(liveSeed()) {}
+
+MotionField::MotionField(unsigned int fixtureSeed) : seedState_(fixtureSeed) { reset(); }
 
 void MotionField::reset() {
     rmsWarm_ = 0.0f;
@@ -34,12 +49,12 @@ void MotionField::reset() {
     orbitCurX_ = 0.0f;
     orbitCurY_ = 0.0f;
     orbitRetargetLockout_ = 0.0f;
+    sectionWasActive_ = false;
     driftAngle_ = 0.0f;
     driftSign_ = 1.0f;
     driftSignTarget_ = 1.0f;
     barSin_ = 0.0f;
     state_ = State{};
-    seedState_ = 0x51ed270bu;
 }
 
 // exp(-dt/tau) rather than a fixed per-frame fraction: the same wall-clock
@@ -72,7 +87,7 @@ float MotionField::wrappedDelta01(float from, float to) {
     return d - 0.5f;
 }
 
-// A 32-bit LCG: cheap enough for a per-frame path, deterministic per instance.
+// Advance only when choosing a new musical target, never once per pixel/frame.
 float MotionField::nextRandom() {
     seedState_ = seedState_ * 1664525u + 1013904223u;
     return static_cast<float>((seedState_ >> 8) & 0xFFFFFFu) / static_cast<float>(0x1000000u);
@@ -132,7 +147,9 @@ void MotionField::step(const GeodeFeatureFrame& f, float dt) {
     noveltyAvg_ = runningAverage(noveltyAvg_, noveltySample, dt, kNoveltyAvgSeconds, noveltyWarm_);
     orbitRetargetLockout_ = std::max(orbitRetargetLockout_ - dt, 0.0f);
     const bool noveltySpike = noveltySample > noveltyAvg_ * kNoveltyJumpRatio && noveltyAvg_ > 1e-3f;
-    const bool sectionBoundary = f.sectionBoundary > 0.0f;
+    const bool sectionActive = f.sectionBoundary > 0.0f;
+    const bool sectionBoundary = sectionActive && !sectionWasActive_;
+    sectionWasActive_ = sectionActive;
     if ((noveltySpike || sectionBoundary) && orbitRetargetLockout_ <= 0.0f) {
         const float theta = nextRandom() * kTwoPi;
         orbitTargetX_ = std::cos(theta);

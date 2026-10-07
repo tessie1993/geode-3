@@ -323,7 +323,7 @@ class LoopRender(
         var pending: File? = null
         try {
             for ((index, stop) in phases.withIndex()) {
-                val file = File.createTempFile("geode_loop_${stop.index}_", ".mp4", context.cacheDir).also { pending = it }
+                val file = File.createTempFile("geode_loop_${stop.index}_", ".mp4", RenderScratch.directory(context.cacheDir)).also { pending = it }
                 val outcome =
                     renderStop(
                         job = job,

@@ -26,6 +26,7 @@ import dev.geode.util.bestEffort
 class VisualizerDreamService : DreamService() {
     private var visualizerView: VisualizerView? = null
     private val idle = IdleFeatures()
+    private val pcmFeed = AudioBus.createSurfacePcmFeed()
     private var lastFrameMs = 0L
     private var feeder: Thread? = null
 
@@ -53,7 +54,7 @@ class VisualizerDreamService : DreamService() {
         val view = VisualizerView(this)
         visualizerView = view
         restoreLiveState(view.visualizerRenderer, prefsFiles)
-        view.visualizerRenderer.pcmProvider = { null }
+        view.visualizerRenderer.pcmProvider = pcmFeed::read
         setContentView(view)
     }
 
@@ -99,6 +100,7 @@ class VisualizerDreamService : DreamService() {
     private fun startFeeding(engine: VisualizerRenderer) {
         if (feeder != null) return
         AudioBus.addConsumer()
+        val pcmGeneration = pcmFeed.start()
         val generation = ++feedGeneration
         running = true
         lastFrameMs = android.os.SystemClock.elapsedRealtime()
@@ -108,7 +110,10 @@ class VisualizerDreamService : DreamService() {
                     val now = android.os.SystemClock.elapsedRealtime()
                     val dt = ((now - lastFrameMs).coerceIn(1, 100)) / 1000f
                     lastFrameMs = now
-                    engine.features = AudioBus.features() ?: idle.tick(dt)
+                    val live = AudioBus.features()
+                    val features = live ?: idle.tick(dt)
+                    pcmFeed.publishIdle(pcmGeneration, if (live == null) features.waveform else null)
+                    engine.features = features
                     Thread.sleep(FEED_INTERVAL_MS)
                 }
             }.apply {
@@ -119,6 +124,7 @@ class VisualizerDreamService : DreamService() {
     }
 
     private fun stopFeeding() {
+        pcmFeed.stop()
         val thread = feeder ?: return
         running = false
         feedGeneration++
