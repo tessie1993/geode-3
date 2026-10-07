@@ -350,4 +350,55 @@ object GeodeNative {
         blend: Int,
         amount: Float,
     )
+
+    /**
+     * An AAudio microphone stream, not yet opened. [preferUnprocessed] asks for the UNPROCESSED input
+     * preset (API 28+), else VOICE_RECOGNITION. 0 when native could not allocate it. One handle belongs
+     * to one thread at a time: [micStart], then [micRead], then [micStop] and [micDestroy] on the
+     * thread that read.
+     */
+    external fun micCreate(preferUnprocessed: Boolean): Long
+
+    /** Opens a low-latency float mono stream (EXCLUSIVE, then SHARED) and starts it. */
+    external fun micStart(handle: Long): Boolean
+
+    /**
+     * Blocks up to [timeoutNanos] for up to [maxFrames] mono frames and writes them to the front of [dst].
+     * Returns the frames read; 0 when none arrived in time or while a disconnected stream is being
+     * reopened (that happens inside this call), negative when the stream is gone for good.
+     */
+    external fun micRead(
+        handle: Long,
+        dst: FloatArray,
+        maxFrames: Int,
+        timeoutNanos: Long,
+    ): Int
+
+    external fun micStop(handle: Long)
+
+    external fun micDestroy(handle: Long)
+
+    external fun micSampleRate(handle: Long): Int
+
+    /** The device's channel count; [micRead] always returns mono. */
+    external fun micChannels(handle: Long): Int
+
+    external fun micFramesPerBurst(handle: Long): Int
+
+    external fun micBufferFrames(handle: Long): Int
+
+    /** AAudio's value: 0 exclusive, 1 shared. */
+    external fun micSharingMode(handle: Long): Int
+
+    /** AAudio's value: 10 none, 12 low latency. */
+    external fun micPerformanceMode(handle: Long): Int
+
+    /** The last AAudio result that was not OK, 0 if none. */
+    external fun micLastError(handle: Long): Int
+
+    /** Rises by one for every successful (re)open, so a change means the sample rate may differ. */
+    external fun micGeneration(handle: Long): Int
+
+    /** Peak, 0..1, of the last non-empty [micRead]. */
+    external fun micLastPeak(handle: Long): Float
 }
