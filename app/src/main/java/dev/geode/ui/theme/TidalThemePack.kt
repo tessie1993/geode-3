@@ -3,7 +3,7 @@ package dev.geode.ui.theme
 import androidx.compose.ui.graphics.Color
 import dev.geode.R
 
-/** The waterglass default keeps the complete mineral-pack fallback and interaction sounds. */
+/** The waterglass default shares the fresh lens assets and keeps its interaction sounds. */
 internal object TidalThemePack {
     const val SLUG = "tidal-glass"
 
@@ -31,9 +31,9 @@ internal object TidalThemePack {
                 ),
             material =
                 base.material.copy(
-                    ambientPortrait = R.drawable.tidal_forest,
-                    ambientLandscape = R.drawable.tidal_forest,
-                    ambientSquare = R.drawable.tidal_forest,
+                    ambientPortrait = R.drawable.spatial_lake_atmosphere,
+                    ambientLandscape = R.drawable.spatial_lake_atmosphere,
+                    ambientSquare = R.drawable.spatial_lake_atmosphere,
                 ),
         )
 }

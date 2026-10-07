@@ -165,6 +165,32 @@ class SemanticSelectorTest(unittest.TestCase):
         </hierarchy>''')
         self.assertTrue(SmokeRun.checked(root, "Slow the motion down"))
 
+    def test_switch_label_child_resolves_only_its_checkable_ancestor(self):
+        for state in ("true", "false"):
+            with self.subTest(state=state):
+                root = ET.fromstring(f'''<hierarchy>
+                    <node text="Slow the motion down" bounds="[0,0][200,60]" />
+                    <node checkable="true" checked="{state}" clickable="true" bounds="[200,0][300,60]">
+                        <node content-desc="Slow the motion down" checkable="false" checked="false" bounds="[220,20][280,40]" />
+                    </node>
+                </hierarchy>''')
+                self.assertEqual(SmokeRun.checked(root, "Slow the motion down"), state == "true")
+
+    def test_switch_checked_state_never_borrows_an_unlabelled_sibling(self):
+        root = ET.fromstring('''<hierarchy>
+            <node text="Slow the motion down" checkable="false" bounds="[0,0][200,60]" />
+            <node checkable="true" checked="true" bounds="[200,0][300,60]" />
+        </hierarchy>''')
+        with self.assertRaisesRegex(AssertionError, "matching ancestry"):
+            SmokeRun.checked(root, "Slow the motion down")
+
+    def test_switch_checked_state_requires_an_explicit_boolean(self):
+        root = ET.fromstring('''<hierarchy>
+            <node content-desc="Slow the motion down" checkable="true" bounds="[200,0][300,60]" />
+        </hierarchy>''')
+        with self.assertRaisesRegex(AssertionError, "missing checked semantics"):
+            SmokeRun.checked(root, "Slow the motion down")
+
     def test_theme_selection_requires_selected_semantics(self):
         root = ET.fromstring('''<hierarchy>
             <node content-desc="Tidal Glass" clickable="true" selected="false" bounds="[0,0][100,100]" />
@@ -203,6 +229,34 @@ class SemanticSelectorTest(unittest.TestCase):
         self.assertGreater(int(command[3]), int(command[5]))
         self.assertGreaterEqual(int(command[5]), 160)
         self.assertLessEqual(int(command[3]), 800)
+
+    def test_theme_scroll_targets_picker_below_settings_tabs(self):
+        root = ET.fromstring('''<hierarchy>
+            <node class="android.widget.HorizontalScrollView" scrollable="true" bounds="[0,80][320,140]">
+                <node text="Look" bounds="[0,80][80,140]" />
+                <node text="Behavior" bounds="[160,80][260,140]" />
+            </node>
+            <node class="android.view.View" scrollable="true" bounds="[0,160][800,400]">
+                <node class="android.widget.HorizontalScrollView" scrollable="true" bounds="[30,220][300,290]">
+                    <node content-desc="Tidal Glass" bounds="[30,220][118,290]" />
+                    <node content-desc="Lapis Lazuli" bounds="[128,220][216,290]" />
+                </node>
+            </node>
+        </hierarchy>''')
+        run = SmokeRun.__new__(SmokeRun)
+        run.events = []
+        calls = []
+        run.shell = lambda *args: calls.append(args)
+        self.assertTrue(run.swipe(root, "horizontal", scroll_labels=("Tidal Glass", "Lapis Lazuli")))
+        command = calls[0]
+        self.assertEqual(command[:2], ("input", "swipe"))
+        self.assertEqual(command[3], command[5])
+        self.assertGreater(int(command[2]), int(command[4]))
+        self.assertGreaterEqual(int(command[3]), 220)
+        self.assertLessEqual(int(command[3]), 290)
+        calls.clear()
+        self.assertFalse(run.swipe(root, "horizontal", scroll_labels=("Onyx",)))
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

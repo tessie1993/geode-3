@@ -76,7 +76,7 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.StoneState
 import dev.geode.ui.theme.StoneSurfaceArt
-import dev.geode.ui.theme.isTidalGlass
+import dev.geode.ui.theme.isJellyGlass
 import dev.geode.ui.theme.rememberStoneInteraction
 import dev.geode.ui.theme.rememberStoneState
 import dev.geode.ui.theme.stonePress
@@ -168,6 +168,7 @@ fun AppRoot() {
     CrystalMaterialTheme(
         pack = effectiveTheme,
         gui = gui,
+        motionObscured = appState.expanded || appState.searching,
     ) {
         val miniPlayer: @Composable () -> Unit = {
             MiniPlayer(
@@ -272,7 +273,15 @@ fun AppRoot() {
                         CompositionLocalProvider(
                             LocalReducedMotion provides (LocalReducedMotion.current || appState.expanded || appState.searching),
                         ) {
-                            destinationContent(false)
+                            Box(
+                                Modifier.fillMaxSize().jellySceneEntrance(
+                                    appState.dest.ordinal,
+                                    enabled = LocalThemePack.current.isJellyGlass &&
+                                        (appState.dest == GeodeDestination.PLAYER || appState.dest == GeodeDestination.LIBRARY),
+                                ),
+                            ) {
+                                destinationContent(false)
+                            }
                         }
                     },
                 )
@@ -286,7 +295,15 @@ fun AppRoot() {
                         CompositionLocalProvider(
                             LocalReducedMotion provides (LocalReducedMotion.current || appState.expanded || appState.searching),
                         ) {
-                            destinationContent(true)
+                            Box(
+                                Modifier.fillMaxSize().jellySceneEntrance(
+                                    appState.dest.ordinal,
+                                    enabled = LocalThemePack.current.isJellyGlass &&
+                                        (appState.dest == GeodeDestination.PLAYER || appState.dest == GeodeDestination.LIBRARY),
+                                ),
+                            ) {
+                                destinationContent(true)
+                            }
                         }
                     },
                 )
@@ -387,7 +404,7 @@ private fun AppShellCompact(
     miniPlayer: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -429,7 +446,7 @@ private fun AppShellExpanded(
     miniPlayer: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     Row(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         if (tidal) {
             TidalNavigationRail(navEntries, appState)
@@ -517,7 +534,7 @@ private fun MiniPlayer(
     onNext: () -> Unit,
 ) {
     if (!hasMedia) return
-    if (LocalThemePack.current.isTidalGlass) {
+    if (LocalThemePack.current.isJellyGlass) {
         TidalMiniPlayer(title, isPlaying, progress, barOpacity, compact, onExpand, onPlayPause, onPrevious, onNext)
         return
     }
@@ -595,6 +612,7 @@ private fun TidalMiniPlayer(
                 glowStrength = if (isPlaying) 0.8f else 0.45f,
                 facets = 0.35f,
                 sheen = cs.secondary,
+                readable = false,
             ).clickable(onClick = onExpand),
     ) {
         Row(
@@ -617,7 +635,7 @@ private fun TidalMiniPlayer(
             }
             Text(
                 title ?: stringResource(R.string.mini_player_idle),
-                modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+                modifier = Modifier.weight(1f).padding(horizontal = 10.dp).jellyMatteSheet(8.dp).padding(4.dp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium,
@@ -669,7 +687,7 @@ fun SettingsScreen(
     onStartTutorial: () -> Unit,
 ) {
     var showExport by rememberSaveable { mutableStateOf(false) }
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     Column(Modifier.fillMaxSize()) {
         if (tidal) {
             Row(

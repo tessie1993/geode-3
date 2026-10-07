@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -12,16 +13,21 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.geode.ui.theme.LocalThemePack
+import dev.geode.ui.theme.isJellyGlass
 
 fun Modifier.readingPlate(
     opacity: Float,
     tint: Color,
     corner: Dp = 0.dp,
     glow: Color? = null,
-): Modifier {
+): Modifier = composed {
+    if (LocalThemePack.current.isJellyGlass) {
+        return@composed this.jellyMatteSheet(corner, opacity.coerceIn(0.86f, 0.98f))
+    }
     val a = opacity.coerceIn(0f, 0.92f)
     val shape: Shape = if (corner > 0.dp) RoundedCornerShape(corner) else RectangleShape
-    return this
+    this
         .clip(shape)
         .background(
             Brush.verticalGradient(

@@ -1,5 +1,7 @@
 # Tidal Glass UI replacement
 
+The visual direction and original assets below are historical. The replacement is now specified in [SPATIAL_JELLY_UI_PLAN.md](SPATIAL_JELLY_UI_PLAN.md), with all eleven skins rebuilt from the new kit. Its current asset provenance is in [SPATIAL_ASSETS.md](SPATIAL_ASSETS.md). The preservation and service-regression contracts here still apply.
+
 Base: PR 13 commit `5ee5e05d5a10f2533622dc73513a61047859bddc`. The UI branch follows the user's merge of PR 13; it does not merge that PR itself.
 
 ## Visual direction

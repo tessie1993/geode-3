@@ -52,7 +52,7 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.StoneState
 import dev.geode.ui.theme.StoneSurfaceArt
-import dev.geode.ui.theme.isTidalGlass
+import dev.geode.ui.theme.isJellyGlass
 import dev.geode.ui.theme.rememberStoneInteraction
 import dev.geode.ui.theme.rememberStoneState
 import dev.geode.ui.theme.stonePress
@@ -67,7 +67,7 @@ fun CrystalButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     val reducedMotion = LocalReducedMotion.current
     val interaction = rememberStoneInteraction()
     val state = rememberStoneState(interaction, enabled = enabled)
@@ -218,7 +218,7 @@ fun CrystalNavBar(
     opacity: Float,
 ) {
     val reducedMotion = LocalReducedMotion.current
-    if (LocalThemePack.current.isTidalGlass) {
+    if (LocalThemePack.current.isJellyGlass) {
         TidalNavigationBar(items, selected, onSelect, opacity)
         return
     }
@@ -366,6 +366,7 @@ internal fun TidalNavigationPebble(
         Spacer(Modifier.height(if (compact) 2.dp else 4.dp))
         Text(
             item.label,
+            modifier = Modifier.jellyMatteSheet(7.dp).padding(horizontal = 3.dp, vertical = 1.dp),
             style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.1.sp),
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             color = LocalFontColor.current ?: if (selected) accentTextColor() else cs.onSurface.copy(alpha = 0.88f),
@@ -384,7 +385,7 @@ fun CrystalTabs(
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     val reducedMotion = LocalReducedMotion.current
     ScrollableTabRow(
         selectedTabIndex = selected,
@@ -458,7 +459,7 @@ fun CrystalSegmented(
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     val reducedMotion = LocalReducedMotion.current
     Row(
         modifier.then(if (tidal) Modifier.selectableGroup() else Modifier),

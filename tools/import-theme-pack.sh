@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Imports a crystal theme pack into Geode's Android resources.
+# Imports theme identities and external theme artwork into Geode's resources.
 #
 # Usage: tools/import-theme-pack.sh <extracted-pack-dir> [<pack-dir> ...]
 #
 # Pass EVERY pack the app should ship, in the order they should appear in the
-# theme picker after the native Tidal Glass default: this imports their assets
+# theme picker after the native Tidal Glass default: this imports their tokens
 # and regenerates ThemePackCatalog.kt. Kyanite is required as its fallback.
 # Adding a crystal is then a folder drop plus one
 # re-run - no hand-written Kotlin.
@@ -14,14 +14,11 @@
 # from it; `preview/` and `materials/material-master.png` are documentation and
 # are not shipped - the app read the master nowhere, and ten of them were 25 MB.
 #
-# The packs ship their component art as PNG, and PNG is what made this app
-# unpublishable: ten packs came to ~300 MB of resources that an AAB cannot
-# compress, against Google Play's 200 MB limit for the entire download. So the
-# rasters are re-encoded to WebP here, at a quality where these mineral
-# textures are indistinguishable and about an eighth of the size. The four
-# assets the packs already ship as WebP are copied verbatim.
-#
-# Budget roughly 4 MB per crystal after encoding.
+# The ten built-in mineral identities use the app's neutral spatial glass kit.
+# Their palettes, names, mode and interaction sounds still come from the pack,
+# but importing them must never restore the replaced mineral texture assets.
+# External packs retain their authored motion and all component/background art;
+# their PNG rasters are encoded as WebP and existing WebP assets copied verbatim.
 #
 # Fonts are byte-identical across every pack, so they are written once.
 # Icon path geometry is also pack-invariant and lives in Kotlin
@@ -46,7 +43,14 @@ FAMILIES="album-tile bottom-sheet card chip compact-button dialog icon-button \
 knob list-row mini-player navigation-bar primary-button progress-ring \
 secondary-button slider-thumb slider-track text-field toggle"
 
-# The native waterglass pack reuses Kyanite's full component-state fallback.
+is_builtin_glass() {
+    case "$1" in
+        lapis-lazuli|sugilite|amethyst|clear-quartz|azurite|firestone|kyanite|malachite|mookaite|onyx) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# The native waterglass pack reuses Kyanite's full shared-lens fallback.
 # Check before writing assets or replacing the catalog so regeneration cannot
 # produce an unresolved base reference or silently remove the native default.
 TIDAL_BASE_PRESENT=0
@@ -64,6 +68,9 @@ if [ "$TIDAL_BASE_PRESENT" -ne 1 ]; then
     echo "Kyanite is required as the Tidal Glass fallback pack" >&2
     exit 1
 fi
+for asset in spatial_lake_atmosphere spatial_glass_capsule spatial_glass_pebble spatial_glass_orb_shell; do
+    [ -f "$DRAWABLE/$asset.webp" ] || { echo "missing built-in spatial glass asset: $asset.webp" >&2; exit 1; }
+done
 mkdir -p "$DRAWABLE" "$RAW" "$FONT"
 
 # Quality 90 measured at 12.9% of PNG across all ten packs, with no visible
@@ -103,21 +110,23 @@ for PACK in "$@"; do
     RS=${SLUG//-/_}
     echo "==> importing $SLUG"
 
-    for f in $FAMILIES; do
-        for s in $STATES; do
-            src="$PACK/components/individual/$f--$s.png"
-            [ -f "$src" ] || { echo "missing $src" >&2; exit 1; }
-            put_raster "$src" "tp_${RS}_${f//-/_}_${s}"
+    if ! is_builtin_glass "$SLUG"; then
+        for f in $FAMILIES; do
+            for s in $STATES; do
+                src="$PACK/components/individual/$f--$s.png"
+                [ -f "$src" ] || { echo "missing $src" >&2; exit 1; }
+                put_raster "$src" "tp_${RS}_${f//-/_}_${s}"
+            done
         done
-    done
 
-    put_raster "$PACK/materials/glow-overlay.png"       "tp_${RS}_glow_overlay"
-    put_raster "$PACK/materials/refraction-overlay.png" "tp_${RS}_refraction_overlay"
-    # Already WebP in the pack - copied verbatim, no re-encode.
-    cp "$PACK/materials/material-tile.webp"        "$DRAWABLE/tp_${RS}_material_tile.webp"
-    cp "$PACK/backgrounds/ambient-portrait.webp"   "$DRAWABLE/tp_${RS}_ambient_portrait.webp"
-    cp "$PACK/backgrounds/ambient-landscape.webp"  "$DRAWABLE/tp_${RS}_ambient_landscape.webp"
-    cp "$PACK/backgrounds/ambient-square.webp"     "$DRAWABLE/tp_${RS}_ambient_square.webp"
+        put_raster "$PACK/materials/glow-overlay.png"       "tp_${RS}_glow_overlay"
+        put_raster "$PACK/materials/refraction-overlay.png" "tp_${RS}_refraction_overlay"
+        # Already WebP in the pack - copied verbatim, no re-encode.
+        cp "$PACK/materials/material-tile.webp"        "$DRAWABLE/tp_${RS}_material_tile.webp"
+        cp "$PACK/backgrounds/ambient-portrait.webp"   "$DRAWABLE/tp_${RS}_ambient_portrait.webp"
+        cp "$PACK/backgrounds/ambient-landscape.webp"  "$DRAWABLE/tp_${RS}_ambient_landscape.webp"
+        cp "$PACK/backgrounds/ambient-square.webp"     "$DRAWABLE/tp_${RS}_ambient_square.webp"
+    fi
 
     # Per-pack interaction sounds (mono 48 kHz PCM WAV, as shipped).
     cp "$PACK/audio/click-soft.wav" "$RAW/tp_${RS}_click_soft.wav"
@@ -160,7 +169,7 @@ package dev.geode.ui.theme
 import androidx.compose.ui.graphics.Color
 import dev.geode.R
 
-/** The native waterglass default, followed by crystal packs in theme-picker order. */
+/** The native waterglass default, followed by theme identities in picker order. */
 object ThemePackCatalog {
 HEADER
 
@@ -200,6 +209,14 @@ HEADER
                     outline = Color($(color "$PACK" outline)),
                     danger = Color($(color "$PACK" danger)),
                 ),
+EOK
+        if is_builtin_glass "$SLUG"; then
+            cat <<'EOK'
+            motion = jellyMotion(),
+            material = jellyMaterial(),
+EOK
+        else
+            cat <<EOK
             motion =
                 StoneMotion(
                     pressDurationMs = $(sed -n '/"press"/,/}/p' "$PACK/tokens/motion.json" | grep durationMs | grep -o '[0-9]*'),
@@ -223,26 +240,33 @@ HEADER
                     surfaceOpacity = $(tr -d ' \n' < "$PACK/tokens/theme.tokens.json" | grep -o '"surface":[0-9.]*,"disabled"' | grep -o '0\.[0-9]*')f,
                     disabledOpacity = $(tr -d ' \n' < "$PACK/tokens/theme.tokens.json" | grep -o '"disabled":[0-9.]*' | tail -1 | grep -o '[0-9.]*$')f,
                 ),
+EOK
+        fi
+        cat <<EOK
             sounds =
                 StoneSounds(
                     click = R.raw.tp_${RS}_click_soft,
                     confirm = R.raw.tp_${RS}_confirm,
                     swoop = R.raw.tp_${RS}_swoop,
                 ),
-            surfaces =
-                mapOf(
 EOK
-        for f in $FAMILIES; do
-            FU=$(echo "${f//-/_}" | tr '[:lower:]' '[:upper:]')
-            echo "                    StoneComponent.$FU to"
-            echo "                        StoneStateArt("
-            for s in $STATES; do
-                echo "                            ${s} = R.drawable.tp_${RS}_${f//-/_}_${s},"
+        if is_builtin_glass "$SLUG"; then
+            echo "            surfaces = jellySurfaces(),"
+        else
+            echo "            surfaces ="
+            echo "                mapOf("
+            for f in $FAMILIES; do
+                FU=$(echo "${f//-/_}" | tr '[:lower:]' '[:upper:]')
+                echo "                    StoneComponent.$FU to"
+                echo "                        StoneStateArt("
+                for s in $STATES; do
+                    echo "                            ${s} = R.drawable.tp_${RS}_${f//-/_}_${s},"
+                done
+                echo "                        ),"
             done
-            echo "                        ),"
-        done
+            echo "                ),"
+        fi
         cat <<'EOK'
-                ),
         )
 
 EOK
@@ -261,7 +285,54 @@ EOK
     echo ""
     echo "    /** Pack for a persisted slug, or the default when unknown. */"
     echo "    fun bySlug(slug: String?): ThemePack = all.firstOrNull { it.slug == slug } ?: all.first()"
-    echo "}"
+    cat <<'HELPERS'
+
+    private fun jellyMotion(): StoneMotion =
+        StoneMotion(
+            pressDurationMs = 140,
+            pressScale = 0.96f,
+            innerGlowGain = 1.2f,
+            releaseDurationMs = 440,
+            focusDurationMs = 180,
+            edgeLightGain = 1.35f,
+            selectedDurationMs = 240,
+            reduceMotionCrossfadeMs = 0,
+        )
+
+    private fun jellyMaterial(): StoneMaterial =
+        StoneMaterial(
+            tile = R.drawable.spatial_glass_capsule,
+            glowOverlay = R.drawable.spatial_glass_pebble,
+            refractionOverlay = R.drawable.spatial_glass_orb_shell,
+            ambientPortrait = R.drawable.spatial_lake_atmosphere,
+            ambientLandscape = R.drawable.spatial_lake_atmosphere,
+            ambientSquare = R.drawable.spatial_lake_atmosphere,
+            backgroundOpacity = 0.6f,
+            surfaceOpacity = 0.32f,
+            disabledOpacity = 0.2f,
+        )
+
+    private fun jellySurfaces(): Map<StoneComponent, StoneStateArt> =
+        StoneComponent.entries.associateWith { component ->
+            val lens =
+                when (component) {
+                    StoneComponent.ICON_BUTTON,
+                    StoneComponent.KNOB,
+                    StoneComponent.PROGRESS_RING,
+                    StoneComponent.SLIDER_THUMB,
+                    -> R.drawable.spatial_glass_pebble
+                    else -> R.drawable.spatial_glass_capsule
+                }
+            StoneStateArt(
+                default = lens,
+                focused = lens,
+                pressed = lens,
+                selected = lens,
+                disabled = lens,
+            )
+        }
+}
+HELPERS
 } > "$CATALOG"
 
 echo "==> regenerated $(basename "$CATALOG") with:$NAMES"

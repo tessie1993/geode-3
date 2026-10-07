@@ -59,7 +59,7 @@ import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
-import dev.geode.ui.theme.isTidalGlass
+import dev.geode.ui.theme.isJellyGlass
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
@@ -73,8 +73,8 @@ fun WaveformSeekBar(
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tidal = LocalThemePack.current.isTidalGlass
-    val bead = if (tidal) rememberTidalBitmap(R.drawable.tidal_glass_pebble) else null
+    val tidal = LocalThemePack.current.isJellyGlass
+    val bead = if (tidal) rememberTidalBitmap(R.drawable.spatial_glass_pebble) else null
     var dragFraction by remember { mutableFloatStateOf(-1f) }
     val played =
         if (dragFraction >= 0f) {

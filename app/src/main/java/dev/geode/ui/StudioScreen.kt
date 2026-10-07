@@ -9,6 +9,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -250,7 +251,9 @@ private fun ClipLibraryEmpty() {
                 MaterialTheme.colorScheme.surfaceVariant,
                 MaterialTheme.colorScheme.primary,
                 corner = 20.dp,
-            ).padding(16.dp),
+            ).padding(8.dp)
+            .jellyMatteSheet(corner = 12.dp)
+            .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         CrystalOverline(stringResource(R.string.studio_empty_title))
@@ -269,7 +272,7 @@ private fun ClipRow(
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Row(
+    Column(
         Modifier
             .fillMaxWidth()
             .crystalPanel(
@@ -280,25 +283,29 @@ private fun ClipRow(
                 glowStrength = 0.4f,
             ).clickable(onClick = onOpen)
             .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        VideoFrame(clip.uri, atMs = clip.durationMs / 3, modifier = Modifier.width(96.dp).height(56.dp))
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(
-                clip.name,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                clip.summary(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            VideoFrame(clip.uri, atMs = clip.durationMs / 3, modifier = Modifier.width(96.dp).height(56.dp))
+            Column(Modifier.weight(1f).padding(start = 12.dp).jellyMatteSheet(corner = 12.dp).padding(8.dp)) {
+                Text(
+                    clip.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    clip.summary(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
-        TextButton(onClick = onShare) { Text(stringResource(R.string.studio_send)) }
-        TextButton(onClick = onRename) { Text(stringResource(R.string.action_rename)) }
-        TextButton(onClick = onDelete) { Text(stringResource(R.string.action_delete)) }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onShare) { Text(stringResource(R.string.studio_send)) }
+            TextButton(onClick = onRename) { Text(stringResource(R.string.action_rename)) }
+            TextButton(onClick = onDelete) { Text(stringResource(R.string.action_delete)) }
+        }
     }
 }
 
@@ -314,6 +321,7 @@ private fun ClipStorageFooter(clips: List<StudioClip>) {
             ),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.jellyMatteSheet(corner = 10.dp).padding(horizontal = 10.dp, vertical = 8.dp),
     )
 }
 
@@ -444,7 +452,7 @@ private fun ClipEditorHeader(
     onReset: () -> Unit,
     onClose: () -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().jellyMatteSheet().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(clip.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
@@ -471,6 +479,7 @@ private fun ClipEditorPreview(
         stringResource(R.string.studio_preview_hint),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.jellyMatteSheet().padding(10.dp),
     )
 }
 
@@ -791,7 +800,9 @@ private fun StudioSection(
                 MaterialTheme.colorScheme.primary,
                 corner = 20.dp,
                 glowStrength = 0.45f,
-            ).padding(14.dp),
+            ).padding(7.dp)
+            .jellyMatteSheet(corner = 13.dp)
+            .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         CrystalOverline(title)

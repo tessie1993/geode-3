@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ internal fun TidalPlayerArtwork(
     viewModel: PlayerViewModel,
     live: Boolean,
     modifier: Modifier = Modifier,
+    artworkUri: String? = null,
 ) {
     val reducedMotion = LocalReducedMotion.current
     val running = rememberTidalMotionRunning(reducedMotion) && live
@@ -42,6 +44,7 @@ internal fun TidalPlayerArtwork(
             modifier = Modifier.fillMaxWidth().height(height),
             reducedMotion = reducedMotion,
             energy = { energy.value },
+            artwork = { TrackArtwork(artworkUri, Modifier.fillMaxSize(), corner = 8.dp) },
         )
     }
 }

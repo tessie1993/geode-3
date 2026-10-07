@@ -53,7 +53,7 @@ import dev.geode.ui.theme.StoneComponent
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.StoneSurfaceArt
-import dev.geode.ui.theme.isTidalGlass
+import dev.geode.ui.theme.isJellyGlass
 import dev.geode.ui.theme.rememberStoneInteraction
 import dev.geode.ui.theme.rememberStoneState
 import dev.geode.ui.theme.stonePress
@@ -66,7 +66,7 @@ fun PlayerScreen(
     onExpand: () -> Unit,
     onOpenLibrary: () -> Unit,
 ) {
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val mic by viewModel.micState.collectAsStateWithLifecycle()
@@ -96,16 +96,18 @@ fun PlayerScreen(
             ) {
                 Column(Modifier.weight(1f)) {
                     if (tidal) {
-                        Text(
-                            stringResource(R.string.app_name).uppercase(),
-                            style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 5.sp),
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            stringResource(R.string.nav_player),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Column(Modifier.jellyMatteSheet(12.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                            Text(
+                                stringResource(R.string.app_name).uppercase(),
+                                style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 5.sp),
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                stringResource(R.string.nav_player),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     } else {
                         CrystalOverline(stringResource(R.string.app_name))
                         GlowTitle(stringResource(R.string.nav_player))
@@ -187,7 +189,7 @@ private fun PlayerHero(
     onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     val uri = remember(state.title, state.artist) { viewModel.currentTrackUri() }
     val foreign = external.active
     val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
@@ -214,7 +216,11 @@ private fun PlayerHero(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (tidal) {
-            TidalPlayerArtwork(viewModel, state.isPlaying || foreign || micActive)
+            TidalPlayerArtwork(
+                viewModel,
+                state.isPlaying || foreign || micActive,
+                artworkUri = if (localArtwork) uri else null,
+            )
         } else {
             TrackArtwork(
                 if (foreign || micActive) null else uri,
@@ -355,7 +361,7 @@ private fun TransportCard(
     onToggleQueue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     Column(
         modifier
             .fillMaxWidth()
@@ -515,7 +521,7 @@ private fun PlayerTransportButton(
         if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     val toggle = icon == StoneIcon.SHUFFLE || icon == StoneIcon.REPEAT || icon == StoneIcon.FAVORITE
     val selection = if (toggle) Modifier.semantics { this.selected = selected } else Modifier
-    if (!LocalThemePack.current.isTidalGlass) {
+    if (!LocalThemePack.current.isJellyGlass) {
         IconButton(
             onClick = onClick,
             enabled = enabled,
@@ -789,7 +795,7 @@ private fun QuickActionShell(
     onClick: () -> Unit,
     icon: @Composable (Color) -> Unit,
 ) {
-    val tidal = LocalThemePack.current.isTidalGlass
+    val tidal = LocalThemePack.current.isJellyGlass
     val interaction = rememberStoneInteraction()
     val tint =
         when {

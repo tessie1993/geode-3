@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -243,14 +244,14 @@ private fun PresetsTreeTab(
                     note,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 6.dp),
+                    modifier = Modifier.padding(bottom = 6.dp).jellyMatteSheet().padding(10.dp),
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = newFolder,
                     onValueChange = { newFolder = it },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).jellyMatteSheet(corner = 12.dp),
                     placeholder = { Text("New folder name") },
                     singleLine = true,
                 )
@@ -267,7 +268,7 @@ private fun PresetsTreeTab(
             if (folder.isNotEmpty() || inFolder.isNotEmpty()) {
                 item(key = "hdr_$folder") {
                     Row(
-                        Modifier.fillMaxWidth().padding(top = 8.dp),
+                        Modifier.fillMaxWidth().padding(top = 8.dp).jellyMatteSheet().padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -288,7 +289,7 @@ private fun PresetsTreeTab(
                 }
             }
             items(inFolder, key = { "p_${it.name}" }) { p ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().jellyMatteSheet().padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(p.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     IconButton(onClick = { applyPresetLive(viewModel, visualizerView, p) }) {
                         StoneIconArt(StoneIcon.PLAY, "Apply", tint = MaterialTheme.colorScheme.primary)
@@ -329,14 +330,14 @@ private fun PresetsTreeTab(
                 "Built-in",
                 style = MaterialTheme.typography.titleMedium,
                 color = accentTextColor(),
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = 8.dp).jellyMatteSheet(corner = 10.dp).padding(horizontal = 10.dp, vertical = 8.dp),
             )
         }
         items(
             viz.presets.filter { BuiltInPresets.isBuiltIn(it.name) && builtInPresetMatchesScene(it.sceneId, viz.sceneId) },
             key = { "b_${it.name}" },
         ) { p ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().jellyMatteSheet().padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(p.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 IconButton(onClick = { applyPresetLive(viewModel, visualizerView, p) }) {
                     StoneIconArt(StoneIcon.PLAY, "Apply", tint = MaterialTheme.colorScheme.primary)
@@ -352,7 +353,7 @@ private fun PresetsTreeTab(
                 OutlinedTextField(
                     value = saveName,
                     onValueChange = { saveName = it },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).jellyMatteSheet(corner = 12.dp),
                     placeholder = { Text("Save current as…") },
                     singleLine = true,
                 )
@@ -544,7 +545,7 @@ private fun StylesTab(
     Column(Modifier.fillMaxSize()) {
         suggestedSceneToOffer(viz.suggestedSceneId, viz.sceneId)?.let { suggested ->
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).jellyMatteSheet().padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -597,7 +598,13 @@ private fun SceneList(
         items(ids) { id ->
             val sel = id == current
             Row(
-                Modifier.fillMaxWidth().clickable { onPick(id) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 3.dp)
+                    .jellyMatteSheet()
+                    .clickable { onPick(id) }
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.size(6.dp), contentAlignment = Alignment.Center) {
@@ -672,7 +679,7 @@ private fun MilkDropTab(
             }
         }
     if (!visualizerView.visualizerRenderer.milkdropAvailable) {
-        Text("MilkDrop engine unavailable on this device.", Modifier.padding(16.dp))
+        Text("MilkDrop engine unavailable on this device.", Modifier.padding(16.dp).jellyMatteSheet().padding(12.dp))
         return
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -695,6 +702,7 @@ private fun MilkDropTab(
                     }
                 },
                 style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.jellyMatteSheet().padding(10.dp),
                 color =
                     if (r.presetsMissingTextures > 0) {
                         MaterialTheme.colorScheme.error
@@ -705,7 +713,7 @@ private fun MilkDropTab(
         }
         if (viz.sceneId == SceneIds.MILKDROP) {
             viz.shaderError?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                Text(it, Modifier.jellyMatteSheet().padding(10.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
             }
             MilkTextureLinkPanel(
                 links = textureLinks,
@@ -730,19 +738,31 @@ private fun MilkDropTab(
                 )
             }
         }
-        Text("Your .milk presets", style = MaterialTheme.typography.titleMedium, color = accentTextColor())
+        Text(
+            "Your .milk presets",
+            Modifier.jellyMatteSheet(corner = 10.dp).padding(horizontal = 10.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.titleMedium,
+            color = accentTextColor(),
+        )
         if (milkFiles.isEmpty()) {
-            Text("None yet — load a .milk file or save one from the milkdrop scene.", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "None yet — load a .milk file or save one from the milkdrop scene.",
+                Modifier.jellyMatteSheet().padding(12.dp),
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
         milkFiles.forEach { f ->
             val active = f.absolutePath == loaded
             Row(
                 Modifier
                     .fillMaxWidth()
+                    .padding(vertical = 3.dp)
+                    .jellyMatteSheet()
                     .clickable {
                         selectMilk(viewModel, visualizerView, f.absolutePath)
                         refresh++
-                    }.padding(vertical = 8.dp),
+                    }.heightIn(min = 48.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.size(6.dp), contentAlignment = Alignment.Center) {
@@ -773,7 +793,12 @@ private fun MilkTextureLinkPanel(
 ) {
     val interesting = links.filter { it.kind != dev.geode.data.MilkTextureLinkKind.MATCHED }
     if (interesting.isEmpty()) return
-    Text("Textures for this preset", style = MaterialTheme.typography.labelMedium, color = accentTextColor())
+    Text(
+        "Textures for this preset",
+        Modifier.jellyMatteSheet(corner = 10.dp).padding(horizontal = 10.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.labelMedium,
+        color = accentTextColor(),
+    )
     interesting.forEach { link ->
         val note =
             when (link.kind) {
@@ -784,7 +809,13 @@ private fun MilkTextureLinkPanel(
                 dev.geode.data.MilkTextureLinkKind.MISSING -> "missing - import an image via Textures…"
             }
         Row(
-            Modifier.fillMaxWidth().clickable { onPick(link.expected) }.padding(vertical = 4.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 3.dp)
+                .jellyMatteSheet()
+                .clickable { onPick(link.expected) }
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(link.expected, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
@@ -1003,12 +1034,12 @@ private fun CustomizeToolbar(
         OutlinedTextField(
             value = query,
             onValueChange = onQuery,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().jellyMatteSheet(corner = 12.dp),
             singleLine = true,
             label = { Text("Search every parameter", style = MaterialTheme.typography.labelSmall) },
         )
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 6.dp),
+            Modifier.fillMaxWidth().padding(top = 6.dp).jellyMatteSheet().horizontalScroll(rememberScrollState()).padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -1046,7 +1077,7 @@ private fun CustomizeToolbar(
             )
         }
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+            Modifier.fillMaxWidth().padding(top = 4.dp).jellyMatteSheet().horizontalScroll(rememberScrollState()).padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -1067,7 +1098,11 @@ private fun CustomizeToolbar(
             ) { Text("Recall B") }
         }
         if (ab.canBlend) {
-            Text("Blend A → B ${"%.2f".format(ab.blend)}", style = MaterialTheme.typography.labelSmall)
+            Text(
+                "Blend A → B ${"%.2f".format(ab.blend)}",
+                Modifier.jellyMatteSheet(corner = 10.dp).padding(horizontal = 10.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.labelSmall,
+            )
             CrystalSlider(
                 value = ab.blend,
                 onValueChange = visualsViewModel::blendSnapshots,
@@ -1165,12 +1200,12 @@ private fun TakesTab(viewModel: StudioViewModel) {
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 8.dp),
+                modifier = Modifier.padding(vertical = 8.dp).jellyMatteSheet().padding(12.dp),
             )
         }
         if (takes.replaying != null) {
             item {
-                Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).jellyMatteSheet().padding(10.dp)) {
                     Text(
                         "Replaying ${takes.replaying} — ${formatTakeTime(takes.replayMs)} / " +
                             formatTakeTime(takes.replayEndMs),
@@ -1193,7 +1228,7 @@ private fun TakesTab(viewModel: StudioViewModel) {
         }
         items(takes.takes, key = { "take_${it.name}" }) { take ->
             val playing = takes.replaying == take.name
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().jellyMatteSheet().padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
                     Text(take.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
@@ -1240,7 +1275,7 @@ private fun TakesTab(viewModel: StudioViewModel) {
         }
         if (takes.takes.isEmpty() && !takes.recording) {
             item {
-                Text("No takes recorded yet.", style = MaterialTheme.typography.bodySmall)
+                Text("No takes recorded yet.", Modifier.jellyMatteSheet().padding(12.dp), style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -1308,7 +1343,7 @@ private fun TexturesHubTab(
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         CrystalButton(onClick = { picker.launch(arrayOf("image/*")) }) { Text("Import images") }
         textures.forEach { tex ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().jellyMatteSheet().padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(tex.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 CrystalButton(compact = true, filled = false, onClick = {
                     visualsViewModel.useTexture(tex.name) { path -> selectMilk(viewModel, visualizerView, path) }
@@ -1318,7 +1353,7 @@ private fun TexturesHubTab(
                 }
             }
         }
-        if (textures.isEmpty()) Text("No textures imported yet.", style = MaterialTheme.typography.bodySmall)
+        if (textures.isEmpty()) Text("No textures imported yet.", Modifier.jellyMatteSheet().padding(12.dp), style = MaterialTheme.typography.bodySmall)
     }
     deletingTexture?.let { name ->
         androidx.compose.material3.AlertDialog(
@@ -1368,15 +1403,16 @@ private fun GlslHubTab(
                 "with `uniform float uFlowStrength` - declare and sample it for " +
                 "fluid-driven distortion.",
             style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.jellyMatteSheet().padding(10.dp),
         )
         OutlinedTextField(
             value = source,
             onValueChange = { source = it },
-            modifier = Modifier.fillMaxWidth().height(360.dp),
+            modifier = Modifier.fillMaxWidth().height(360.dp).jellyMatteSheet(corner = 12.dp),
             textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
         )
         viz.shaderError?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+            Text(it, Modifier.jellyMatteSheet().padding(10.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CrystalButton(onClick = { viewModel.applyCustomShader(source) }) { Text("Apply shader") }

@@ -22,6 +22,15 @@ PACKAGE = "dev.geode.debug"
 DESTINATIONS = ("Player", "Library", "Visuals", "Studio", "Settings")
 LIBRARY_TABS = ("Tracks", "Albums", "Artists", "Folders", "Playlists")
 VISUALS_TABS = ("Presets", "Styles", "Customize", "Textures", "Takes")
+SETTINGS_TABS = ("Look", "Audio", "Export", "Folders", "Behavior", "Help", "About")
+THEMES = (
+    ("Tidal Glass", "tidal-glass"), ("Lapis Lazuli", "lapis-lazuli"),
+    ("Sugilite", "sugilite"), ("Amethyst", "amethyst"),
+    ("Clear Quartz", "clear-quartz"), ("Azurite", "azurite"),
+    ("Firestone", "firestone"), ("Kyanite", "kyanite"),
+    ("Malachite", "malachite"), ("Mookaite", "mookaite"), ("Onyx", "onyx"),
+)
+THEME_LABELS = tuple(name for name, _ in THEMES)
 MOTION_LABEL = "Slow the motion down"
 ANIMATION_SETTINGS = (
     "window_animation_scale", "transition_animation_scale", "animator_duration_scale",
@@ -151,16 +160,27 @@ class SmokeRun:
 
     @staticmethod
     def checked(root, label):
+        parents = {child: parent for parent in root.iter() for child in parent}
+        inspected = []
         for node in SmokeRun.matches(root, label):
-            if node.get("checkable") == "true":
-                return node.get("checked") == "true"
-        raise AssertionError(f"Labelled switch missing checked semantics: {label}")
+            path = []
+            current = node
+            while current is not None:
+                path.append({key: current.get(key) for key in
+                             ("class", "checkable", "checked", "clickable", "bounds")})
+                if current.get("checkable") == "true" and current.get("checked") in ("true", "false"):
+                    return current.get("checked") == "true"
+                current = parents.get(current)
+            inspected.append(path)
+        raise AssertionError(f"Labelled switch missing checked semantics: {label}; matching ancestry: {inspected}")
 
-    def swipe(self, root, direction, reverse=False):
+    def swipe(self, root, direction, reverse=False, scroll_labels=None):
         candidates = []
         for node in root.iter("node"):
             bounds = self.bounds(node)
             if node.get("scrollable") != "true" or bounds is None:
+                continue
+            if scroll_labels and not any(self.matches(node, label) for label in scroll_labels):
                 continue
             x1, y1, x2, y2 = bounds
             class_name = node.get("class", "")
@@ -175,6 +195,15 @@ class SmokeRun:
                 eligible = known_horizontal or (not known_vertical and x2 - x1 > (y2 - y1) * 2)
             if eligible:
                 candidates.append((node, bounds))
+        if scroll_labels:
+            # The theme picker is below the Settings tab row. Restrict the
+            # gesture to the innermost live scroller containing theme labels,
+            # including generic Compose Views exported in landscape.
+            candidates = [
+                item for item in candidates
+                if not any(other is not item[0] and other in item[0].iter("node")
+                           for other, _ in candidates)
+            ]
         if not candidates:
             return False
         # Tabs are the top horizontal scroller; the content list is the largest
@@ -195,23 +224,106 @@ class SmokeRun:
         self.events.append(f"Scrolled {direction} from {node.get('bounds')}, reverse={reverse}")
         return True
 
-    def seek(self, label, *, clickable=False, scroll=None, reverse=False):
+    def seek(self, label, *, clickable=False, scroll=None, reverse=False, scroll_labels=None):
         for attempt in range(8):
             root = self.capture(f"find-{slug(label)}-{attempt}")
             node = self.action(root, label) if clickable else self.find(root, label, include_disabled=True)
             if node is not None:
                 return root, node
             if scroll:
-                self.swipe(root, scroll, reverse)
+                self.swipe(root, scroll, reverse, scroll_labels)
             time.sleep(1)
         raise AssertionError(f"UI action missing after polling and tree-derived scroll: {label}")
 
-    def tap(self, label, *, scroll=None, reverse=False):
-        _, node = self.seek(label, clickable=True, scroll=scroll, reverse=reverse)
+    def tap(self, label, *, scroll=None, reverse=False, scroll_labels=None, settle=1):
+        root, _ = self.seek(label, clickable=True, scroll=scroll, reverse=reverse, scroll_labels=scroll_labels)
+        self.tap_current(root, label, settle=settle)
+
+    def tap_current(self, root, label, *, settle=1):
+        node = self.action(root, label)
+        if node is None:
+            raise AssertionError(f"Current hierarchy has no enabled action: {label}")
         x1, y1, x2, y2 = self.bounds(node)
         self.shell("input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
         self.events.append(f"Tapped {label} from {node.get('bounds')}")
-        time.sleep(1)
+        time.sleep(settle)
+
+    def component_kit(self):
+        """Exercise the debug material surface before any production UI or playback."""
+        component = f"{PACKAGE}/dev.geode.ui.SpatialComponentKitActivity"
+        supports_recording = bool(self.adb("shell", "which", "screenrecord", check=False).strip())
+        remote = "/sdcard/geode-component-motion.mp4"
+        try:
+            for setting in ANIMATION_SETTINGS:
+                self.shell("settings", "put", "global", setting, "1.0")
+            for name, theme_slug in THEMES:
+                self.shell("am", "start", "-S", "-W", "-f", "0x10008000", "-n", component,
+                           "--es", "theme_slug", theme_slug)
+                root = self.capture(f"component-kit-{theme_slug}")
+                self.assert_labels(root, "Component kit", name, "Matte reading panel", "Interactions: 0",
+                                   "Press capsule", "Pressed preview", "Selected capsule", "Disabled capsule",
+                                   "Press round button", "Pressed round preview", "Selected round button", "Disabled round button")
+                self.assert_selected(root, name, allow_checked=True)
+                self.assert_selected(root, "Selected capsule", allow_checked=True)
+                self.assert_selected(root, "Selected round button", allow_checked=True)
+                for disabled in ("Disabled capsule", "Disabled round button"):
+                    if self.action(root, disabled) is not None:
+                        raise AssertionError(f"Component kit disabled control is interactive: {disabled}")
+                self.component_movie(root, theme_slug, remote, supports_recording)
+            self.events.append("All eleven debug component themes captured; actual capsule/round callbacks and selection verified")
+        finally:
+            for setting in ANIMATION_SETTINGS:
+                self.restore_setting("global", setting)
+            self.adb("shell", "rm", "-f", remote, check=False)
+            # MainActivity is started once by run() immediately after this returns.
+            self.shell("am", "force-stop", PACKAGE)
+
+    def component_movie(self, root, theme_slug, remote, supports_recording):
+        stem = f"component-motion-{theme_slug}"
+        result = {"scope": "debug shared components; no audio, GL or foreground service", "theme": theme_slug,
+                  "time_limit_seconds": 6, "bit_rate": 900000, "actions": [], "action_elapsed_seconds": {}}
+        recorder = None
+        try:
+            if supports_recording:
+                recorder = subprocess.Popen(
+                    ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "6",
+                     "--bit-rate", "900000", remote], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                )
+            started = time.monotonic()
+            time.sleep(0.2)
+            for count, label in enumerate(("Press capsule", "Press round button", "Selected capsule"), start=1):
+                # The root is the latest actual XML, captured just before this
+                # press. Animation changes pixels, never these measured targets.
+                self.tap_current(root, label, settle=0.15)
+                result["actions"].append(f"Tapped {label}")
+                result["action_elapsed_seconds"][label] = round(time.monotonic() - started, 2)
+                root = self.capture(f"component-action-{theme_slug}-{count}")
+                self.assert_labels(root, f"Interactions: {count}")
+            self.assert_not_selected(root, "Selected capsule", allow_checked=True)
+            self.assert_selected(root, "Selected round button", allow_checked=True)
+            if recorder is not None:
+                stdout, stderr = recorder.communicate(timeout=15)
+                (self.output / f"{stem}-screenrecord.txt").write_bytes(stdout + stderr)
+                if recorder.returncode:
+                    raise RuntimeError(f"Component screenrecord exited {recorder.returncode}: {theme_slug}")
+                destination = self.output / f"{stem}.mp4"
+                self.adb("pull", remote, str(destination))
+                if not destination.stat().st_size:
+                    raise RuntimeError(f"Component screenrecord was empty: {theme_slug}")
+                result["status"] = "recorded"
+                result["actions_within_recording"] = [
+                    label for label, elapsed in result["action_elapsed_seconds"].items()
+                    if elapsed <= result["time_limit_seconds"]
+                ]
+            else:
+                result["status"] = "unsupported: screenrecord unavailable; native callbacks still verified"
+        finally:
+            if recorder is not None and recorder.poll() is None:
+                recorder.kill()
+                recorder.communicate(timeout=10)
+            self.adb("shell", "rm", "-f", remote, check=False)
+            result.setdefault("status", "failed; inspect exact component UI and recording diagnostics")
+            (self.output / f"{stem}.json").write_text(json.dumps(result, indent=2))
 
     def visit(self, label, profile="default"):
         self.tap(label)
@@ -462,6 +574,8 @@ class SmokeRun:
         self.tap("Tracks", scroll="horizontal", reverse=True)
         self.tap(self.fixtures[0]["title"], scroll="vertical")
         self.visit("Player")
+        self.seek_current_hero_track(self.fixtures[0]["title"], "fixture-playing")
+        self.capture("fixture-playing-hero")
         self.transport("fixture-playing", has_media=True)
         self.tap("Pause", scroll="vertical")
         self.assert_labels(self.capture("fixture-paused"), "Play")
@@ -565,16 +679,27 @@ class SmokeRun:
         root, _ = self.seek("Tidal Glass", scroll="horizontal")
         self.assert_selected(root, "Tidal Glass", allow_checked=True)
         self.events.append("Fresh-install default theme is Tidal Glass")
-        self.tap("Lapis Lazuli", scroll="horizontal")
-        self.assert_selected(self.capture("theme-mineral-fallback"), "Lapis Lazuli", allow_checked=True)
-        self.visit("Player", "mineral-theme")
-        self.transport("mineral-theme", has_media=True)
-        self.visit("Settings", "mineral-theme")
-        self.tap("Look", scroll="horizontal", reverse=True)
-        self.tap("Tidal Glass", scroll="horizontal", reverse=True)
+        for name, theme_slug in THEMES:
+            self.tap(name, scroll="horizontal", scroll_labels=THEME_LABELS)
+            root = self.capture(f"glass-picker-{theme_slug}")
+            self.assert_selected(root, name, allow_checked=True)
+            self.visit("Player", f"glass-{theme_slug}")
+            self.seek("Search", scroll="vertical", reverse=True)
+            root = self.capture(f"glass-theme-{theme_slug}")
+            if self.current_hero_track(root) not in {fixture["title"] for fixture in self.fixtures}:
+                raise AssertionError(f"Loaded PlayerHero missing after selecting theme: {name}")
+            self.visit("Settings", f"glass-{theme_slug}")
+            self.tap("Look", scroll="horizontal", reverse=True)
+        self.events.append("All eleven built-in themes selected and captured with the actual loaded PlayerHero")
+        self.tap("Tidal Glass", scroll="horizontal", reverse=True, scroll_labels=THEME_LABELS)
         self.assert_selected(self.capture("theme-tidal-restored"), "Tidal Glass", allow_checked=True)
-        self.visit("Player", "tidal-theme")
-        self.transport("tidal-theme", has_media=True)
+        self.restart("theme-tidal-restart")
+        self.visit("Settings", "tidal-theme-persisted")
+        self.tap("Look", scroll="horizontal", reverse=True)
+        root, _ = self.seek("Tidal Glass", scroll="horizontal", scroll_labels=THEME_LABELS)
+        self.assert_selected(root, "Tidal Glass", allow_checked=True)
+        self.events.append("Restored Tidal Glass theme persisted across process restart")
+        self.ensure_playing("tidal-theme")
         self.visit("Settings", "tidal-theme")
         self.tap("Behavior", scroll="horizontal")
         root, _ = self.seek(MOTION_LABEL, scroll="vertical")
@@ -647,9 +772,15 @@ class SmokeRun:
                 ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "10", "--bit-rate", "2000000", remote],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             )
-            time.sleep(1)
-            self.tap("Search", scroll="vertical", reverse=True)
-            self.tap("Close search")
+            started = time.monotonic()
+            time.sleep(0.2)
+            result["actions"] = []
+            result["action_elapsed_seconds"] = {}
+            for label in ("Library", "Player", "Search", "Close search"):
+                self.tap(label, scroll="vertical" if label == "Search" else None,
+                         reverse=label == "Search", settle=0.15)
+                result["actions"].append(f"Tapped {label}")
+                result["action_elapsed_seconds"][label] = round(time.monotonic() - started, 2)
             stdout, stderr = recorder.communicate(timeout=25)
             (self.output / "screenrecord.txt").write_bytes(stdout + stderr)
             if recorder.returncode:
@@ -658,8 +789,11 @@ class SmokeRun:
             if not (self.output / "ui-motion.mp4").stat().st_size:
                 raise RuntimeError("screenrecord produced an empty video")
             result["status"] = "recorded"
-            result["actions"] = ["Search opened", "Search closed"]
-            self.events.append("Recorded 10-second animation sample with system animation scales temporarily enabled")
+            result["actions_within_recording"] = [
+                label for label, elapsed in result["action_elapsed_seconds"].items()
+                if elapsed <= result["time_limit_seconds"]
+            ]
+            self.events.append("Recorded 10-second animation sample with navigation pebble presses and Search, animation scales temporarily enabled")
         finally:
             if recorder is not None and recorder.poll() is None:
                 recorder.kill()
@@ -676,7 +810,7 @@ class SmokeRun:
             "api": self.shell("getprop", "ro.build.version.sdk"),
             "model": self.shell("getprop", "ro.product.model"),
             "package": PACKAGE, "variant": "debug", "runs": 1,
-            "scope": "fresh onboarding, empty queue, generated WAV playback, five destinations, search, ten tabs, preferences, process restart, adaptive UI",
+            "scope": "eleven debug component kits, fresh onboarding, empty queue, generated WAV playback, five destinations, search, ten Library/Visuals tabs, seven Settings tabs, eleven themes, preferences, process restart, adaptive UI",
             "performance_scope": "emulator gfxinfo/meminfo only; no physical latency, GPU or frame-rate guarantee",
             "profiles": {"compact-font-200": {"size": "1080x1920", "density": 480, "font_scale": 2.0},
                          "landscape": {"size": "1080x1920", "density": 480, "font_scale": 1.0, "user_rotation": 1}},
@@ -690,6 +824,7 @@ class SmokeRun:
         if self.shell("pm", "clear", PACKAGE) != "Success":
             raise RuntimeError("Could not prepare a fresh debug install")
         self.shell("logcat", "-c")
+        self.component_kit()
         self.shell("am", "start", "-W", "-n", self.component)
         self.tap("I understand")
         self.tap("Not now")
@@ -708,6 +843,7 @@ class SmokeRun:
         self.tabs("Visuals", VISUALS_TABS)
         root = self.visit("Studio")
         self.assert_labels(root, "Open a video…", "NOTHING RENDERED YET")
+        self.tabs("Settings", SETTINGS_TABS)
         self.preferences()
         self.diagnostic_reports("default-navigation")
         self.profiles()
