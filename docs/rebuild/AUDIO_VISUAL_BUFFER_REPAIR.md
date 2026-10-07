@@ -27,6 +27,12 @@ allocation failure tearing down usable shaders, partial shader construction leak
 and every visited heavy scene retaining independent GPU targets. These are source-level failure
 paths, not a diagnosis measured on the owner's device.
 
+GitHub Actions run 50 supplied direct GLES evidence on the API 30 SwiftShader emulator.
+Its float formats were all renderable, but the base fluid display shader compiled with an
+undefined `LOOK` selector and was rejected. Subsequent renderer recreation also attempted to
+restore a deleted-current GL program, producing `GL_INVALID_VALUE`. These observed failures
+require a default shader selector and safe program unbinding during teardown and state restore.
+
 ## Behavior in this patch
 
 - A fixed-capacity PCM queue appends fresh batches and drains once into an immutable render-frame
@@ -62,10 +68,14 @@ paths, not a diagnosis measured on the owner's device.
 
 ## Verification and limits
 
-The repository requires builds, tests and lint to run in GitHub Actions. No such checks ran after
-that rule was discovered. The completed patch has had source review; new regression and Android
-render tests await CI. The initial failing host probes are diagnosis
-evidence, not final validation.
+The repository requires builds, tests and lint to run in GitHub Actions. No local checks ran after
+that rule was discovered. Actions run 50 passed app/instrumentation compilation, native/release
+regressions, Kotlin tests, formatting, static analysis and Android lint. The Kotlin reports from
+run 49 contained 75 tests with zero failures; its sole static-analysis finding was subsequently
+fixed. Run 50's render failures supplied the shader-selector and program-lifecycle evidence
+described above. Exact-head gate status and subsequent render evidence are tracked in
+[PR #16](https://github.com/tessie1993/geode-3/pull/16). The initial failing host probes are
+diagnosis evidence, not final validation.
 
 CI includes native PCM, MilkDrop delivery, camera, sound-envelope and fluid allocation/drive regressions,
 Kotlin analysis and boundary tests, and real GLES instrumentation. The Android checks capture PNG

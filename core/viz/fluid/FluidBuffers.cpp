@@ -74,7 +74,18 @@ AllocationState::~AllocationState() {
     if (readFbo_ != 0 && !glIsFramebuffer(static_cast<GLuint>(readFbo_))) readFbo_ = 0;
     if (texture_ != 0 && !glIsTexture(static_cast<GLuint>(texture_))) texture_ = 0;
     if (texture0_ != 0 && !glIsTexture(static_cast<GLuint>(texture0_))) texture0_ = 0;
-    if (program_ != 0 && !glIsProgram(static_cast<GLuint>(program_))) program_ = 0;
+    if (program_ != 0) {
+        if (!glIsProgram(static_cast<GLuint>(program_))) {
+            program_ = 0;
+        } else {
+            // A deleted current program remains an object until it is unbound.
+            // It must not be selected again: emulator encoders reject its name
+            // even while glIsProgram still reports the deferred object alive.
+            GLint deleting = GL_FALSE;
+            glGetProgramiv(static_cast<GLuint>(program_), GL_DELETE_STATUS, &deleting);
+            if (deleting == GL_TRUE) program_ = 0;
+        }
+    }
     if (vao_ != 0 && !glIsVertexArray(static_cast<GLuint>(vao_))) vao_ = 0;
     if (arrayBuffer_ != 0 && !glIsBuffer(static_cast<GLuint>(arrayBuffer_))) arrayBuffer_ = 0;
     if (unpackBuffer_ != 0 && !glIsBuffer(static_cast<GLuint>(unpackBuffer_))) unpackBuffer_ = 0;

@@ -1,5 +1,7 @@
 #include "viz/Renderer.hpp"
 
+#include <EGL/egl.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -27,7 +29,12 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
     programCache_.install(cacheDir_);
 }
 
-Renderer::~Renderer() = default;
+Renderer::~Renderer() {
+    // Programs deleted while current remain pending until they are unbound.
+    // Unbind the final composite before the member destructors retire it so
+    // a second renderer in this context cannot capture its stale program name.
+    if (eglGetCurrentContext() != EGL_NO_CONTEXT) glUseProgram(0);
+}
 
 void Renderer::setParams(const SceneParams& params) {
     std::lock_guard<std::mutex> lock(stateLock_);

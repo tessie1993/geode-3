@@ -306,7 +306,12 @@ void ShaderScene::compilePendingIfAny() {
 }
 
 void ShaderScene::release() {
-    if (program_ != 0) glDeleteProgram(program_);
+    if (program_ != 0) {
+        GLint current = 0;
+        glGetIntegerv(GL_CURRENT_PROGRAM, &current);
+        if (static_cast<GLuint>(current) == program_) glUseProgram(0);
+        glDeleteProgram(program_);
+    }
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
     audioTex_.release();
     program_ = 0;
