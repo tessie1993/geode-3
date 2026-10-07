@@ -17,6 +17,13 @@ import dev.geode.ui.ThemeContrast
 
 val LocalThemePack = staticCompositionLocalOf { ThemePackCatalog.all.first() }
 
+/** Shared preference and system-animation policy for all material components. */
+val LocalReducedMotion = staticCompositionLocalOf { false }
+
+val LocalBackgroundDim = staticCompositionLocalOf { 0f }
+
+internal val LocalMaterialResumed = staticCompositionLocalOf { true }
+
 val MaliFamily =
     FontFamily(
         Font(R.font.mali_regular, FontWeight.Normal),
@@ -55,6 +62,30 @@ fun stoneTypography(textScale: Float = 1f): Typography {
         labelLarge = style(MaliFamily, 14, FontWeight.Medium),
         labelMedium = style(MaliFamily, 13, FontWeight.Medium),
         labelSmall = style(MaliFamily, 12, FontWeight.Medium),
+    )
+}
+
+fun tidalTypography(textScale: Float = 1f): Typography {
+    val base = stoneTypography(textScale)
+
+    fun TextStyle.clean(): TextStyle = copy(fontFamily = FontFamily.SansSerif)
+
+    return base.copy(
+        displayLarge = base.displayLarge.clean(),
+        displayMedium = base.displayMedium.clean(),
+        displaySmall = base.displaySmall.clean(),
+        headlineLarge = base.headlineLarge.clean(),
+        headlineMedium = base.headlineMedium.clean(),
+        headlineSmall = base.headlineSmall.clean(),
+        titleLarge = base.titleLarge.clean(),
+        titleMedium = base.titleMedium.clean(),
+        titleSmall = base.titleSmall.clean(),
+        bodyLarge = base.bodyLarge.clean(),
+        bodyMedium = base.bodyMedium.clean(),
+        bodySmall = base.bodySmall.clean(),
+        labelLarge = base.labelLarge.clean(),
+        labelMedium = base.labelMedium.clean(),
+        labelSmall = base.labelSmall.clean(),
     )
 }
 

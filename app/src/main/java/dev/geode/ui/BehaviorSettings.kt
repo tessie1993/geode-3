@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
@@ -146,11 +148,13 @@ private fun VisualSafetyGroup(
         )
     }
     Column {
+        val reducedMotionLabel = stringResource(R.string.behavior_slow_motion)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.behavior_slow_motion), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Text(reducedMotionLabel, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
             Switch(
                 checked = gui.reducedMotion,
                 onCheckedChange = { viewModel.setGuiPrefs(gui.copy(reducedMotion = it)) },
+                modifier = Modifier.semantics { contentDescription = reducedMotionLabel },
             )
         }
         Text(

@@ -4,8 +4,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,14 +38,25 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import dev.geode.R
+import dev.geode.ui.theme.LocalThemePack
+import dev.geode.ui.theme.StoneComponent
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.StoneSurfaceArt
+import dev.geode.ui.theme.isJellyGlass
+import dev.geode.ui.theme.rememberStoneInteraction
+import dev.geode.ui.theme.rememberStoneState
+import dev.geode.ui.theme.stonePress
 import kotlinx.coroutines.delay
 
 @Composable
@@ -52,6 +66,7 @@ fun PlayerScreen(
     onExpand: () -> Unit,
     onOpenLibrary: () -> Unit,
 ) {
+    val tidal = LocalThemePack.current.isJellyGlass
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val mic by viewModel.micState.collectAsStateWithLifecycle()
@@ -72,7 +87,7 @@ fun PlayerScreen(
         contentPadding =
             androidx.compose.foundation.layout
                 .PaddingValues(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(if (tidal) 10.dp else 16.dp),
     ) {
         item {
             Row(
@@ -80,10 +95,25 @@ fun PlayerScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    CrystalOverline(stringResource(R.string.app_name))
-                    GlowTitle(stringResource(R.string.nav_player))
+                    if (tidal) {
+                        Column(Modifier.jellyMatteSheet(12.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                            Text(
+                                stringResource(R.string.app_name).uppercase(),
+                                style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 5.sp),
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                stringResource(R.string.nav_player),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        CrystalOverline(stringResource(R.string.app_name))
+                        GlowTitle(stringResource(R.string.nav_player))
+                    }
                 }
-                IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
+                PlayerTransportButton(StoneIcon.SEARCH, stringResource(R.string.action_search), onOpenSearch)
             }
         }
 
@@ -159,30 +189,61 @@ private fun PlayerHero(
     onOpenLibrary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tidal = LocalThemePack.current.isJellyGlass
     val uri = remember(state.title, state.artist) { viewModel.currentTrackUri() }
     val foreign = external.active
     val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
     val hasSource = foreign || micActive || state.hasMedia
     val isFavourite = uri != null && uri in favourites
+    val localArtwork = state.hasMedia && !foreign && !micActive
     Column(
         modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.42f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 24.dp,
-                glowStrength = if (state.isPlaying || foreign || micActive) 1.2f else 0.7f,
+            .then(
+                if (tidal) {
+                    Modifier
+                } else {
+                    Modifier.crystalPanel(
+                        0.42f,
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        MaterialTheme.colorScheme.primary,
+                        corner = 24.dp,
+                        glowStrength = if (state.isPlaying || foreign || micActive) 1.2f else 0.7f,
+                    )
+                },
             ).clickable(enabled = hasSource, onClick = onExpand)
-            .padding(14.dp),
+            .padding(if (tidal) 0.dp else 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TrackArtwork(
-            if (foreign || micActive) null else uri,
-            Modifier.fillMaxWidth().aspectRatio(1f),
-            corner = 18.dp,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        if (tidal) {
+            TidalPlayerArtwork(
+                viewModel,
+                state.isPlaying || foreign || micActive,
+                artworkUri = if (localArtwork) uri else null,
+            )
+        } else {
+            TrackArtwork(
+                if (foreign || micActive) null else uri,
+                Modifier.fillMaxWidth().aspectRatio(1f),
+                corner = 18.dp,
+            )
+        }
+        Row(
+            Modifier.then(
+                if (tidal) {
+                    Modifier
+                        .crystalPanel(0.62f, MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primary, corner = 24.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                } else {
+                    Modifier
+                },
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (tidal && localArtwork) {
+                TrackArtwork(uri, Modifier.size(48.dp), corner = 14.dp)
+                Box(Modifier.width(12.dp))
+            }
             Column(Modifier.weight(1f)) {
                 CrystalOverline(
                     when {
@@ -200,8 +261,10 @@ private fun PlayerHero(
                         state.hasMedia -> state.title ?: stringResource(R.string.title_untitled)
                         else -> stringResource(R.string.title_pick_something)
                     },
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1,
+                    style =
+                        (if (tidal) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge)
+                            .copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = if (tidal) 2 else 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
@@ -233,20 +296,12 @@ private fun PlayerHero(
                 )
             }
             if (state.hasMedia && !foreign) {
-                IconButton(onClick = { viewModel.toggleFavourite() }) {
-                    StoneIconArt(
-                        StoneIcon.FAVORITE,
-                        stringResource(
-                            if (isFavourite) R.string.action_favourite_remove else R.string.action_favourite_add,
-                        ),
-                        tint =
-                            if (isFavourite) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    )
-                }
+                PlayerTransportButton(
+                    StoneIcon.FAVORITE,
+                    stringResource(if (isFavourite) R.string.action_favourite_remove else R.string.action_favourite_add),
+                    onClick = { viewModel.toggleFavourite() },
+                    selected = isFavourite,
+                )
             }
         }
         Row(
@@ -293,6 +348,7 @@ private fun SceneChip(label: String) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TransportCard(
     viewModel: PlayerViewModel,
@@ -305,19 +361,36 @@ private fun TransportCard(
     onToggleQueue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tidal = LocalThemePack.current.isJellyGlass
     Column(
         modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.35f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 24.dp,
-                glowStrength = 0.8f,
-            ).padding(horizontal = 14.dp, vertical = 10.dp),
+            .then(
+                if (tidal) {
+                    Modifier
+                } else {
+                    Modifier.crystalPanel(
+                        0.35f,
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        MaterialTheme.colorScheme.primary,
+                        corner = 24.dp,
+                        glowStrength = 0.8f,
+                    )
+                },
+            ).padding(horizontal = if (tidal) 0.dp else 14.dp, vertical = 10.dp),
     ) {
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier
+                .fillMaxWidth()
+                .then(
+                    if (tidal) {
+                        Modifier
+                            .crystalPanel(0.6f, MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primary, corner = 32.dp)
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    } else {
+                        Modifier
+                    },
+                ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -329,56 +402,63 @@ private fun TransportCard(
                 loopStartMs = abLoop?.startMs,
                 loopEndMs = abLoop?.endMs,
                 onSeek = viewModel::seekTo,
-                modifier = Modifier.weight(1f).height(40.dp),
+                modifier = Modifier.weight(1f).height(if (tidal) 48.dp else 40.dp),
             )
             Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
         }
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+        FlowRow(
+            Modifier.fillMaxWidth().padding(vertical = if (tidal) 6.dp else 0.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            maxItemsInEachRow = 5,
         ) {
-            IconButton(onClick = viewModel::toggleShuffle) {
-                StoneIconArt(
-                    StoneIcon.SHUFFLE,
-                    stringResource(R.string.action_shuffle),
-                    tint =
-                        if (state.shuffle) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
-            IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
-                StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
-            }
-            CrystalPlayButton(
-                icon = if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
-                contentDescription = stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
-                onClick = viewModel::togglePlayPause,
+            PlayerTransportButton(
+                StoneIcon.SHUFFLE,
+                stringResource(R.string.action_shuffle),
+                viewModel::toggleShuffle,
+                selected = state.shuffle,
+            )
+            PlayerTransportButton(
+                StoneIcon.PREVIOUS,
+                stringResource(R.string.action_previous),
+                viewModel::previous,
                 enabled = state.hasMedia,
             )
-            IconButton(onClick = viewModel::next, enabled = state.hasMedia) {
-                StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
-            }
-            IconButton(onClick = viewModel::cycleRepeatMode) {
-                StoneIconArt(
-                    StoneIcon.REPEAT,
-                    stringResource(R.string.action_repeat),
-                    tint =
-                        if (state.repeatMode != Player.REPEAT_MODE_OFF) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+            if (tidal) {
+                PlayerTransportButton(
+                    if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
+                    stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+                    viewModel::togglePlayPause,
+                    enabled = state.hasMedia,
+                    selected = state.isPlaying,
+                    large = true,
+                )
+            } else {
+                CrystalPlayButton(
+                    icon = if (state.isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
+                    contentDescription = stringResource(if (state.isPlaying) R.string.action_pause else R.string.action_play),
+                    onClick = viewModel::togglePlayPause,
+                    enabled = state.hasMedia,
                 )
             }
+            PlayerTransportButton(
+                StoneIcon.NEXT,
+                stringResource(R.string.action_next),
+                viewModel::next,
+                enabled = state.hasMedia,
+            )
+            PlayerTransportButton(
+                StoneIcon.REPEAT,
+                stringResource(R.string.action_repeat),
+                viewModel::cycleRepeatMode,
+                selected = state.repeatMode != Player.REPEAT_MODE_OFF,
+            )
         }
-        Row(
+        FlowRow(
             Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            maxItemsInEachRow = 3,
         ) {
             TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
                 Text(
@@ -425,6 +505,53 @@ private fun TransportCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PlayerTransportButton(
+    icon: StoneIcon,
+    description: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    selected: Boolean = false,
+    large: Boolean = false,
+) {
+    val tint =
+        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    val toggle = icon == StoneIcon.SHUFFLE || icon == StoneIcon.REPEAT || icon == StoneIcon.FAVORITE
+    val selection = if (toggle) Modifier.semantics { this.selected = selected } else Modifier
+    if (!LocalThemePack.current.isJellyGlass) {
+        IconButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = selection,
+        ) { StoneIconArt(icon, description, tint = tint) }
+        return
+    }
+    val interaction = rememberStoneInteraction()
+    val state = rememberStoneState(interaction, enabled, selected)
+    Box(
+        Modifier
+            .size(if (large) 76.dp else 52.dp)
+            .then(selection)
+            .stonePress(interaction)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        StoneSurfaceArt(StoneComponent.ICON_BUTTON, state, Modifier.matchParentSize())
+        StoneIconArt(
+            icon,
+            description,
+            Modifier.size(if (large) 32.dp else 22.dp),
+            tint = (LocalFontColor.current ?: tint).copy(alpha = if (enabled) 1f else 0.42f),
+        )
     }
 }
 
@@ -668,6 +795,8 @@ private fun QuickActionShell(
     onClick: () -> Unit,
     icon: @Composable (Color) -> Unit,
 ) {
+    val tidal = LocalThemePack.current.isJellyGlass
+    val interaction = rememberStoneInteraction()
     val tint =
         when {
             !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
@@ -677,6 +806,8 @@ private fun QuickActionShell(
     Column(
         Modifier
             .width(84.dp)
+            .defaultMinSize(minHeight = 64.dp)
+            .stonePress(interaction)
             .crystalPanel(
                 if (active) 0.5f else 0.28f,
                 MaterialTheme.colorScheme.surfaceVariant,
@@ -684,7 +815,7 @@ private fun QuickActionShell(
                 corner = 18.dp,
                 glowStrength = if (active) 1.1f else 0.45f,
                 prismatic = active,
-            ).clickable(enabled = enabled, onClick = onClick)
+            ).clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
             .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -694,7 +825,7 @@ private fun QuickActionShell(
             label,
             style = MaterialTheme.typography.labelSmall,
             color = tint,
-            maxLines = 1,
+            maxLines = if (tidal) 2 else 1,
             overflow = TextOverflow.Ellipsis,
         )
     }

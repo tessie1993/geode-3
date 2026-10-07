@@ -77,6 +77,7 @@ def main() -> None:
     # The mineral texture system (CrystalTextureKind) was replaced by the
     # ThemePack catalog; each named stone is a top-level val in ThemePackCatalog.kt.
     named_themes = [
+        "tidalGlass",
         "lapisLazuli",
         "sugilite",
         "amethyst",
@@ -90,11 +91,17 @@ def main() -> None:
     ]
     for name in named_themes:
         require(f"val {name} =" in theme_catalog, f"missing theme pack for {name}")
-    all_list_match = re.search(r"val all: List<ThemePack> = listOf\(([^)]*)\)", theme_catalog)
+    all_list_match = re.search(
+        r"val\s+all\s*:\s*List\s*<\s*ThemePack\s*>\s*=\s*listOf\s*\(([^)]*)\)",
+        theme_catalog,
+    )
     require(all_list_match is not None, "ThemePackCatalog has no `all` registry list")
     if all_list_match:
-        registered = {n.strip() for n in all_list_match.group(1).split(",")}
-        require(registered == set(named_themes), "ThemePackCatalog.all is missing or has extra theme packs")
+        registered_names = [n.strip() for n in all_list_match.group(1).split(",") if n.strip()]
+        require(
+            registered_names == named_themes,
+            "ThemePackCatalog.all is missing, reordered, or has extra theme packs",
+        )
 
     require("CrystalMaterialTheme(" in shell, "shell does not propagate the active theme pack")
     require("LocalThemePack provides pack" in crystal, "crystal panels do not receive the active theme pack")

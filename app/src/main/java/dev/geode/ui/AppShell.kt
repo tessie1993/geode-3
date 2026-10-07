@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,7 +20,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
@@ -33,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -63,8 +69,17 @@ import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.render.VisualizerView
+import dev.geode.ui.theme.LocalReducedMotion
+import dev.geode.ui.theme.LocalThemePack
+import dev.geode.ui.theme.StoneComponent
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.StoneState
+import dev.geode.ui.theme.StoneSurfaceArt
+import dev.geode.ui.theme.isJellyGlass
+import dev.geode.ui.theme.rememberStoneInteraction
+import dev.geode.ui.theme.rememberStoneState
+import dev.geode.ui.theme.stonePress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -153,6 +168,7 @@ fun AppRoot() {
     CrystalMaterialTheme(
         pack = effectiveTheme,
         gui = gui,
+        motionObscured = appState.expanded || appState.searching,
     ) {
         val miniPlayer: @Composable () -> Unit = {
             MiniPlayer(
@@ -241,7 +257,10 @@ fun AppRoot() {
             }
         }
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
+            CrystalBackground(
+                Modifier.fillMaxSize(),
+                reducedMotion = gui.reducedMotion || appState.expanded || appState.searching,
+            )
             val widthClass = currentWindowAdaptiveInfo().windowSizeClass.windowWidthSizeClass
             if (widthClass == WindowWidthSizeClass.COMPACT) {
                 AppShellCompact(
@@ -250,7 +269,22 @@ fun AppRoot() {
                     gui = gui,
                     hasMedia = state.hasMedia,
                     miniPlayer = miniPlayer,
-                    content = { destinationContent(false) },
+                    content = {
+                        CompositionLocalProvider(
+                            LocalReducedMotion provides (LocalReducedMotion.current || appState.expanded || appState.searching),
+                        ) {
+                            Box(
+                                Modifier.fillMaxSize().jellySceneEntrance(
+                                    appState.dest.ordinal,
+                                    enabled =
+                                        LocalThemePack.current.isJellyGlass &&
+                                            (appState.dest == GeodeDestination.PLAYER || appState.dest == GeodeDestination.LIBRARY),
+                                ),
+                            ) {
+                                destinationContent(false)
+                            }
+                        }
+                    },
                 )
             } else {
                 AppShellExpanded(
@@ -258,7 +292,22 @@ fun AppRoot() {
                     appState = appState,
                     hasMedia = state.hasMedia,
                     miniPlayer = miniPlayer,
-                    content = { destinationContent(true) },
+                    content = {
+                        CompositionLocalProvider(
+                            LocalReducedMotion provides (LocalReducedMotion.current || appState.expanded || appState.searching),
+                        ) {
+                            Box(
+                                Modifier.fillMaxSize().jellySceneEntrance(
+                                    appState.dest.ordinal,
+                                    enabled =
+                                        LocalThemePack.current.isJellyGlass &&
+                                            (appState.dest == GeodeDestination.PLAYER || appState.dest == GeodeDestination.LIBRARY),
+                                ),
+                            ) {
+                                destinationContent(true)
+                            }
+                        }
+                    },
                 )
             }
             if (appState.searching) {
@@ -357,6 +406,7 @@ private fun AppShellCompact(
     miniPlayer: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val tidal = LocalThemePack.current.isJellyGlass
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -367,12 +417,14 @@ private fun AppShellCompact(
         bottomBar = {
             Column {
                 if (gui.playerPosition == PlayerPosition.BOTTOM && !appState.onPlayer) miniPlayer()
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .luminousHairline(MaterialTheme.colorScheme.primary),
-                )
+                if (!tidal) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .luminousHairline(MaterialTheme.colorScheme.primary),
+                    )
+                }
                 CrystalNavBar(
                     items = navEntries.map { it.item },
                     // A destination can be hidden while still being the current one — reaching
@@ -396,15 +448,20 @@ private fun AppShellExpanded(
     miniPlayer: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    val tidal = LocalThemePack.current.isJellyGlass
     Row(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-        NavigationRail(containerColor = Color.Transparent) {
-            navEntries.forEach { (destination, item) ->
-                NavigationRailItem(
-                    selected = appState.dest == destination,
-                    onClick = { appState.navigateTo(destination) },
-                    icon = { StoneIconArt(item.icon, item.label) },
-                    label = { Text(item.label, style = MaterialTheme.typography.labelSmall) },
-                )
+        if (tidal) {
+            TidalNavigationRail(navEntries, appState)
+        } else {
+            NavigationRail(containerColor = Color.Transparent) {
+                navEntries.forEach { (destination, item) ->
+                    NavigationRailItem(
+                        selected = appState.dest == destination,
+                        onClick = { appState.navigateTo(destination) },
+                        icon = { StoneIconArt(item.icon, item.label) },
+                        label = { Text(item.label, style = MaterialTheme.typography.labelSmall) },
+                    )
+                }
             }
         }
         Box(
@@ -416,6 +473,51 @@ private fun AppShellExpanded(
         Column(Modifier.weight(1f)) {
             if (hasMedia && !appState.onPlayer) miniPlayer()
             Box(Modifier.weight(1f)) { content() }
+        }
+    }
+}
+
+@Composable
+private fun TidalNavigationRail(
+    navEntries: List<NavEntry>,
+    appState: GeodeAppState,
+) {
+    BoxWithConstraints(Modifier.width(112.dp).fillMaxHeight()) {
+        val compact = maxHeight < 520.dp
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(8.dp)
+                .crystalPanel(
+                    0.56f,
+                    MaterialTheme.colorScheme.surfaceVariant,
+                    MaterialTheme.colorScheme.primary,
+                    corner = 28.dp,
+                    glowStrength = 0.45f,
+                ).verticalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp, vertical = if (compact) 8.dp else 16.dp)
+                .selectableGroup(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 8.dp),
+        ) {
+            if (!compact) {
+                CrystalGem(MaterialTheme.colorScheme.primary, size = 10.dp)
+                Text(
+                    stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+            navEntries.forEach { (destination, item) ->
+                TidalNavigationPebble(
+                    item = item,
+                    selected = appState.dest == destination,
+                    onSelect = { appState.navigateTo(destination) },
+                    modifier = Modifier.fillMaxWidth(),
+                    compact = compact,
+                )
+            }
         }
     }
 }
@@ -434,6 +536,10 @@ private fun MiniPlayer(
     onNext: () -> Unit,
 ) {
     if (!hasMedia) return
+    if (LocalThemePack.current.isJellyGlass) {
+        TidalMiniPlayer(title, isPlaying, progress, barOpacity, compact, onExpand, onPlayPause, onPrevious, onNext)
+        return
+    }
     Column(
         Modifier
             .fillMaxWidth()
@@ -484,16 +590,147 @@ private fun MiniPlayer(
 }
 
 @Composable
+private fun TidalMiniPlayer(
+    title: String?,
+    isPlaying: Boolean,
+    progress: Float,
+    barOpacity: Float,
+    compact: Boolean,
+    onExpand: () -> Unit,
+    onPlayPause: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .crystalPanel(
+                barOpacity,
+                cs.surfaceVariant,
+                cs.primary,
+                corner = 24.dp,
+                glowStrength = if (isPlaying) 0.8f else 0.45f,
+                facets = 0.35f,
+                sheen = cs.secondary,
+                readable = false,
+            ).clickable(onClick = onExpand),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = if (compact) 2.dp else 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(if (compact) 28.dp else 36.dp), contentAlignment = Alignment.Center) {
+                StoneSurfaceArt(
+                    StoneComponent.ICON_BUTTON,
+                    if (isPlaying) StoneState.SELECTED else StoneState.DEFAULT,
+                    Modifier.matchParentSize(),
+                    reducedMotion = LocalReducedMotion.current,
+                )
+                Icon(
+                    Icons.Filled.MusicNote,
+                    null,
+                    Modifier.size(if (compact) 16.dp else 20.dp),
+                    tint = cs.primary,
+                )
+            }
+            Text(
+                title ?: stringResource(R.string.mini_player_idle),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(horizontal = 10.dp)
+                        .jellyMatteSheet(8.dp)
+                        .padding(4.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                color = LocalFontColor.current ?: cs.onSurface,
+            )
+            TidalMiniTransport(StoneIcon.PREVIOUS, stringResource(R.string.action_previous), onPrevious)
+            TidalMiniTransport(
+                if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
+                stringResource(R.string.action_play_pause),
+                onPlayPause,
+            )
+            TidalMiniTransport(StoneIcon.NEXT, stringResource(R.string.action_next), onNext)
+        }
+        LinearProgressIndicator(
+            progress = { progress.coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(2.dp),
+            color = cs.primary,
+            trackColor = cs.primary.copy(alpha = 0.12f),
+        )
+        Spacer(Modifier.height(if (compact) 5.dp else 8.dp))
+    }
+}
+
+@Composable
+private fun TidalMiniTransport(
+    icon: StoneIcon,
+    description: String,
+    onClick: () -> Unit,
+) {
+    val interaction = rememberStoneInteraction()
+    val state = rememberStoneState(interaction)
+    val reducedMotion = LocalReducedMotion.current
+    Box(
+        Modifier
+            .size(48.dp)
+            .stonePress(interaction, reducedMotion = reducedMotion)
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        StoneSurfaceArt(StoneComponent.ICON_BUTTON, state, Modifier.matchParentSize(), reducedMotion = reducedMotion)
+        StoneIconArt(icon, description, tint = LocalFontColor.current ?: MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
 fun SettingsScreen(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     onStartTutorial: () -> Unit,
 ) {
     var showExport by rememberSaveable { mutableStateOf(false) }
+    val tidal = LocalThemePack.current.isJellyGlass
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            CrystalOverline(stringResource(R.string.app_name))
-            GlowTitle(stringResource(R.string.nav_settings))
+        if (tidal) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .crystalPanel(
+                        0.38f,
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        MaterialTheme.colorScheme.primary,
+                        corner = 28.dp,
+                        glowStrength = 0.45f,
+                        facets = 0.3f,
+                    ).padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+                    StoneSurfaceArt(
+                        StoneComponent.ICON_BUTTON,
+                        StoneState.SELECTED,
+                        Modifier.matchParentSize(),
+                        reducedMotion = LocalReducedMotion.current,
+                    )
+                    StoneIconArt(StoneIcon.SETTINGS, stringResource(R.string.nav_settings))
+                }
+                Column {
+                    CrystalOverline(stringResource(R.string.app_name))
+                    GlowTitle(stringResource(R.string.nav_settings), style = MaterialTheme.typography.headlineMedium)
+                }
+            }
+        } else {
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+                CrystalOverline(stringResource(R.string.app_name))
+                GlowTitle(stringResource(R.string.nav_settings))
+            }
         }
         AppSettingsTab(
             viewModel,

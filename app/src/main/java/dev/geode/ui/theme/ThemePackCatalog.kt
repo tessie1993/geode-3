@@ -3,6 +3,7 @@ package dev.geode.ui.theme
 import androidx.compose.ui.graphics.Color
 import dev.geode.R
 
+/** Saved mineral identities, rebuilt with a shared lens and independently coloured glass. */
 object ThemePackCatalog {
     val lapisLazuli =
         ThemePack(
@@ -26,182 +27,15 @@ object ThemePackCatalog {
                     outline = Color(0xFF516491),
                     danger = Color(0xFFFF817D),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 95,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 240,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_lapis_lazuli_material_tile,
-                    glowOverlay = R.drawable.tp_lapis_lazuli_glow_overlay,
-                    refractionOverlay = R.drawable.tp_lapis_lazuli_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_lapis_lazuli_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_lapis_lazuli_ambient_landscape,
-                    ambientSquare = R.drawable.tp_lapis_lazuli_ambient_square,
-                    backgroundOpacity = 0.44f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_lapis_lazuli_click_soft,
                     confirm = R.raw.tp_lapis_lazuli_confirm,
                     swoop = R.raw.tp_lapis_lazuli_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_album_tile_default,
-                            focused = R.drawable.tp_lapis_lazuli_album_tile_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_album_tile_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_album_tile_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_bottom_sheet_default,
-                            focused = R.drawable.tp_lapis_lazuli_bottom_sheet_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_bottom_sheet_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_bottom_sheet_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_card_default,
-                            focused = R.drawable.tp_lapis_lazuli_card_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_card_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_card_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_chip_default,
-                            focused = R.drawable.tp_lapis_lazuli_chip_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_chip_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_chip_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_compact_button_default,
-                            focused = R.drawable.tp_lapis_lazuli_compact_button_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_compact_button_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_compact_button_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_dialog_default,
-                            focused = R.drawable.tp_lapis_lazuli_dialog_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_dialog_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_dialog_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_icon_button_default,
-                            focused = R.drawable.tp_lapis_lazuli_icon_button_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_icon_button_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_icon_button_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_knob_default,
-                            focused = R.drawable.tp_lapis_lazuli_knob_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_knob_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_knob_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_list_row_default,
-                            focused = R.drawable.tp_lapis_lazuli_list_row_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_list_row_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_list_row_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_mini_player_default,
-                            focused = R.drawable.tp_lapis_lazuli_mini_player_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_mini_player_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_mini_player_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_navigation_bar_default,
-                            focused = R.drawable.tp_lapis_lazuli_navigation_bar_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_navigation_bar_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_navigation_bar_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_primary_button_default,
-                            focused = R.drawable.tp_lapis_lazuli_primary_button_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_primary_button_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_primary_button_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_progress_ring_default,
-                            focused = R.drawable.tp_lapis_lazuli_progress_ring_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_progress_ring_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_progress_ring_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_secondary_button_default,
-                            focused = R.drawable.tp_lapis_lazuli_secondary_button_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_secondary_button_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_secondary_button_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_slider_thumb_default,
-                            focused = R.drawable.tp_lapis_lazuli_slider_thumb_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_slider_thumb_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_slider_thumb_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_slider_track_default,
-                            focused = R.drawable.tp_lapis_lazuli_slider_track_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_slider_track_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_slider_track_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_text_field_default,
-                            focused = R.drawable.tp_lapis_lazuli_text_field_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_text_field_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_text_field_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_lapis_lazuli_toggle_default,
-                            focused = R.drawable.tp_lapis_lazuli_toggle_focused,
-                            pressed = R.drawable.tp_lapis_lazuli_toggle_pressed,
-                            selected = R.drawable.tp_lapis_lazuli_toggle_selected,
-                            disabled = R.drawable.tp_lapis_lazuli_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
     val sugilite =
@@ -226,182 +60,15 @@ object ThemePackCatalog {
                     outline = Color(0xFF745A80),
                     danger = Color(0xFFFF7F9C),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 105,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 255,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_sugilite_material_tile,
-                    glowOverlay = R.drawable.tp_sugilite_glow_overlay,
-                    refractionOverlay = R.drawable.tp_sugilite_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_sugilite_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_sugilite_ambient_landscape,
-                    ambientSquare = R.drawable.tp_sugilite_ambient_square,
-                    backgroundOpacity = 0.44f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_sugilite_click_soft,
                     confirm = R.raw.tp_sugilite_confirm,
                     swoop = R.raw.tp_sugilite_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_album_tile_default,
-                            focused = R.drawable.tp_sugilite_album_tile_focused,
-                            pressed = R.drawable.tp_sugilite_album_tile_pressed,
-                            selected = R.drawable.tp_sugilite_album_tile_selected,
-                            disabled = R.drawable.tp_sugilite_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_bottom_sheet_default,
-                            focused = R.drawable.tp_sugilite_bottom_sheet_focused,
-                            pressed = R.drawable.tp_sugilite_bottom_sheet_pressed,
-                            selected = R.drawable.tp_sugilite_bottom_sheet_selected,
-                            disabled = R.drawable.tp_sugilite_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_card_default,
-                            focused = R.drawable.tp_sugilite_card_focused,
-                            pressed = R.drawable.tp_sugilite_card_pressed,
-                            selected = R.drawable.tp_sugilite_card_selected,
-                            disabled = R.drawable.tp_sugilite_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_chip_default,
-                            focused = R.drawable.tp_sugilite_chip_focused,
-                            pressed = R.drawable.tp_sugilite_chip_pressed,
-                            selected = R.drawable.tp_sugilite_chip_selected,
-                            disabled = R.drawable.tp_sugilite_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_compact_button_default,
-                            focused = R.drawable.tp_sugilite_compact_button_focused,
-                            pressed = R.drawable.tp_sugilite_compact_button_pressed,
-                            selected = R.drawable.tp_sugilite_compact_button_selected,
-                            disabled = R.drawable.tp_sugilite_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_dialog_default,
-                            focused = R.drawable.tp_sugilite_dialog_focused,
-                            pressed = R.drawable.tp_sugilite_dialog_pressed,
-                            selected = R.drawable.tp_sugilite_dialog_selected,
-                            disabled = R.drawable.tp_sugilite_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_icon_button_default,
-                            focused = R.drawable.tp_sugilite_icon_button_focused,
-                            pressed = R.drawable.tp_sugilite_icon_button_pressed,
-                            selected = R.drawable.tp_sugilite_icon_button_selected,
-                            disabled = R.drawable.tp_sugilite_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_knob_default,
-                            focused = R.drawable.tp_sugilite_knob_focused,
-                            pressed = R.drawable.tp_sugilite_knob_pressed,
-                            selected = R.drawable.tp_sugilite_knob_selected,
-                            disabled = R.drawable.tp_sugilite_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_list_row_default,
-                            focused = R.drawable.tp_sugilite_list_row_focused,
-                            pressed = R.drawable.tp_sugilite_list_row_pressed,
-                            selected = R.drawable.tp_sugilite_list_row_selected,
-                            disabled = R.drawable.tp_sugilite_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_mini_player_default,
-                            focused = R.drawable.tp_sugilite_mini_player_focused,
-                            pressed = R.drawable.tp_sugilite_mini_player_pressed,
-                            selected = R.drawable.tp_sugilite_mini_player_selected,
-                            disabled = R.drawable.tp_sugilite_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_navigation_bar_default,
-                            focused = R.drawable.tp_sugilite_navigation_bar_focused,
-                            pressed = R.drawable.tp_sugilite_navigation_bar_pressed,
-                            selected = R.drawable.tp_sugilite_navigation_bar_selected,
-                            disabled = R.drawable.tp_sugilite_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_primary_button_default,
-                            focused = R.drawable.tp_sugilite_primary_button_focused,
-                            pressed = R.drawable.tp_sugilite_primary_button_pressed,
-                            selected = R.drawable.tp_sugilite_primary_button_selected,
-                            disabled = R.drawable.tp_sugilite_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_progress_ring_default,
-                            focused = R.drawable.tp_sugilite_progress_ring_focused,
-                            pressed = R.drawable.tp_sugilite_progress_ring_pressed,
-                            selected = R.drawable.tp_sugilite_progress_ring_selected,
-                            disabled = R.drawable.tp_sugilite_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_secondary_button_default,
-                            focused = R.drawable.tp_sugilite_secondary_button_focused,
-                            pressed = R.drawable.tp_sugilite_secondary_button_pressed,
-                            selected = R.drawable.tp_sugilite_secondary_button_selected,
-                            disabled = R.drawable.tp_sugilite_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_slider_thumb_default,
-                            focused = R.drawable.tp_sugilite_slider_thumb_focused,
-                            pressed = R.drawable.tp_sugilite_slider_thumb_pressed,
-                            selected = R.drawable.tp_sugilite_slider_thumb_selected,
-                            disabled = R.drawable.tp_sugilite_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_slider_track_default,
-                            focused = R.drawable.tp_sugilite_slider_track_focused,
-                            pressed = R.drawable.tp_sugilite_slider_track_pressed,
-                            selected = R.drawable.tp_sugilite_slider_track_selected,
-                            disabled = R.drawable.tp_sugilite_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_text_field_default,
-                            focused = R.drawable.tp_sugilite_text_field_focused,
-                            pressed = R.drawable.tp_sugilite_text_field_pressed,
-                            selected = R.drawable.tp_sugilite_text_field_selected,
-                            disabled = R.drawable.tp_sugilite_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_sugilite_toggle_default,
-                            focused = R.drawable.tp_sugilite_toggle_focused,
-                            pressed = R.drawable.tp_sugilite_toggle_pressed,
-                            selected = R.drawable.tp_sugilite_toggle_selected,
-                            disabled = R.drawable.tp_sugilite_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
     val amethyst =
@@ -426,182 +93,15 @@ object ThemePackCatalog {
                     outline = Color(0xFF826D91),
                     danger = Color(0xFFFF84A6),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 115,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 280,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_amethyst_material_tile,
-                    glowOverlay = R.drawable.tp_amethyst_glow_overlay,
-                    refractionOverlay = R.drawable.tp_amethyst_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_amethyst_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_amethyst_ambient_landscape,
-                    ambientSquare = R.drawable.tp_amethyst_ambient_square,
-                    backgroundOpacity = 0.44f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_amethyst_click_soft,
                     confirm = R.raw.tp_amethyst_confirm,
                     swoop = R.raw.tp_amethyst_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_album_tile_default,
-                            focused = R.drawable.tp_amethyst_album_tile_focused,
-                            pressed = R.drawable.tp_amethyst_album_tile_pressed,
-                            selected = R.drawable.tp_amethyst_album_tile_selected,
-                            disabled = R.drawable.tp_amethyst_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_bottom_sheet_default,
-                            focused = R.drawable.tp_amethyst_bottom_sheet_focused,
-                            pressed = R.drawable.tp_amethyst_bottom_sheet_pressed,
-                            selected = R.drawable.tp_amethyst_bottom_sheet_selected,
-                            disabled = R.drawable.tp_amethyst_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_card_default,
-                            focused = R.drawable.tp_amethyst_card_focused,
-                            pressed = R.drawable.tp_amethyst_card_pressed,
-                            selected = R.drawable.tp_amethyst_card_selected,
-                            disabled = R.drawable.tp_amethyst_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_chip_default,
-                            focused = R.drawable.tp_amethyst_chip_focused,
-                            pressed = R.drawable.tp_amethyst_chip_pressed,
-                            selected = R.drawable.tp_amethyst_chip_selected,
-                            disabled = R.drawable.tp_amethyst_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_compact_button_default,
-                            focused = R.drawable.tp_amethyst_compact_button_focused,
-                            pressed = R.drawable.tp_amethyst_compact_button_pressed,
-                            selected = R.drawable.tp_amethyst_compact_button_selected,
-                            disabled = R.drawable.tp_amethyst_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_dialog_default,
-                            focused = R.drawable.tp_amethyst_dialog_focused,
-                            pressed = R.drawable.tp_amethyst_dialog_pressed,
-                            selected = R.drawable.tp_amethyst_dialog_selected,
-                            disabled = R.drawable.tp_amethyst_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_icon_button_default,
-                            focused = R.drawable.tp_amethyst_icon_button_focused,
-                            pressed = R.drawable.tp_amethyst_icon_button_pressed,
-                            selected = R.drawable.tp_amethyst_icon_button_selected,
-                            disabled = R.drawable.tp_amethyst_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_knob_default,
-                            focused = R.drawable.tp_amethyst_knob_focused,
-                            pressed = R.drawable.tp_amethyst_knob_pressed,
-                            selected = R.drawable.tp_amethyst_knob_selected,
-                            disabled = R.drawable.tp_amethyst_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_list_row_default,
-                            focused = R.drawable.tp_amethyst_list_row_focused,
-                            pressed = R.drawable.tp_amethyst_list_row_pressed,
-                            selected = R.drawable.tp_amethyst_list_row_selected,
-                            disabled = R.drawable.tp_amethyst_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_mini_player_default,
-                            focused = R.drawable.tp_amethyst_mini_player_focused,
-                            pressed = R.drawable.tp_amethyst_mini_player_pressed,
-                            selected = R.drawable.tp_amethyst_mini_player_selected,
-                            disabled = R.drawable.tp_amethyst_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_navigation_bar_default,
-                            focused = R.drawable.tp_amethyst_navigation_bar_focused,
-                            pressed = R.drawable.tp_amethyst_navigation_bar_pressed,
-                            selected = R.drawable.tp_amethyst_navigation_bar_selected,
-                            disabled = R.drawable.tp_amethyst_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_primary_button_default,
-                            focused = R.drawable.tp_amethyst_primary_button_focused,
-                            pressed = R.drawable.tp_amethyst_primary_button_pressed,
-                            selected = R.drawable.tp_amethyst_primary_button_selected,
-                            disabled = R.drawable.tp_amethyst_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_progress_ring_default,
-                            focused = R.drawable.tp_amethyst_progress_ring_focused,
-                            pressed = R.drawable.tp_amethyst_progress_ring_pressed,
-                            selected = R.drawable.tp_amethyst_progress_ring_selected,
-                            disabled = R.drawable.tp_amethyst_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_secondary_button_default,
-                            focused = R.drawable.tp_amethyst_secondary_button_focused,
-                            pressed = R.drawable.tp_amethyst_secondary_button_pressed,
-                            selected = R.drawable.tp_amethyst_secondary_button_selected,
-                            disabled = R.drawable.tp_amethyst_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_slider_thumb_default,
-                            focused = R.drawable.tp_amethyst_slider_thumb_focused,
-                            pressed = R.drawable.tp_amethyst_slider_thumb_pressed,
-                            selected = R.drawable.tp_amethyst_slider_thumb_selected,
-                            disabled = R.drawable.tp_amethyst_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_slider_track_default,
-                            focused = R.drawable.tp_amethyst_slider_track_focused,
-                            pressed = R.drawable.tp_amethyst_slider_track_pressed,
-                            selected = R.drawable.tp_amethyst_slider_track_selected,
-                            disabled = R.drawable.tp_amethyst_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_text_field_default,
-                            focused = R.drawable.tp_amethyst_text_field_focused,
-                            pressed = R.drawable.tp_amethyst_text_field_pressed,
-                            selected = R.drawable.tp_amethyst_text_field_selected,
-                            disabled = R.drawable.tp_amethyst_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_amethyst_toggle_default,
-                            focused = R.drawable.tp_amethyst_toggle_focused,
-                            pressed = R.drawable.tp_amethyst_toggle_pressed,
-                            selected = R.drawable.tp_amethyst_toggle_selected,
-                            disabled = R.drawable.tp_amethyst_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
     val clearQuartz =
@@ -626,182 +126,15 @@ object ThemePackCatalog {
                     outline = Color(0xFF8E867A),
                     danger = Color(0xFFA13232),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 105,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 260,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_clear_quartz_material_tile,
-                    glowOverlay = R.drawable.tp_clear_quartz_glow_overlay,
-                    refractionOverlay = R.drawable.tp_clear_quartz_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_clear_quartz_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_clear_quartz_ambient_landscape,
-                    ambientSquare = R.drawable.tp_clear_quartz_ambient_square,
-                    backgroundOpacity = 0.38f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_clear_quartz_click_soft,
                     confirm = R.raw.tp_clear_quartz_confirm,
                     swoop = R.raw.tp_clear_quartz_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_album_tile_default,
-                            focused = R.drawable.tp_clear_quartz_album_tile_focused,
-                            pressed = R.drawable.tp_clear_quartz_album_tile_pressed,
-                            selected = R.drawable.tp_clear_quartz_album_tile_selected,
-                            disabled = R.drawable.tp_clear_quartz_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_bottom_sheet_default,
-                            focused = R.drawable.tp_clear_quartz_bottom_sheet_focused,
-                            pressed = R.drawable.tp_clear_quartz_bottom_sheet_pressed,
-                            selected = R.drawable.tp_clear_quartz_bottom_sheet_selected,
-                            disabled = R.drawable.tp_clear_quartz_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_card_default,
-                            focused = R.drawable.tp_clear_quartz_card_focused,
-                            pressed = R.drawable.tp_clear_quartz_card_pressed,
-                            selected = R.drawable.tp_clear_quartz_card_selected,
-                            disabled = R.drawable.tp_clear_quartz_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_chip_default,
-                            focused = R.drawable.tp_clear_quartz_chip_focused,
-                            pressed = R.drawable.tp_clear_quartz_chip_pressed,
-                            selected = R.drawable.tp_clear_quartz_chip_selected,
-                            disabled = R.drawable.tp_clear_quartz_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_compact_button_default,
-                            focused = R.drawable.tp_clear_quartz_compact_button_focused,
-                            pressed = R.drawable.tp_clear_quartz_compact_button_pressed,
-                            selected = R.drawable.tp_clear_quartz_compact_button_selected,
-                            disabled = R.drawable.tp_clear_quartz_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_dialog_default,
-                            focused = R.drawable.tp_clear_quartz_dialog_focused,
-                            pressed = R.drawable.tp_clear_quartz_dialog_pressed,
-                            selected = R.drawable.tp_clear_quartz_dialog_selected,
-                            disabled = R.drawable.tp_clear_quartz_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_icon_button_default,
-                            focused = R.drawable.tp_clear_quartz_icon_button_focused,
-                            pressed = R.drawable.tp_clear_quartz_icon_button_pressed,
-                            selected = R.drawable.tp_clear_quartz_icon_button_selected,
-                            disabled = R.drawable.tp_clear_quartz_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_knob_default,
-                            focused = R.drawable.tp_clear_quartz_knob_focused,
-                            pressed = R.drawable.tp_clear_quartz_knob_pressed,
-                            selected = R.drawable.tp_clear_quartz_knob_selected,
-                            disabled = R.drawable.tp_clear_quartz_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_list_row_default,
-                            focused = R.drawable.tp_clear_quartz_list_row_focused,
-                            pressed = R.drawable.tp_clear_quartz_list_row_pressed,
-                            selected = R.drawable.tp_clear_quartz_list_row_selected,
-                            disabled = R.drawable.tp_clear_quartz_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_mini_player_default,
-                            focused = R.drawable.tp_clear_quartz_mini_player_focused,
-                            pressed = R.drawable.tp_clear_quartz_mini_player_pressed,
-                            selected = R.drawable.tp_clear_quartz_mini_player_selected,
-                            disabled = R.drawable.tp_clear_quartz_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_navigation_bar_default,
-                            focused = R.drawable.tp_clear_quartz_navigation_bar_focused,
-                            pressed = R.drawable.tp_clear_quartz_navigation_bar_pressed,
-                            selected = R.drawable.tp_clear_quartz_navigation_bar_selected,
-                            disabled = R.drawable.tp_clear_quartz_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_primary_button_default,
-                            focused = R.drawable.tp_clear_quartz_primary_button_focused,
-                            pressed = R.drawable.tp_clear_quartz_primary_button_pressed,
-                            selected = R.drawable.tp_clear_quartz_primary_button_selected,
-                            disabled = R.drawable.tp_clear_quartz_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_progress_ring_default,
-                            focused = R.drawable.tp_clear_quartz_progress_ring_focused,
-                            pressed = R.drawable.tp_clear_quartz_progress_ring_pressed,
-                            selected = R.drawable.tp_clear_quartz_progress_ring_selected,
-                            disabled = R.drawable.tp_clear_quartz_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_secondary_button_default,
-                            focused = R.drawable.tp_clear_quartz_secondary_button_focused,
-                            pressed = R.drawable.tp_clear_quartz_secondary_button_pressed,
-                            selected = R.drawable.tp_clear_quartz_secondary_button_selected,
-                            disabled = R.drawable.tp_clear_quartz_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_slider_thumb_default,
-                            focused = R.drawable.tp_clear_quartz_slider_thumb_focused,
-                            pressed = R.drawable.tp_clear_quartz_slider_thumb_pressed,
-                            selected = R.drawable.tp_clear_quartz_slider_thumb_selected,
-                            disabled = R.drawable.tp_clear_quartz_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_slider_track_default,
-                            focused = R.drawable.tp_clear_quartz_slider_track_focused,
-                            pressed = R.drawable.tp_clear_quartz_slider_track_pressed,
-                            selected = R.drawable.tp_clear_quartz_slider_track_selected,
-                            disabled = R.drawable.tp_clear_quartz_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_text_field_default,
-                            focused = R.drawable.tp_clear_quartz_text_field_focused,
-                            pressed = R.drawable.tp_clear_quartz_text_field_pressed,
-                            selected = R.drawable.tp_clear_quartz_text_field_selected,
-                            disabled = R.drawable.tp_clear_quartz_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_clear_quartz_toggle_default,
-                            focused = R.drawable.tp_clear_quartz_toggle_focused,
-                            pressed = R.drawable.tp_clear_quartz_toggle_pressed,
-                            selected = R.drawable.tp_clear_quartz_toggle_selected,
-                            disabled = R.drawable.tp_clear_quartz_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
     val azurite =
@@ -826,182 +159,15 @@ object ThemePackCatalog {
                     outline = Color(0xFF4F5C9B),
                     danger = Color(0xFFFF7F9A),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 88,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 230,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_azurite_material_tile,
-                    glowOverlay = R.drawable.tp_azurite_glow_overlay,
-                    refractionOverlay = R.drawable.tp_azurite_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_azurite_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_azurite_ambient_landscape,
-                    ambientSquare = R.drawable.tp_azurite_ambient_square,
-                    backgroundOpacity = 0.44f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_azurite_click_soft,
                     confirm = R.raw.tp_azurite_confirm,
                     swoop = R.raw.tp_azurite_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_album_tile_default,
-                            focused = R.drawable.tp_azurite_album_tile_focused,
-                            pressed = R.drawable.tp_azurite_album_tile_pressed,
-                            selected = R.drawable.tp_azurite_album_tile_selected,
-                            disabled = R.drawable.tp_azurite_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_bottom_sheet_default,
-                            focused = R.drawable.tp_azurite_bottom_sheet_focused,
-                            pressed = R.drawable.tp_azurite_bottom_sheet_pressed,
-                            selected = R.drawable.tp_azurite_bottom_sheet_selected,
-                            disabled = R.drawable.tp_azurite_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_card_default,
-                            focused = R.drawable.tp_azurite_card_focused,
-                            pressed = R.drawable.tp_azurite_card_pressed,
-                            selected = R.drawable.tp_azurite_card_selected,
-                            disabled = R.drawable.tp_azurite_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_chip_default,
-                            focused = R.drawable.tp_azurite_chip_focused,
-                            pressed = R.drawable.tp_azurite_chip_pressed,
-                            selected = R.drawable.tp_azurite_chip_selected,
-                            disabled = R.drawable.tp_azurite_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_compact_button_default,
-                            focused = R.drawable.tp_azurite_compact_button_focused,
-                            pressed = R.drawable.tp_azurite_compact_button_pressed,
-                            selected = R.drawable.tp_azurite_compact_button_selected,
-                            disabled = R.drawable.tp_azurite_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_dialog_default,
-                            focused = R.drawable.tp_azurite_dialog_focused,
-                            pressed = R.drawable.tp_azurite_dialog_pressed,
-                            selected = R.drawable.tp_azurite_dialog_selected,
-                            disabled = R.drawable.tp_azurite_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_icon_button_default,
-                            focused = R.drawable.tp_azurite_icon_button_focused,
-                            pressed = R.drawable.tp_azurite_icon_button_pressed,
-                            selected = R.drawable.tp_azurite_icon_button_selected,
-                            disabled = R.drawable.tp_azurite_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_knob_default,
-                            focused = R.drawable.tp_azurite_knob_focused,
-                            pressed = R.drawable.tp_azurite_knob_pressed,
-                            selected = R.drawable.tp_azurite_knob_selected,
-                            disabled = R.drawable.tp_azurite_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_list_row_default,
-                            focused = R.drawable.tp_azurite_list_row_focused,
-                            pressed = R.drawable.tp_azurite_list_row_pressed,
-                            selected = R.drawable.tp_azurite_list_row_selected,
-                            disabled = R.drawable.tp_azurite_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_mini_player_default,
-                            focused = R.drawable.tp_azurite_mini_player_focused,
-                            pressed = R.drawable.tp_azurite_mini_player_pressed,
-                            selected = R.drawable.tp_azurite_mini_player_selected,
-                            disabled = R.drawable.tp_azurite_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_navigation_bar_default,
-                            focused = R.drawable.tp_azurite_navigation_bar_focused,
-                            pressed = R.drawable.tp_azurite_navigation_bar_pressed,
-                            selected = R.drawable.tp_azurite_navigation_bar_selected,
-                            disabled = R.drawable.tp_azurite_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_primary_button_default,
-                            focused = R.drawable.tp_azurite_primary_button_focused,
-                            pressed = R.drawable.tp_azurite_primary_button_pressed,
-                            selected = R.drawable.tp_azurite_primary_button_selected,
-                            disabled = R.drawable.tp_azurite_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_progress_ring_default,
-                            focused = R.drawable.tp_azurite_progress_ring_focused,
-                            pressed = R.drawable.tp_azurite_progress_ring_pressed,
-                            selected = R.drawable.tp_azurite_progress_ring_selected,
-                            disabled = R.drawable.tp_azurite_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_secondary_button_default,
-                            focused = R.drawable.tp_azurite_secondary_button_focused,
-                            pressed = R.drawable.tp_azurite_secondary_button_pressed,
-                            selected = R.drawable.tp_azurite_secondary_button_selected,
-                            disabled = R.drawable.tp_azurite_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_slider_thumb_default,
-                            focused = R.drawable.tp_azurite_slider_thumb_focused,
-                            pressed = R.drawable.tp_azurite_slider_thumb_pressed,
-                            selected = R.drawable.tp_azurite_slider_thumb_selected,
-                            disabled = R.drawable.tp_azurite_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_slider_track_default,
-                            focused = R.drawable.tp_azurite_slider_track_focused,
-                            pressed = R.drawable.tp_azurite_slider_track_pressed,
-                            selected = R.drawable.tp_azurite_slider_track_selected,
-                            disabled = R.drawable.tp_azurite_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_text_field_default,
-                            focused = R.drawable.tp_azurite_text_field_focused,
-                            pressed = R.drawable.tp_azurite_text_field_pressed,
-                            selected = R.drawable.tp_azurite_text_field_selected,
-                            disabled = R.drawable.tp_azurite_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_azurite_toggle_default,
-                            focused = R.drawable.tp_azurite_toggle_focused,
-                            pressed = R.drawable.tp_azurite_toggle_pressed,
-                            selected = R.drawable.tp_azurite_toggle_selected,
-                            disabled = R.drawable.tp_azurite_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
     val firestone =
@@ -1026,182 +192,15 @@ object ThemePackCatalog {
                     outline = Color(0xFF8B4D35),
                     danger = Color(0xFFFF8D7C),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 82,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 210,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_firestone_material_tile,
-                    glowOverlay = R.drawable.tp_firestone_glow_overlay,
-                    refractionOverlay = R.drawable.tp_firestone_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_firestone_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_firestone_ambient_landscape,
-                    ambientSquare = R.drawable.tp_firestone_ambient_square,
-                    backgroundOpacity = 0.44f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_firestone_click_soft,
                     confirm = R.raw.tp_firestone_confirm,
                     swoop = R.raw.tp_firestone_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_album_tile_default,
-                            focused = R.drawable.tp_firestone_album_tile_focused,
-                            pressed = R.drawable.tp_firestone_album_tile_pressed,
-                            selected = R.drawable.tp_firestone_album_tile_selected,
-                            disabled = R.drawable.tp_firestone_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_bottom_sheet_default,
-                            focused = R.drawable.tp_firestone_bottom_sheet_focused,
-                            pressed = R.drawable.tp_firestone_bottom_sheet_pressed,
-                            selected = R.drawable.tp_firestone_bottom_sheet_selected,
-                            disabled = R.drawable.tp_firestone_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_card_default,
-                            focused = R.drawable.tp_firestone_card_focused,
-                            pressed = R.drawable.tp_firestone_card_pressed,
-                            selected = R.drawable.tp_firestone_card_selected,
-                            disabled = R.drawable.tp_firestone_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_chip_default,
-                            focused = R.drawable.tp_firestone_chip_focused,
-                            pressed = R.drawable.tp_firestone_chip_pressed,
-                            selected = R.drawable.tp_firestone_chip_selected,
-                            disabled = R.drawable.tp_firestone_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_compact_button_default,
-                            focused = R.drawable.tp_firestone_compact_button_focused,
-                            pressed = R.drawable.tp_firestone_compact_button_pressed,
-                            selected = R.drawable.tp_firestone_compact_button_selected,
-                            disabled = R.drawable.tp_firestone_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_dialog_default,
-                            focused = R.drawable.tp_firestone_dialog_focused,
-                            pressed = R.drawable.tp_firestone_dialog_pressed,
-                            selected = R.drawable.tp_firestone_dialog_selected,
-                            disabled = R.drawable.tp_firestone_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_icon_button_default,
-                            focused = R.drawable.tp_firestone_icon_button_focused,
-                            pressed = R.drawable.tp_firestone_icon_button_pressed,
-                            selected = R.drawable.tp_firestone_icon_button_selected,
-                            disabled = R.drawable.tp_firestone_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_knob_default,
-                            focused = R.drawable.tp_firestone_knob_focused,
-                            pressed = R.drawable.tp_firestone_knob_pressed,
-                            selected = R.drawable.tp_firestone_knob_selected,
-                            disabled = R.drawable.tp_firestone_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_list_row_default,
-                            focused = R.drawable.tp_firestone_list_row_focused,
-                            pressed = R.drawable.tp_firestone_list_row_pressed,
-                            selected = R.drawable.tp_firestone_list_row_selected,
-                            disabled = R.drawable.tp_firestone_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_mini_player_default,
-                            focused = R.drawable.tp_firestone_mini_player_focused,
-                            pressed = R.drawable.tp_firestone_mini_player_pressed,
-                            selected = R.drawable.tp_firestone_mini_player_selected,
-                            disabled = R.drawable.tp_firestone_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_navigation_bar_default,
-                            focused = R.drawable.tp_firestone_navigation_bar_focused,
-                            pressed = R.drawable.tp_firestone_navigation_bar_pressed,
-                            selected = R.drawable.tp_firestone_navigation_bar_selected,
-                            disabled = R.drawable.tp_firestone_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_primary_button_default,
-                            focused = R.drawable.tp_firestone_primary_button_focused,
-                            pressed = R.drawable.tp_firestone_primary_button_pressed,
-                            selected = R.drawable.tp_firestone_primary_button_selected,
-                            disabled = R.drawable.tp_firestone_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_progress_ring_default,
-                            focused = R.drawable.tp_firestone_progress_ring_focused,
-                            pressed = R.drawable.tp_firestone_progress_ring_pressed,
-                            selected = R.drawable.tp_firestone_progress_ring_selected,
-                            disabled = R.drawable.tp_firestone_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_secondary_button_default,
-                            focused = R.drawable.tp_firestone_secondary_button_focused,
-                            pressed = R.drawable.tp_firestone_secondary_button_pressed,
-                            selected = R.drawable.tp_firestone_secondary_button_selected,
-                            disabled = R.drawable.tp_firestone_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_slider_thumb_default,
-                            focused = R.drawable.tp_firestone_slider_thumb_focused,
-                            pressed = R.drawable.tp_firestone_slider_thumb_pressed,
-                            selected = R.drawable.tp_firestone_slider_thumb_selected,
-                            disabled = R.drawable.tp_firestone_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_slider_track_default,
-                            focused = R.drawable.tp_firestone_slider_track_focused,
-                            pressed = R.drawable.tp_firestone_slider_track_pressed,
-                            selected = R.drawable.tp_firestone_slider_track_selected,
-                            disabled = R.drawable.tp_firestone_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_text_field_default,
-                            focused = R.drawable.tp_firestone_text_field_focused,
-                            pressed = R.drawable.tp_firestone_text_field_pressed,
-                            selected = R.drawable.tp_firestone_text_field_selected,
-                            disabled = R.drawable.tp_firestone_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_firestone_toggle_default,
-                            focused = R.drawable.tp_firestone_toggle_focused,
-                            pressed = R.drawable.tp_firestone_toggle_pressed,
-                            selected = R.drawable.tp_firestone_toggle_selected,
-                            disabled = R.drawable.tp_firestone_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
     val kyanite =
@@ -1226,182 +225,15 @@ object ThemePackCatalog {
                     outline = Color(0xFF5D7893),
                     danger = Color(0xFFFF827D),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 92,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 235,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_kyanite_material_tile,
-                    glowOverlay = R.drawable.tp_kyanite_glow_overlay,
-                    refractionOverlay = R.drawable.tp_kyanite_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_kyanite_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_kyanite_ambient_landscape,
-                    ambientSquare = R.drawable.tp_kyanite_ambient_square,
-                    backgroundOpacity = 0.44f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_kyanite_click_soft,
                     confirm = R.raw.tp_kyanite_confirm,
                     swoop = R.raw.tp_kyanite_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_album_tile_default,
-                            focused = R.drawable.tp_kyanite_album_tile_focused,
-                            pressed = R.drawable.tp_kyanite_album_tile_pressed,
-                            selected = R.drawable.tp_kyanite_album_tile_selected,
-                            disabled = R.drawable.tp_kyanite_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_bottom_sheet_default,
-                            focused = R.drawable.tp_kyanite_bottom_sheet_focused,
-                            pressed = R.drawable.tp_kyanite_bottom_sheet_pressed,
-                            selected = R.drawable.tp_kyanite_bottom_sheet_selected,
-                            disabled = R.drawable.tp_kyanite_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_card_default,
-                            focused = R.drawable.tp_kyanite_card_focused,
-                            pressed = R.drawable.tp_kyanite_card_pressed,
-                            selected = R.drawable.tp_kyanite_card_selected,
-                            disabled = R.drawable.tp_kyanite_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_chip_default,
-                            focused = R.drawable.tp_kyanite_chip_focused,
-                            pressed = R.drawable.tp_kyanite_chip_pressed,
-                            selected = R.drawable.tp_kyanite_chip_selected,
-                            disabled = R.drawable.tp_kyanite_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_compact_button_default,
-                            focused = R.drawable.tp_kyanite_compact_button_focused,
-                            pressed = R.drawable.tp_kyanite_compact_button_pressed,
-                            selected = R.drawable.tp_kyanite_compact_button_selected,
-                            disabled = R.drawable.tp_kyanite_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_dialog_default,
-                            focused = R.drawable.tp_kyanite_dialog_focused,
-                            pressed = R.drawable.tp_kyanite_dialog_pressed,
-                            selected = R.drawable.tp_kyanite_dialog_selected,
-                            disabled = R.drawable.tp_kyanite_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_icon_button_default,
-                            focused = R.drawable.tp_kyanite_icon_button_focused,
-                            pressed = R.drawable.tp_kyanite_icon_button_pressed,
-                            selected = R.drawable.tp_kyanite_icon_button_selected,
-                            disabled = R.drawable.tp_kyanite_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_knob_default,
-                            focused = R.drawable.tp_kyanite_knob_focused,
-                            pressed = R.drawable.tp_kyanite_knob_pressed,
-                            selected = R.drawable.tp_kyanite_knob_selected,
-                            disabled = R.drawable.tp_kyanite_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_list_row_default,
-                            focused = R.drawable.tp_kyanite_list_row_focused,
-                            pressed = R.drawable.tp_kyanite_list_row_pressed,
-                            selected = R.drawable.tp_kyanite_list_row_selected,
-                            disabled = R.drawable.tp_kyanite_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_mini_player_default,
-                            focused = R.drawable.tp_kyanite_mini_player_focused,
-                            pressed = R.drawable.tp_kyanite_mini_player_pressed,
-                            selected = R.drawable.tp_kyanite_mini_player_selected,
-                            disabled = R.drawable.tp_kyanite_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_navigation_bar_default,
-                            focused = R.drawable.tp_kyanite_navigation_bar_focused,
-                            pressed = R.drawable.tp_kyanite_navigation_bar_pressed,
-                            selected = R.drawable.tp_kyanite_navigation_bar_selected,
-                            disabled = R.drawable.tp_kyanite_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_primary_button_default,
-                            focused = R.drawable.tp_kyanite_primary_button_focused,
-                            pressed = R.drawable.tp_kyanite_primary_button_pressed,
-                            selected = R.drawable.tp_kyanite_primary_button_selected,
-                            disabled = R.drawable.tp_kyanite_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_progress_ring_default,
-                            focused = R.drawable.tp_kyanite_progress_ring_focused,
-                            pressed = R.drawable.tp_kyanite_progress_ring_pressed,
-                            selected = R.drawable.tp_kyanite_progress_ring_selected,
-                            disabled = R.drawable.tp_kyanite_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_secondary_button_default,
-                            focused = R.drawable.tp_kyanite_secondary_button_focused,
-                            pressed = R.drawable.tp_kyanite_secondary_button_pressed,
-                            selected = R.drawable.tp_kyanite_secondary_button_selected,
-                            disabled = R.drawable.tp_kyanite_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_slider_thumb_default,
-                            focused = R.drawable.tp_kyanite_slider_thumb_focused,
-                            pressed = R.drawable.tp_kyanite_slider_thumb_pressed,
-                            selected = R.drawable.tp_kyanite_slider_thumb_selected,
-                            disabled = R.drawable.tp_kyanite_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_slider_track_default,
-                            focused = R.drawable.tp_kyanite_slider_track_focused,
-                            pressed = R.drawable.tp_kyanite_slider_track_pressed,
-                            selected = R.drawable.tp_kyanite_slider_track_selected,
-                            disabled = R.drawable.tp_kyanite_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_text_field_default,
-                            focused = R.drawable.tp_kyanite_text_field_focused,
-                            pressed = R.drawable.tp_kyanite_text_field_pressed,
-                            selected = R.drawable.tp_kyanite_text_field_selected,
-                            disabled = R.drawable.tp_kyanite_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_kyanite_toggle_default,
-                            focused = R.drawable.tp_kyanite_toggle_focused,
-                            pressed = R.drawable.tp_kyanite_toggle_pressed,
-                            selected = R.drawable.tp_kyanite_toggle_selected,
-                            disabled = R.drawable.tp_kyanite_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
     val malachite =
@@ -1426,182 +258,15 @@ object ThemePackCatalog {
                     outline = Color(0xFF39745A),
                     danger = Color(0xFFFF857D),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 100,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 250,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_malachite_material_tile,
-                    glowOverlay = R.drawable.tp_malachite_glow_overlay,
-                    refractionOverlay = R.drawable.tp_malachite_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_malachite_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_malachite_ambient_landscape,
-                    ambientSquare = R.drawable.tp_malachite_ambient_square,
-                    backgroundOpacity = 0.44f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_malachite_click_soft,
                     confirm = R.raw.tp_malachite_confirm,
                     swoop = R.raw.tp_malachite_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_album_tile_default,
-                            focused = R.drawable.tp_malachite_album_tile_focused,
-                            pressed = R.drawable.tp_malachite_album_tile_pressed,
-                            selected = R.drawable.tp_malachite_album_tile_selected,
-                            disabled = R.drawable.tp_malachite_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_bottom_sheet_default,
-                            focused = R.drawable.tp_malachite_bottom_sheet_focused,
-                            pressed = R.drawable.tp_malachite_bottom_sheet_pressed,
-                            selected = R.drawable.tp_malachite_bottom_sheet_selected,
-                            disabled = R.drawable.tp_malachite_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_card_default,
-                            focused = R.drawable.tp_malachite_card_focused,
-                            pressed = R.drawable.tp_malachite_card_pressed,
-                            selected = R.drawable.tp_malachite_card_selected,
-                            disabled = R.drawable.tp_malachite_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_chip_default,
-                            focused = R.drawable.tp_malachite_chip_focused,
-                            pressed = R.drawable.tp_malachite_chip_pressed,
-                            selected = R.drawable.tp_malachite_chip_selected,
-                            disabled = R.drawable.tp_malachite_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_compact_button_default,
-                            focused = R.drawable.tp_malachite_compact_button_focused,
-                            pressed = R.drawable.tp_malachite_compact_button_pressed,
-                            selected = R.drawable.tp_malachite_compact_button_selected,
-                            disabled = R.drawable.tp_malachite_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_dialog_default,
-                            focused = R.drawable.tp_malachite_dialog_focused,
-                            pressed = R.drawable.tp_malachite_dialog_pressed,
-                            selected = R.drawable.tp_malachite_dialog_selected,
-                            disabled = R.drawable.tp_malachite_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_icon_button_default,
-                            focused = R.drawable.tp_malachite_icon_button_focused,
-                            pressed = R.drawable.tp_malachite_icon_button_pressed,
-                            selected = R.drawable.tp_malachite_icon_button_selected,
-                            disabled = R.drawable.tp_malachite_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_knob_default,
-                            focused = R.drawable.tp_malachite_knob_focused,
-                            pressed = R.drawable.tp_malachite_knob_pressed,
-                            selected = R.drawable.tp_malachite_knob_selected,
-                            disabled = R.drawable.tp_malachite_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_list_row_default,
-                            focused = R.drawable.tp_malachite_list_row_focused,
-                            pressed = R.drawable.tp_malachite_list_row_pressed,
-                            selected = R.drawable.tp_malachite_list_row_selected,
-                            disabled = R.drawable.tp_malachite_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_mini_player_default,
-                            focused = R.drawable.tp_malachite_mini_player_focused,
-                            pressed = R.drawable.tp_malachite_mini_player_pressed,
-                            selected = R.drawable.tp_malachite_mini_player_selected,
-                            disabled = R.drawable.tp_malachite_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_navigation_bar_default,
-                            focused = R.drawable.tp_malachite_navigation_bar_focused,
-                            pressed = R.drawable.tp_malachite_navigation_bar_pressed,
-                            selected = R.drawable.tp_malachite_navigation_bar_selected,
-                            disabled = R.drawable.tp_malachite_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_primary_button_default,
-                            focused = R.drawable.tp_malachite_primary_button_focused,
-                            pressed = R.drawable.tp_malachite_primary_button_pressed,
-                            selected = R.drawable.tp_malachite_primary_button_selected,
-                            disabled = R.drawable.tp_malachite_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_progress_ring_default,
-                            focused = R.drawable.tp_malachite_progress_ring_focused,
-                            pressed = R.drawable.tp_malachite_progress_ring_pressed,
-                            selected = R.drawable.tp_malachite_progress_ring_selected,
-                            disabled = R.drawable.tp_malachite_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_secondary_button_default,
-                            focused = R.drawable.tp_malachite_secondary_button_focused,
-                            pressed = R.drawable.tp_malachite_secondary_button_pressed,
-                            selected = R.drawable.tp_malachite_secondary_button_selected,
-                            disabled = R.drawable.tp_malachite_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_slider_thumb_default,
-                            focused = R.drawable.tp_malachite_slider_thumb_focused,
-                            pressed = R.drawable.tp_malachite_slider_thumb_pressed,
-                            selected = R.drawable.tp_malachite_slider_thumb_selected,
-                            disabled = R.drawable.tp_malachite_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_slider_track_default,
-                            focused = R.drawable.tp_malachite_slider_track_focused,
-                            pressed = R.drawable.tp_malachite_slider_track_pressed,
-                            selected = R.drawable.tp_malachite_slider_track_selected,
-                            disabled = R.drawable.tp_malachite_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_text_field_default,
-                            focused = R.drawable.tp_malachite_text_field_focused,
-                            pressed = R.drawable.tp_malachite_text_field_pressed,
-                            selected = R.drawable.tp_malachite_text_field_selected,
-                            disabled = R.drawable.tp_malachite_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_malachite_toggle_default,
-                            focused = R.drawable.tp_malachite_toggle_focused,
-                            pressed = R.drawable.tp_malachite_toggle_pressed,
-                            selected = R.drawable.tp_malachite_toggle_selected,
-                            disabled = R.drawable.tp_malachite_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
     val mookaite =
@@ -1626,182 +291,15 @@ object ThemePackCatalog {
                     outline = Color(0xFF8A6048),
                     danger = Color(0xFFFF8A79),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 105,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 245,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_mookaite_material_tile,
-                    glowOverlay = R.drawable.tp_mookaite_glow_overlay,
-                    refractionOverlay = R.drawable.tp_mookaite_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_mookaite_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_mookaite_ambient_landscape,
-                    ambientSquare = R.drawable.tp_mookaite_ambient_square,
-                    backgroundOpacity = 0.44f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_mookaite_click_soft,
                     confirm = R.raw.tp_mookaite_confirm,
                     swoop = R.raw.tp_mookaite_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_album_tile_default,
-                            focused = R.drawable.tp_mookaite_album_tile_focused,
-                            pressed = R.drawable.tp_mookaite_album_tile_pressed,
-                            selected = R.drawable.tp_mookaite_album_tile_selected,
-                            disabled = R.drawable.tp_mookaite_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_bottom_sheet_default,
-                            focused = R.drawable.tp_mookaite_bottom_sheet_focused,
-                            pressed = R.drawable.tp_mookaite_bottom_sheet_pressed,
-                            selected = R.drawable.tp_mookaite_bottom_sheet_selected,
-                            disabled = R.drawable.tp_mookaite_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_card_default,
-                            focused = R.drawable.tp_mookaite_card_focused,
-                            pressed = R.drawable.tp_mookaite_card_pressed,
-                            selected = R.drawable.tp_mookaite_card_selected,
-                            disabled = R.drawable.tp_mookaite_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_chip_default,
-                            focused = R.drawable.tp_mookaite_chip_focused,
-                            pressed = R.drawable.tp_mookaite_chip_pressed,
-                            selected = R.drawable.tp_mookaite_chip_selected,
-                            disabled = R.drawable.tp_mookaite_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_compact_button_default,
-                            focused = R.drawable.tp_mookaite_compact_button_focused,
-                            pressed = R.drawable.tp_mookaite_compact_button_pressed,
-                            selected = R.drawable.tp_mookaite_compact_button_selected,
-                            disabled = R.drawable.tp_mookaite_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_dialog_default,
-                            focused = R.drawable.tp_mookaite_dialog_focused,
-                            pressed = R.drawable.tp_mookaite_dialog_pressed,
-                            selected = R.drawable.tp_mookaite_dialog_selected,
-                            disabled = R.drawable.tp_mookaite_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_icon_button_default,
-                            focused = R.drawable.tp_mookaite_icon_button_focused,
-                            pressed = R.drawable.tp_mookaite_icon_button_pressed,
-                            selected = R.drawable.tp_mookaite_icon_button_selected,
-                            disabled = R.drawable.tp_mookaite_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_knob_default,
-                            focused = R.drawable.tp_mookaite_knob_focused,
-                            pressed = R.drawable.tp_mookaite_knob_pressed,
-                            selected = R.drawable.tp_mookaite_knob_selected,
-                            disabled = R.drawable.tp_mookaite_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_list_row_default,
-                            focused = R.drawable.tp_mookaite_list_row_focused,
-                            pressed = R.drawable.tp_mookaite_list_row_pressed,
-                            selected = R.drawable.tp_mookaite_list_row_selected,
-                            disabled = R.drawable.tp_mookaite_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_mini_player_default,
-                            focused = R.drawable.tp_mookaite_mini_player_focused,
-                            pressed = R.drawable.tp_mookaite_mini_player_pressed,
-                            selected = R.drawable.tp_mookaite_mini_player_selected,
-                            disabled = R.drawable.tp_mookaite_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_navigation_bar_default,
-                            focused = R.drawable.tp_mookaite_navigation_bar_focused,
-                            pressed = R.drawable.tp_mookaite_navigation_bar_pressed,
-                            selected = R.drawable.tp_mookaite_navigation_bar_selected,
-                            disabled = R.drawable.tp_mookaite_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_primary_button_default,
-                            focused = R.drawable.tp_mookaite_primary_button_focused,
-                            pressed = R.drawable.tp_mookaite_primary_button_pressed,
-                            selected = R.drawable.tp_mookaite_primary_button_selected,
-                            disabled = R.drawable.tp_mookaite_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_progress_ring_default,
-                            focused = R.drawable.tp_mookaite_progress_ring_focused,
-                            pressed = R.drawable.tp_mookaite_progress_ring_pressed,
-                            selected = R.drawable.tp_mookaite_progress_ring_selected,
-                            disabled = R.drawable.tp_mookaite_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_secondary_button_default,
-                            focused = R.drawable.tp_mookaite_secondary_button_focused,
-                            pressed = R.drawable.tp_mookaite_secondary_button_pressed,
-                            selected = R.drawable.tp_mookaite_secondary_button_selected,
-                            disabled = R.drawable.tp_mookaite_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_slider_thumb_default,
-                            focused = R.drawable.tp_mookaite_slider_thumb_focused,
-                            pressed = R.drawable.tp_mookaite_slider_thumb_pressed,
-                            selected = R.drawable.tp_mookaite_slider_thumb_selected,
-                            disabled = R.drawable.tp_mookaite_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_slider_track_default,
-                            focused = R.drawable.tp_mookaite_slider_track_focused,
-                            pressed = R.drawable.tp_mookaite_slider_track_pressed,
-                            selected = R.drawable.tp_mookaite_slider_track_selected,
-                            disabled = R.drawable.tp_mookaite_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_text_field_default,
-                            focused = R.drawable.tp_mookaite_text_field_focused,
-                            pressed = R.drawable.tp_mookaite_text_field_pressed,
-                            selected = R.drawable.tp_mookaite_text_field_selected,
-                            disabled = R.drawable.tp_mookaite_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_mookaite_toggle_default,
-                            focused = R.drawable.tp_mookaite_toggle_focused,
-                            pressed = R.drawable.tp_mookaite_toggle_pressed,
-                            selected = R.drawable.tp_mookaite_toggle_selected,
-                            disabled = R.drawable.tp_mookaite_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
     val onyx =
@@ -1826,185 +324,78 @@ object ThemePackCatalog {
                     outline = Color(0xFF6C7178),
                     danger = Color(0xFFFF8178),
                 ),
-            motion =
-                StoneMotion(
-                    pressDurationMs = 90,
-                    pressScale = 0.972f,
-                    innerGlowGain = 1.42f,
-                    releaseDurationMs = 220,
-                    focusDurationMs = 150,
-                    edgeLightGain = 1.25f,
-                    selectedDurationMs = 180,
-                    reduceMotionCrossfadeMs = 120,
-                ),
-            material =
-                StoneMaterial(
-                    tile = R.drawable.tp_onyx_material_tile,
-                    glowOverlay = R.drawable.tp_onyx_glow_overlay,
-                    refractionOverlay = R.drawable.tp_onyx_refraction_overlay,
-                    ambientPortrait = R.drawable.tp_onyx_ambient_portrait,
-                    ambientLandscape = R.drawable.tp_onyx_ambient_landscape,
-                    ambientSquare = R.drawable.tp_onyx_ambient_square,
-                    backgroundOpacity = 0.44f,
-                    surfaceOpacity = 0.72f,
-                    disabledOpacity = 0.18f,
-                ),
+            motion = jellyMotion(),
+            material = jellyMaterial(),
             sounds =
                 StoneSounds(
                     click = R.raw.tp_onyx_click_soft,
                     confirm = R.raw.tp_onyx_confirm,
                     swoop = R.raw.tp_onyx_swoop,
                 ),
-            surfaces =
-                mapOf(
-                    StoneComponent.ALBUM_TILE to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_album_tile_default,
-                            focused = R.drawable.tp_onyx_album_tile_focused,
-                            pressed = R.drawable.tp_onyx_album_tile_pressed,
-                            selected = R.drawable.tp_onyx_album_tile_selected,
-                            disabled = R.drawable.tp_onyx_album_tile_disabled,
-                        ),
-                    StoneComponent.BOTTOM_SHEET to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_bottom_sheet_default,
-                            focused = R.drawable.tp_onyx_bottom_sheet_focused,
-                            pressed = R.drawable.tp_onyx_bottom_sheet_pressed,
-                            selected = R.drawable.tp_onyx_bottom_sheet_selected,
-                            disabled = R.drawable.tp_onyx_bottom_sheet_disabled,
-                        ),
-                    StoneComponent.CARD to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_card_default,
-                            focused = R.drawable.tp_onyx_card_focused,
-                            pressed = R.drawable.tp_onyx_card_pressed,
-                            selected = R.drawable.tp_onyx_card_selected,
-                            disabled = R.drawable.tp_onyx_card_disabled,
-                        ),
-                    StoneComponent.CHIP to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_chip_default,
-                            focused = R.drawable.tp_onyx_chip_focused,
-                            pressed = R.drawable.tp_onyx_chip_pressed,
-                            selected = R.drawable.tp_onyx_chip_selected,
-                            disabled = R.drawable.tp_onyx_chip_disabled,
-                        ),
-                    StoneComponent.COMPACT_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_compact_button_default,
-                            focused = R.drawable.tp_onyx_compact_button_focused,
-                            pressed = R.drawable.tp_onyx_compact_button_pressed,
-                            selected = R.drawable.tp_onyx_compact_button_selected,
-                            disabled = R.drawable.tp_onyx_compact_button_disabled,
-                        ),
-                    StoneComponent.DIALOG to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_dialog_default,
-                            focused = R.drawable.tp_onyx_dialog_focused,
-                            pressed = R.drawable.tp_onyx_dialog_pressed,
-                            selected = R.drawable.tp_onyx_dialog_selected,
-                            disabled = R.drawable.tp_onyx_dialog_disabled,
-                        ),
-                    StoneComponent.ICON_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_icon_button_default,
-                            focused = R.drawable.tp_onyx_icon_button_focused,
-                            pressed = R.drawable.tp_onyx_icon_button_pressed,
-                            selected = R.drawable.tp_onyx_icon_button_selected,
-                            disabled = R.drawable.tp_onyx_icon_button_disabled,
-                        ),
-                    StoneComponent.KNOB to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_knob_default,
-                            focused = R.drawable.tp_onyx_knob_focused,
-                            pressed = R.drawable.tp_onyx_knob_pressed,
-                            selected = R.drawable.tp_onyx_knob_selected,
-                            disabled = R.drawable.tp_onyx_knob_disabled,
-                        ),
-                    StoneComponent.LIST_ROW to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_list_row_default,
-                            focused = R.drawable.tp_onyx_list_row_focused,
-                            pressed = R.drawable.tp_onyx_list_row_pressed,
-                            selected = R.drawable.tp_onyx_list_row_selected,
-                            disabled = R.drawable.tp_onyx_list_row_disabled,
-                        ),
-                    StoneComponent.MINI_PLAYER to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_mini_player_default,
-                            focused = R.drawable.tp_onyx_mini_player_focused,
-                            pressed = R.drawable.tp_onyx_mini_player_pressed,
-                            selected = R.drawable.tp_onyx_mini_player_selected,
-                            disabled = R.drawable.tp_onyx_mini_player_disabled,
-                        ),
-                    StoneComponent.NAVIGATION_BAR to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_navigation_bar_default,
-                            focused = R.drawable.tp_onyx_navigation_bar_focused,
-                            pressed = R.drawable.tp_onyx_navigation_bar_pressed,
-                            selected = R.drawable.tp_onyx_navigation_bar_selected,
-                            disabled = R.drawable.tp_onyx_navigation_bar_disabled,
-                        ),
-                    StoneComponent.PRIMARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_primary_button_default,
-                            focused = R.drawable.tp_onyx_primary_button_focused,
-                            pressed = R.drawable.tp_onyx_primary_button_pressed,
-                            selected = R.drawable.tp_onyx_primary_button_selected,
-                            disabled = R.drawable.tp_onyx_primary_button_disabled,
-                        ),
-                    StoneComponent.PROGRESS_RING to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_progress_ring_default,
-                            focused = R.drawable.tp_onyx_progress_ring_focused,
-                            pressed = R.drawable.tp_onyx_progress_ring_pressed,
-                            selected = R.drawable.tp_onyx_progress_ring_selected,
-                            disabled = R.drawable.tp_onyx_progress_ring_disabled,
-                        ),
-                    StoneComponent.SECONDARY_BUTTON to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_secondary_button_default,
-                            focused = R.drawable.tp_onyx_secondary_button_focused,
-                            pressed = R.drawable.tp_onyx_secondary_button_pressed,
-                            selected = R.drawable.tp_onyx_secondary_button_selected,
-                            disabled = R.drawable.tp_onyx_secondary_button_disabled,
-                        ),
-                    StoneComponent.SLIDER_THUMB to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_slider_thumb_default,
-                            focused = R.drawable.tp_onyx_slider_thumb_focused,
-                            pressed = R.drawable.tp_onyx_slider_thumb_pressed,
-                            selected = R.drawable.tp_onyx_slider_thumb_selected,
-                            disabled = R.drawable.tp_onyx_slider_thumb_disabled,
-                        ),
-                    StoneComponent.SLIDER_TRACK to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_slider_track_default,
-                            focused = R.drawable.tp_onyx_slider_track_focused,
-                            pressed = R.drawable.tp_onyx_slider_track_pressed,
-                            selected = R.drawable.tp_onyx_slider_track_selected,
-                            disabled = R.drawable.tp_onyx_slider_track_disabled,
-                        ),
-                    StoneComponent.TEXT_FIELD to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_text_field_default,
-                            focused = R.drawable.tp_onyx_text_field_focused,
-                            pressed = R.drawable.tp_onyx_text_field_pressed,
-                            selected = R.drawable.tp_onyx_text_field_selected,
-                            disabled = R.drawable.tp_onyx_text_field_disabled,
-                        ),
-                    StoneComponent.TOGGLE to
-                        StoneStateArt(
-                            default = R.drawable.tp_onyx_toggle_default,
-                            focused = R.drawable.tp_onyx_toggle_focused,
-                            pressed = R.drawable.tp_onyx_toggle_pressed,
-                            selected = R.drawable.tp_onyx_toggle_selected,
-                            disabled = R.drawable.tp_onyx_toggle_disabled,
-                        ),
-                ),
+            surfaces = jellySurfaces(),
         )
 
-    val all: List<ThemePack> = listOf(lapisLazuli, sugilite, amethyst, clearQuartz, azurite, firestone, kyanite, malachite, mookaite, onyx)
+    val tidalGlass = TidalThemePack.create(kyanite)
+
+    val all: List<ThemePack> =
+        listOf(
+            tidalGlass,
+            lapisLazuli,
+            sugilite,
+            amethyst,
+            clearQuartz,
+            azurite,
+            firestone,
+            kyanite,
+            malachite,
+            mookaite,
+            onyx,
+        )
 
     fun bySlug(slug: String?): ThemePack = all.firstOrNull { it.slug == slug } ?: all.first()
+
+    private fun jellyMotion(): StoneMotion =
+        StoneMotion(
+            pressDurationMs = 140,
+            pressScale = 0.96f,
+            innerGlowGain = 1.2f,
+            releaseDurationMs = 440,
+            focusDurationMs = 180,
+            edgeLightGain = 1.35f,
+            selectedDurationMs = 240,
+            reduceMotionCrossfadeMs = 0,
+        )
+
+    private fun jellyMaterial(): StoneMaterial =
+        StoneMaterial(
+            tile = R.drawable.spatial_glass_capsule,
+            glowOverlay = R.drawable.spatial_glass_pebble,
+            refractionOverlay = R.drawable.spatial_glass_orb_shell,
+            ambientPortrait = R.drawable.spatial_lake_atmosphere,
+            ambientLandscape = R.drawable.spatial_lake_atmosphere,
+            ambientSquare = R.drawable.spatial_lake_atmosphere,
+            backgroundOpacity = 0.6f,
+            surfaceOpacity = 0.32f,
+            disabledOpacity = 0.2f,
+        )
+
+    private fun jellySurfaces(): Map<StoneComponent, StoneStateArt> =
+        StoneComponent.entries.associateWith { component ->
+            val lens =
+                when (component) {
+                    StoneComponent.ICON_BUTTON,
+                    StoneComponent.KNOB,
+                    StoneComponent.PROGRESS_RING,
+                    StoneComponent.SLIDER_THUMB,
+                    -> R.drawable.spatial_glass_pebble
+                    else -> R.drawable.spatial_glass_capsule
+                }
+            StoneStateArt(
+                default = lens,
+                focused = lens,
+                pressed = lens,
+                selected = lens,
+                disabled = lens,
+            )
+        }
 }

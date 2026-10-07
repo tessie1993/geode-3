@@ -43,7 +43,15 @@ internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
     var creating by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.smart_playlists), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+            Text(
+                stringResource(R.string.smart_playlists),
+                style = MaterialTheme.typography.labelMedium,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .jellyMatteSheet()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
             CrystalButton(compact = true, filled = false, onClick = { creating = true }) { Text(stringResource(R.string.smart_new)) }
         }
         library.smartPlaylists.forEach { pl ->
@@ -51,6 +59,7 @@ internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
             Row(
                 Modifier
                     .fillMaxWidth()
+                    .jellyMatteSheet()
                     .clickable { editing = pl }
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,

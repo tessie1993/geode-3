@@ -8,11 +8,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -98,7 +98,10 @@ fun LoopRenderSheet(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.export_loop_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 when (val phase = state.phase) {
                     is ExportPhase.Running -> LoopRenderRunning(phase.progress)
                     is ExportPhase.Done -> LoopRenderDone(phase.resultUri)
@@ -164,7 +167,7 @@ private fun LoopRenderDone(resultUri: Uri) {
         style = MaterialTheme.typography.bodyMedium,
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = {
+        CrystalButton(onClick = {
             val share =
                 Intent(Intent.ACTION_SEND).apply {
                     type = "video/mp4"
@@ -262,13 +265,13 @@ private fun LoopRenderControls(
             TextButton(onClick = { onRemoveClip(clip) }) { Text(stringResource(R.string.action_delete)) }
         }
     }
-    OutlinedButton(onClick = onAddClips, modifier = Modifier.fillMaxWidth()) {
+    CrystalButton(filled = false, onClick = onAddClips, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.export_loop_soundtrack_add))
     }
-    Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
+    CrystalButton(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.export_loop_start))
     }
-    OutlinedButton(onClick = onStartToDestination, modifier = Modifier.fillMaxWidth()) {
+    CrystalButton(filled = false, onClick = onStartToDestination, modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.export_render_to_folder))
     }
 }

@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.geode.ui.theme.LocalReducedMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -43,12 +44,25 @@ private const val FADE_OUT_MS = 300
 
 @Composable
 fun BootIntro(onDone: () -> Unit) {
+    val reducedMotion = LocalReducedMotion.current
     val overlayAlpha = remember { Animatable(1f) }
-    val textAlpha = remember { Animatable(0f) }
-    val textScale = remember { Animatable(0.7f) }
+    val textAlpha = remember { Animatable(if (reducedMotion) 1f else 0f) }
+    val textScale = remember { Animatable(if (reducedMotion) 1f else 0.7f) }
     val rings = remember { List(RING_COUNT) { Animatable(0f) } }
 
     LaunchedEffect(Unit) {
+        // Motion policy changes do not restart the intro or delay the setup gates.
+        delay(FADE_START_MS + FADE_OUT_MS)
+        onDone()
+    }
+    LaunchedEffect(reducedMotion) {
+        if (reducedMotion) {
+            overlayAlpha.snapTo(1f)
+            textAlpha.snapTo(1f)
+            textScale.snapTo(1f)
+            rings.forEach { it.snapTo(0f) }
+            return@LaunchedEffect
+        }
         launch { textAlpha.animateTo(1f, tween(TEXT_IN_MS, easing = LinearOutSlowInEasing)) }
         launch { textScale.animateTo(1f, tween(TEXT_IN_MS + 100, easing = FastOutSlowInEasing)) }
         rings.forEachIndexed { i, ring ->
@@ -59,7 +73,6 @@ fun BootIntro(onDone: () -> Unit) {
         }
         delay(FADE_START_MS)
         overlayAlpha.animateTo(0f, tween(FADE_OUT_MS))
-        onDone()
     }
 
     val primary = MaterialTheme.colorScheme.primary

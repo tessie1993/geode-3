@@ -49,12 +49,17 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.geode.R
+import dev.geode.ui.theme.LocalReducedMotion
+import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.isJellyGlass
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
@@ -68,6 +73,8 @@ fun WaveformSeekBar(
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tidal = LocalThemePack.current.isJellyGlass
+    val bead = if (tidal) rememberTidalBitmap(R.drawable.spatial_glass_pebble) else null
     var dragFraction by remember { mutableFloatStateOf(-1f) }
     val played =
         if (dragFraction >= 0f) {
@@ -129,7 +136,8 @@ fun WaveformSeekBar(
             val barWidth = (slot * 0.62f).coerceAtLeast(1f)
             val playedX = size.width * played
             for (i in 0 until n) {
-                val h = (size.height * (0.08f + 0.92f * waveform[i])).coerceAtLeast(2f)
+                val amplitude = if (tidal) 0.48f else 1f
+                val h = (size.height * amplitude * (0.08f + 0.92f * waveform[i])).coerceAtLeast(2f)
                 val x = i * slot + (slot - barWidth) / 2f
                 drawRoundRect(
                     color = if (x + barWidth / 2f <= playedX) primary else idle,
@@ -140,12 +148,21 @@ fun WaveformSeekBar(
             }
         }
         val x = (size.width * played).coerceIn(1f, maxOf(1f, size.width - 1f))
-        drawRoundRect(
-            playhead,
-            topLeft = Offset(x - 1.dp.toPx(), 0f),
-            size = Size(2.dp.toPx(), size.height),
-            cornerRadius = CornerRadius(1.dp.toPx()),
-        )
+        if (bead != null) {
+            val diameter = 28.dp.toPx().toInt()
+            drawImage(
+                bead,
+                dstOffset = IntOffset((x - diameter / 2f).toInt(), ((size.height - diameter) / 2f).toInt()),
+                dstSize = IntSize(diameter, diameter),
+            )
+        } else {
+            drawRoundRect(
+                playhead,
+                topLeft = Offset(x - 1.dp.toPx(), 0f),
+                size = Size(2.dp.toPx(), size.height),
+                cornerRadius = CornerRadius(1.dp.toPx()),
+            )
+        }
     }
 }
 
@@ -171,11 +188,16 @@ fun LyricsPanel(
         return
     }
     val current = lyrics.indexAt(positionMs)
+    val reducedMotion = LocalReducedMotion.current
     val listState = rememberLazyListState()
     val follows = rememberFollowsPlayback(listState)
-    LaunchedEffect(current, follows.value) {
+    LaunchedEffect(current, follows.value, reducedMotion) {
         if (follows.value && current >= 0) {
-            listState.animateScrollToItem(current.coerceAtLeast(0), scrollOffset = -SCROLL_LEAD_PX)
+            if (reducedMotion) {
+                listState.scrollToItem(current.coerceAtLeast(0), scrollOffset = -SCROLL_LEAD_PX)
+            } else {
+                listState.animateScrollToItem(current.coerceAtLeast(0), scrollOffset = -SCROLL_LEAD_PX)
+            }
         }
     }
     LazyColumn(
@@ -276,9 +298,14 @@ fun QueuePanel(
     var saving by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val follows = rememberFollowsPlayback(listState)
-    LaunchedEffect(queue.index, follows.value) {
+    val reducedMotion = LocalReducedMotion.current
+    LaunchedEffect(queue.index, follows.value, reducedMotion) {
         if (follows.value) {
-            listState.animateScrollToItem(queue.index.coerceIn(0, queue.tracks.lastIndex))
+            if (reducedMotion) {
+                listState.scrollToItem(queue.index.coerceIn(0, queue.tracks.lastIndex))
+            } else {
+                listState.animateScrollToItem(queue.index.coerceIn(0, queue.tracks.lastIndex))
+            }
         }
     }
     val keys = remember(queue.tracks) { queueRowKeys(queue.tracks) }

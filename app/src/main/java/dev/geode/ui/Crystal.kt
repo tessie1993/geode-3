@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
@@ -37,11 +38,17 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.geode.R
 import dev.geode.render.VisualizerView
+import dev.geode.ui.theme.LocalBackgroundDim
+import dev.geode.ui.theme.LocalMaterialResumed
+import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.ThemePack
 import dev.geode.ui.theme.colorScheme
+import dev.geode.ui.theme.isJellyGlass
 import dev.geode.ui.theme.stoneTypography
+import dev.geode.ui.theme.tidalTypography
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -49,8 +56,13 @@ import kotlin.math.roundToInt
 internal fun CrystalMaterialTheme(
     pack: ThemePack,
     gui: GuiPrefs,
+    motionObscured: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    val systemMotionDisabled = rememberSystemMotionDisabled()
+    val reducedMotion = gui.reducedMotion || systemMotionDisabled
+    val resumed = rememberMaterialResumed()
+    val sceneTime = rememberTidalSceneTime(pack.isJellyGlass && resumed && !reducedMotion && !motionObscured)
     val fontColor = pack.resolvedFontColor(gui.fontColorOverride, gui.backgroundDim)
     val scheme =
         pack.colorScheme(
@@ -60,13 +72,24 @@ internal fun CrystalMaterialTheme(
         )
     CompositionLocalProvider(
         LocalThemePack provides pack,
+        LocalReducedMotion provides reducedMotion,
+        LocalBackgroundDim provides gui.backgroundDim,
+        LocalMaterialResumed provides resumed,
+        LocalTidalSceneTime provides sceneTime,
         LocalFontColor provides fontColor?.let { Color(it) },
         LocalContentColor provides scheme.onBackground,
     ) {
         MaterialTheme(
             colorScheme = scheme,
             shapes = gui.cornerStyle.shapes(),
-            typography = crystalTypography(gui.textScale),
+            typography =
+                if (pack.isJellyGlass) {
+                    tidalTypography(
+                        gui.textScale.coerceIn(GuiPrefs.TEXT_SCALE_MIN, GuiPrefs.TEXT_SCALE_MAX),
+                    )
+                } else {
+                    crystalTypography(gui.textScale)
+                },
             content = content,
         )
     }
@@ -106,7 +129,11 @@ fun CrystalOverline(
 ) {
     Text(
         text.uppercase(),
-        modifier,
+        if (LocalThemePack.current.isJellyGlass) {
+            modifier.jellyMatteSheet(8.dp).padding(horizontal = 6.dp, vertical = 2.dp)
+        } else {
+            modifier
+        },
         style =
             MaterialTheme.typography.labelSmall.copy(
                 letterSpacing = 2.6.sp,
@@ -125,7 +152,11 @@ fun GlowTitle(
 ) {
     Text(
         text,
-        modifier,
+        if (LocalThemePack.current.isJellyGlass) {
+            modifier.jellyMatteSheet(10.dp).padding(horizontal = 8.dp, vertical = 3.dp)
+        } else {
+            modifier
+        },
         style = style.copy(shadow = Shadow(color = glow.copy(alpha = 0.8f), blurRadius = 28f)),
         color = MaterialTheme.colorScheme.onBackground,
     )
@@ -160,9 +191,23 @@ fun Modifier.crystalPanel(
     facets: Float = 1f,
     prismatic: Boolean = false,
     sheen: Color = glow,
+    readable: Boolean = true,
 ): Modifier =
     composed {
         val pack = LocalThemePack.current
+        if (pack.isJellyGlass) {
+            return@composed this.tidalPanel(
+                capsule = rememberTidalBitmap(R.drawable.spatial_glass_capsule),
+                opacity = if (readable) opacity.coerceIn(0.86f, 0.98f) else opacity.coerceIn(0f, 1f),
+                tint = jellyMatteTint(LocalFontColor.current ?: MaterialTheme.colorScheme.onSurface, tint),
+                glow = glow,
+                corner = corner,
+                glowStrength = glowStrength,
+                facets = facets,
+                prismatic = prismatic,
+                sheen = sheen,
+            )
+        }
         val tile = ImageBitmap.imageResource(pack.material.tile)
         val alpha = opacity.coerceIn(0f, 1f)
         val texAlpha = (pack.material.surfaceOpacity * facets.coerceIn(0f, 1.5f)).coerceIn(0f, 1f)
@@ -228,9 +273,13 @@ fun Modifier.luminousHairline(glow: Color): Modifier =
 @Composable
 fun CrystalBackground(
     modifier: Modifier = Modifier,
-    @Suppress("UNUSED_PARAMETER") reducedMotion: Boolean = false,
+    reducedMotion: Boolean = false,
 ) {
     val pack = LocalThemePack.current
+    if (pack.isJellyGlass) {
+        TidalForestBackground(modifier, reducedMotion)
+        return
+    }
     val cs = MaterialTheme.colorScheme
     BoxWithConstraints(modifier) {
         val art =

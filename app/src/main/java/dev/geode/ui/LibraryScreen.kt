@@ -7,6 +7,8 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -63,6 +65,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MusicPlaylist
+import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import kotlinx.coroutines.launch
@@ -114,7 +117,7 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
                 activity == null ||
                     !asked ||
                     ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.padding(16.dp).jellyMatteSheet().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     stringResource(
                         if (canAskAgain) {
@@ -147,7 +150,7 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
                 onValueChange = libraryViewModel::setQuery,
                 singleLine = true,
                 label = { Text(stringResource(R.string.library_search_hint)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).jellyMatteSheet(corner = 12.dp),
             )
             CrystalSegmented(
                 options = LibrarySort.entries.map { stringResource(it.labelRes) },
@@ -179,7 +182,7 @@ private fun TrackList(
             // An empty library and an empty result set are different problems, and telling
             // someone "no music found" mid-search would send them looking for the wrong fix.
             val empty = if (searching) R.string.library_no_results else R.string.library_no_music
-            item { Text(stringResource(empty), Modifier.padding(16.dp)) }
+            item { Text(stringResource(empty), Modifier.padding(16.dp).jellyMatteSheet().padding(12.dp)) }
         }
     }
 }
@@ -210,9 +213,11 @@ private fun TrackRow(
     Row(
         Modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .jellyMatteSheet()
             .clickable {
                 if (queue.isEmpty()) viewModel.playTrack(t.uri) else viewModel.playFrom(queue, t.uri)
-            }.padding(horizontal = 16.dp, vertical = 8.dp),
+            }.padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TrackArtwork(t.uri, Modifier.size(44.dp), corner = 8.dp)
@@ -330,10 +335,17 @@ private fun GroupList(
     val dismiss = rememberPredictiveDismiss(enabled = sel != null) { open = null }
     if (sel != null && groups.containsKey(sel)) {
         Column(Modifier.dismissTransform(dismiss)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .jellyMatteSheet()
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     stringResource(R.string.library_back),
-                    Modifier.clickable { open = null }.padding(end = 12.dp),
+                    Modifier.clickable { open = null }.padding(end = 12.dp, top = 12.dp, bottom = 12.dp),
                     color = accentTextColor(),
                 )
                 Text(sel, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -355,7 +367,12 @@ private fun GroupList(
         LazyColumn(Modifier.fillMaxSize()) {
             items(groups.keys.sorted()) { g ->
                 Row(
-                    Modifier.fillMaxWidth().clickable { open = g }.padding(horizontal = 16.dp, vertical = 10.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 3.dp)
+                        .jellyMatteSheet()
+                        .clickable { open = g }
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
@@ -414,8 +431,10 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
                     Row(
                         Modifier
                             .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 3.dp)
+                            .jellyMatteSheet()
                             .clickable { expanded = if (expanded == pl.name) null else pl.name }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
@@ -449,7 +468,7 @@ private fun PlaylistsTab(viewModel: LibraryViewModel) {
                 item {
                     Text(
                         stringResource(R.string.playlist_none_yet),
-                        Modifier.padding(16.dp),
+                        Modifier.padding(16.dp).jellyMatteSheet().padding(12.dp),
                     )
                 }
             }
@@ -579,6 +598,7 @@ private fun PlaylistTracks(
     tracks: List<LibraryTrack>,
     viewModel: LibraryViewModel,
 ) {
+    val reducedMotion = LocalReducedMotion.current
     val count = playlist.trackUris.size
     var dragFrom by remember(playlist.name) { mutableIntStateOf(-1) }
     var dragOffset by remember(playlist.name) { mutableFloatStateOf(0f) }
@@ -590,13 +610,16 @@ private fun PlaylistTracks(
         val dragging = i == dragFrom
         val shift by animateFloatAsState(
             if (dragFrom < 0) 0f else (playlistRowShift(i, dragFrom, dropIndex) * rowHeight).toFloat(),
+            animationSpec = if (reducedMotion) tween(0) else spring(),
             label = "playlistRowShift",
         )
         Row(
             Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp)
                 .zIndex(if (dragging) 1f else 0f)
                 .graphicsLayer { translationY = if (dragging) dragOffset else shift }
+                .jellyMatteSheet(corner = 12.dp)
                 .then(if (dragging) Modifier.background(liftTint) else Modifier)
                 .onSizeChanged { rowHeight = it.height }
                 .pointerInput(playlist.name, i, count) {
@@ -619,7 +642,7 @@ private fun PlaylistTracks(
                         change.consume()
                         dragOffset += drag.y
                     }
-                }.padding(start = 28.dp, end = 8.dp),
+                }.padding(start = 12.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -665,12 +688,19 @@ private fun FoldersTab(
     Column {
         Text(
             stringResource(R.string.folders_library),
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            Modifier
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .jellyMatteSheet(corner = 10.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.titleSmall,
         )
         roots.sorted().forEach { root ->
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 3.dp)
+                    .jellyMatteSheet()
+                    .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -707,7 +737,10 @@ private fun FoldersTab(
         }
         Text(
             stringResource(R.string.folders_device),
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            Modifier
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .jellyMatteSheet(corner = 10.dp)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.bodySmall,
         )
         GroupList(FolderTree.rows(folders), viewModel)

@@ -32,12 +32,17 @@ class PlaybackService : MediaLibraryService() {
         val loader = SessionBitmapLoader(this)
         artworkLoader = loader
         val player = PlaybackEngine.acquireForService(this).player
-        session =
+        val mediaSession =
             MediaLibrarySession
                 .Builder(this, player, LibraryCallback(this, LibraryTree(this)))
                 .setSessionActivity(openAppIntent())
                 .setBitmapLoader(CacheBitmapLoader(loader))
                 .build()
+        session = mediaSession
+        // The UI drives the shared player directly, without connecting a MediaController.
+        // Register now so Media3 observes playback and promotes the service with its media
+        // notification; waiting for onGetSession leaves actionless foreground starts unregistered.
+        addSession(mediaSession)
         widget =
             WidgetPublisher(this, player).also {
                 player.addListener(it)
@@ -224,9 +229,8 @@ class PlaybackService : MediaLibraryService() {
             // startService() throws IllegalStateException on API 26+ when called while the app is
             // backgrounded (this is invoked from onIsPlayingChanged, which can fire off-screen), and
             // runCatching used to swallow that silently, leaving the service never started.
-            // startForegroundService() is allowed from the background, and MediaSessionService (which
-            // PlaybackService extends) promotes itself to the foreground and posts the playback
-            // notification as soon as its session's player reports isPlaying, satisfying the 5s window.
+            // Media3 observes the session registered in onCreate and posts its foreground playback
+            // notification even when playback starts directly in the UI, without a controller.
             runCatching {
                 ContextCompat.startForegroundService(context, Intent(context, PlaybackService::class.java))
             }.onFailure { RingLog.note("PlaybackService.ensureRunning", "startForegroundService failed", it) }

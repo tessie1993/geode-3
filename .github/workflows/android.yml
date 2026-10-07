@@ -131,7 +131,8 @@ jobs:
     name: Test the built APK on an emulator
     needs: debug-apk
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Eleven 14-second component recordings, theme loops and display-profile replay.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -153,6 +154,27 @@ jobs:
           arch: x86_64
           disable-animations: true
           script: bash tools/android/run_emulator_checks.sh
+      - name: Prepare compact UI review evidence
+        if: always()
+        run: |
+          python3 tools/android/prepare_ui_review.py
+          python3 tools/android/prepare_ui_review.py --screens-only --output app/build/reports/ui-review-screens
+      - name: Upload compact UI review evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-review-${{ github.run_number }}
+          path: app/build/reports/ui-review/
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Upload screenshot-only UI review evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-review-screens-${{ github.run_number }}
+          path: app/build/reports/ui-review-screens/
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Upload emulator evidence
         if: always()
         uses: actions/upload-artifact@v7
