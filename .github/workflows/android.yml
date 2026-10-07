@@ -110,6 +110,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+      # THIRD_PARTY_NOTICES is the single source. The app shows the packaged copy under
+      # Settings > About > Open source licenses, so the two must never drift apart.
+      - name: Packaged licence notices match THIRD_PARTY_NOTICES
+        run: |
+          if ! cmp THIRD_PARTY_NOTICES app/src/main/assets/third_party_notices.txt; then
+            echo "::error file=app/src/main/assets/third_party_notices.txt::The in-app licence notices differ from THIRD_PARTY_NOTICES, which is the single source. Copy it over with: cp THIRD_PARTY_NOTICES app/src/main/assets/third_party_notices.txt"
+            exit 1
+          fi
       - name: Native motion across angle wraps
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
