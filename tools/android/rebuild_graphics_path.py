@@ -6,6 +6,7 @@ Only the two native binaries shipped by Geode are replaced. Generated Maven
 metadata contains the rebuilt AAR's hashes, never the original AAR's hashes.
 """
 
+import copy
 import hashlib
 import io
 import json
@@ -75,6 +76,25 @@ def symbols(readelf, library):
     return exported
 
 
+def rebuild_archive(archive, replacements):
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as rebuilt:
+        for info in archive.infolist():
+            # writestr mutates ZipInfo.header_offset and size/CRC metadata.
+            # Reusing the source object corrupts later reads from that archive.
+            rebuilt.writestr(copy.copy(info), replacements.get(info.filename, archive.read(info)))
+        for filename in ("LICENSE.txt", "NOTICE.txt"):
+            rebuilt.writestr(f"assets/licenses/androidx-graphics-path/{filename}",
+                             (SOURCE / filename).read_bytes())
+    result = buffer.getvalue()
+    with zipfile.ZipFile(io.BytesIO(result)) as rebuilt:
+        for info in archive.infolist():
+            if info.filename not in replacements:
+                if rebuilt.read(info.filename) != archive.read(info):
+                    raise RuntimeError(f"Changed upstream content: {info.filename}")
+    return result
+
+
 def main():
     lock = verify_sources()
     sdk_value = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
@@ -141,22 +161,9 @@ def main():
                 raise RuntimeError(f"Changed JNI exports for {abi}")
             replacements[entry] = data
 
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w") as rebuilt:
-            for info in archive.infolist():
-                rebuilt.writestr(info, replacements.get(info.filename, archive.read(info)))
-            rebuilt.writestr("assets/licenses/androidx-graphics-path/LICENSE.txt",
-                             (SOURCE / "LICENSE.txt").read_bytes())
-            rebuilt.writestr("assets/licenses/androidx-graphics-path/NOTICE.txt",
-                             (SOURCE / "NOTICE.txt").read_bytes())
-        result = buffer.getvalue()
         # Byte-for-byte preservation of all upstream non-native entries also
         # proves that classes.jar, public API and consumer rules are unchanged.
-        with zipfile.ZipFile(io.BytesIO(result)) as rebuilt:
-            for info in archive.infolist():
-                if info.filename not in replacements:
-                    if rebuilt.read(info.filename) != archive.read(info):
-                        raise RuntimeError(f"Changed upstream content: {info.filename}")
+        result = rebuild_archive(archive, replacements)
 
     for entry in aar_entries:
         entry["size"] = len(result)

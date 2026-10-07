@@ -118,6 +118,8 @@ jobs:
           "$RUNNER_TEMP/motion-test"
       - name: Release validation regressions
         run: python3 -m unittest discover -s tools/release/tests -v
+      - name: Native dependency packaging regression
+        run: python3 -m unittest discover -s tools/android/tests -v
 
   emulator:
     name: Test the built APK on an emulator
