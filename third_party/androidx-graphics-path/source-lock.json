@@ -17,7 +17,9 @@
     },
     {
       "path": "PathIterator.cpp",
-      "git_blob": "cab9c5d1eb14317ee973cf6198a452393fc94fca"
+      "git_blob": "cab9c5d1eb14317ee973cf6198a452393fc94fca",
+      "geode_git_blob": "b0ae973783c79dafdac70cf934a26b33cba5e180",
+      "modification": "Use a separate conic converter when calculating size; do not change next() state."
     },
     {
       "path": "PathIterator.h",

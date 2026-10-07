@@ -58,8 +58,9 @@ def verify_sources():
     for entry in lock["files"]:
         data = (SOURCE / "src" / entry["path"]).read_bytes()
         blob = b"blob " + str(len(data)).encode() + b"\0" + data
-        if digest(blob, "sha1") != entry["git_blob"]:
-            raise RuntimeError(f"Upstream source changed: {entry['path']}")
+        expected = entry.get("geode_git_blob", entry["git_blob"])
+        if digest(blob, "sha1") != expected:
+            raise RuntimeError(f"Locked source changed: {entry['path']}")
     return lock
 
 
