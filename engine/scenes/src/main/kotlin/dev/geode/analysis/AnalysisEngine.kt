@@ -31,8 +31,13 @@ class AnalysisEngine(
             hopRateHz = HOP_RATE_HZ,
         )
 
+    private val publicationLock = Any()
+
     @Volatile
     var sampleRateHz: Int = 44100
+        set(value) {
+            synchronized(publicationLock) { field = value }
+        }
 
     @Volatile
     var attack: Float = DEFAULT_ATTACK
@@ -55,7 +60,6 @@ class AnalysisEngine(
     private val _features = MutableStateFlow(AudioFeatures.empty(bandCount))
     val features: StateFlow<AudioFeatures> = _features
 
-    private val publicationLock = Any()
     private val resetPending = AtomicBoolean(false)
 
     fun reset() {
@@ -101,6 +105,10 @@ class AnalysisEngine(
 
     private inner class Pass {
         private val input = AnalysisInput(ring, fftSize)
+        private val frameGate =
+            AnalysisFrameGate(publicationLock, { sampleRateHz }) {
+                !resetPending.get() && ring.epoch == input.window.epoch
+            }
         private var silent = false
         private val beat = PulseHold()
         private val beatStrength = PulseHold()
@@ -119,7 +127,7 @@ class AnalysisEngine(
                 .forEach(PulseHold::reset)
         }
 
-        fun tick(): Boolean {
+        fun tick(configuredRateHz: Int): Boolean {
             val state = input.poll(System.nanoTime(), sampleRateHz)
             if (input.discontinuity) {
                 reset()
@@ -139,52 +147,51 @@ class AnalysisEngine(
             }
             silent = false
             val window = input.window
-            analyzer.analyze(window.mid, window.side, DT_SECONDS)
-
-            val frame =
-                AudioFeatures(
-                    bands = analyzer.bands.copyOf(),
-                    waveform = analyzer.waveform.copyOf(),
-                    rms = analyzer.rms,
-                    bass = analyzer.bass,
-                    mid = analyzer.mid,
-                    treble = analyzer.treble,
-                    onset = analyzer.onset,
-                    beat = beat.step(if (analyzer.beat) 1f else 0f) > 0f,
-                    bpm = analyzer.bpm,
-                    centroid = analyzer.centroid,
-                    flux = analyzer.fluxValue,
-                    beatStrength = beatStrength.step(analyzer.beatStrength),
-                    transient = transient.step(analyzer.transient),
-                    beatPhase = analyzer.beatPhase,
-                    pulseConfidence = analyzer.pulseConfidence,
-                    macroEnergy = analyzer.macroEnergy,
-                    kick = kick.step(analyzer.kick),
-                    snare = snare.step(analyzer.snare),
-                    hat = hat.step(analyzer.hat),
-                    chroma = analyzer.chroma.copyOf(),
-                    chromaConfidence = analyzer.chromaConfidence,
-                    stereoWidth = analyzer.stereoWidth,
-                    stereoCorrelation = analyzer.stereoCorrelation,
-                    stereoPan = analyzer.stereoPan,
-                    tempoStability = analyzer.tempoStability,
-                    barPhase = analyzer.barPhase,
-                    beatInBar = analyzer.beatInBar,
-                    downbeat = downbeat.step(if (analyzer.downbeat) 1f else 0f) > 0f,
-                    downbeatConfidence = analyzer.downbeatConfidence,
-                    novelty = analyzer.novelty,
-                    sectionBoundary = sectionBoundary.step(if (analyzer.sectionBoundary) 1f else 0f) > 0f,
-                    buildup = analyzer.buildup,
-                    drop = drop.step(if (analyzer.drop) 1f else 0f) > 0f,
-                    arrival = arrival.step(if (analyzer.arrival) 1f else 0f) > 0f,
-                    harmonicity = analyzer.harmonicity,
-                    warmup = analyzer.warmup,
-                )
-            synchronized(publicationLock) {
-                // A reset can arrive during native analysis. Never republish its old frame.
-                if (!resetPending.get() && ring.epoch == window.epoch) _features.value = frame
-            }
-            return true
+            return frameGate.run(
+                configuredRateHz,
+                analyze = {
+                    analyzer.analyze(window.mid, window.side, DT_SECONDS)
+                    AudioFeatures(
+                        bands = analyzer.bands.copyOf(),
+                        waveform = analyzer.waveform.copyOf(),
+                        rms = analyzer.rms,
+                        bass = analyzer.bass,
+                        mid = analyzer.mid,
+                        treble = analyzer.treble,
+                        onset = analyzer.onset,
+                        beat = beat.step(if (analyzer.beat) 1f else 0f) > 0f,
+                        bpm = analyzer.bpm,
+                        centroid = analyzer.centroid,
+                        flux = analyzer.fluxValue,
+                        beatStrength = beatStrength.step(analyzer.beatStrength),
+                        transient = transient.step(analyzer.transient),
+                        beatPhase = analyzer.beatPhase,
+                        pulseConfidence = analyzer.pulseConfidence,
+                        macroEnergy = analyzer.macroEnergy,
+                        kick = kick.step(analyzer.kick),
+                        snare = snare.step(analyzer.snare),
+                        hat = hat.step(analyzer.hat),
+                        chroma = analyzer.chroma.copyOf(),
+                        chromaConfidence = analyzer.chromaConfidence,
+                        stereoWidth = analyzer.stereoWidth,
+                        stereoCorrelation = analyzer.stereoCorrelation,
+                        stereoPan = analyzer.stereoPan,
+                        tempoStability = analyzer.tempoStability,
+                        barPhase = analyzer.barPhase,
+                        beatInBar = analyzer.beatInBar,
+                        downbeat = downbeat.step(if (analyzer.downbeat) 1f else 0f) > 0f,
+                        downbeatConfidence = analyzer.downbeatConfidence,
+                        novelty = analyzer.novelty,
+                        sectionBoundary = sectionBoundary.step(if (analyzer.sectionBoundary) 1f else 0f) > 0f,
+                        buildup = analyzer.buildup,
+                        drop = drop.step(if (analyzer.drop) 1f else 0f) > 0f,
+                        arrival = arrival.step(if (analyzer.arrival) 1f else 0f) > 0f,
+                        harmonicity = analyzer.harmonicity,
+                        warmup = analyzer.warmup,
+                    )
+                },
+                publish = { frame -> _features.value = frame },
+            )
         }
     }
 
@@ -192,7 +199,7 @@ class AnalysisEngine(
 
     // Settings are published by UI/audio threads, but only this worker touches
     // ReactiveAnalyzer: its native handle and tuning are not thread safe.
-    private fun applyConfiguration() {
+    private fun applyConfiguration(): Int {
         val rate = sampleRateHz
         val attackSeconds = BeatTuning.envelopeSeconds(attack)
         val releaseSeconds = BeatTuning.envelopeSeconds(decay)
@@ -203,15 +210,16 @@ class AnalysisEngine(
         if (analyzer.releaseSeconds != releaseSeconds) analyzer.releaseSeconds = releaseSeconds
         if (analyzer.sensitivity != sensitivity) analyzer.sensitivity = sensitivity
         if (analyzer.refractoryMs != intervalMs) analyzer.refractoryMs = intervalMs
+        return rate
     }
 
     private suspend fun runAnalysis() {
         val pass = Pass()
         var deadlineNs = System.nanoTime()
         while (currentCoroutineContext().isActive) {
-            applyConfiguration()
+            val configuredRateHz = applyConfiguration()
             if (resetPending.getAndSet(false)) pass.reset()
-            pass.tick()
+            pass.tick(configuredRateHz)
             deadlineNs += TICK_NS
             val now = System.nanoTime()
             if (deadlineNs < now) deadlineNs = now

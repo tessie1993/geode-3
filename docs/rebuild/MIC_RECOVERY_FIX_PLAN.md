@@ -124,3 +124,27 @@ not evidence for this patch. No local adb binary or emulator access is available
    Emulator timing, source code, buffer arithmetic and memory snapshots do not prove
    low latency or absence of native leaks. Actual headset/USB/Bluetooth behavior and
    capture-to-visual latency remain explicitly unverified without physical evidence.
+
+## 5. Bind analysis publication to its configured sample rate
+
+Source review found a race between applying native analyzer configuration and
+snapshotting PCM: a capture reconnect can publish a new rate and epoch between
+those operations, allowing one new-format window to use the old native rate.
+
+Plan:
+- Return the rate actually applied to the native analyzer and pass it explicitly
+  into the analysis tick.
+- Check that rate against the currently published input rate before native
+  analysis and again before publishing the resulting features, retaining the
+  existing epoch and pending-reset guards.
+- Serialize rate publication with the feature-publication gate. Keep native FFT
+  work outside that lock so capture never waits for analysis to finish.
+- Add deterministic tests at the production frame gate, including a rate change
+  after configuration but before the PCM snapshot, a change after snapshot but
+  before analysis, and a change during analysis. Prove the next correctly
+  configured tick can publish normally.
+
+Acceptance: a window whose rate differs from the configured native rate never
+reaches native analysis; a format/epoch change during native analysis suppresses
+its feature publication. Matching-rate uninterrupted frames still publish. These
+checks run in Actions, with no local build, tests or lint.
