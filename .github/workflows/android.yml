@@ -85,7 +85,7 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/android-setup
       - name: Verify all Kotlin modules
-        run: ./gradlew detekt ktlintCheck testDebugUnitTest :app:lintDebug --continue --stacktrace --console=plain
+        run: ./gradlew detekt ktlintCheck testDebugUnitTest :engine:audio-core:test :app:lintDebug --continue --stacktrace --console=plain
       - name: Show static analysis findings
         if: failure()
         run: python3 tools/android/print_quality_findings.py

@@ -36,11 +36,16 @@ class SmokeRun:
     def capture(self, label):
         self.step += 1
         stem = f"{self.step:02d}-{label}"
-        raw = self.adb("exec-out", "uiautomator", "dump", "/dev/tty").decode(
-            "utf-8", errors="replace"
-        )
-        start = raw.find("<?xml")
-        end = raw.rfind("</hierarchy>")
+        for attempt in range(3):
+            raw = self.adb("exec-out", "uiautomator", "dump", "/dev/tty").decode(
+                "utf-8", errors="replace"
+            )
+            start = raw.find("<?xml")
+            end = raw.rfind("</hierarchy>")
+            if start >= 0 and end >= 0:
+                break
+            (self.output / f"{stem}-capture-{attempt}.txt").write_text(raw)
+            time.sleep(1)
         if start < 0 or end < 0:
             raise RuntimeError(f"No UI hierarchy for {label}: {raw[:300]}")
         xml = raw[start:end + len("</hierarchy>")]
@@ -59,6 +64,19 @@ class SmokeRun:
             if node.get("enabled") != "false" and re.fullmatch(r"\[\d+,\d+\]\[\d+,\d+\]", node.get("bounds", "")):
                 return node
         return None
+
+    @staticmethod
+    def assert_selected(root, label):
+        parents = {child: parent for parent in root.iter() for child in parent}
+        for node in root.iter("node"):
+            if label not in (node.get("text"), node.get("content-desc")):
+                continue
+            current = node
+            while current is not None:
+                if current.get("selected") == "true":
+                    return
+                current = parents.get(current)
+        raise AssertionError(f"Destination was not selected after tap: {label}")
 
     def tap(self, label):
         # Poll for boot/onboarding transitions; if a scrollable container hides
@@ -106,9 +124,11 @@ class SmokeRun:
         self.shell("dumpsys", "gfxinfo", PACKAGE, "reset")
         for label in ("Library", "Visuals", "Settings", "Player"):
             self.tap(label)
-            self.capture(label.lower())
+            self.assert_selected(self.capture(label.lower()), label)
             if not self.shell("pidof", PACKAGE):
                 raise AssertionError(f"App process died after {label}")
+        (self.output / "navigation-gfxinfo.txt").write_text(self.shell("dumpsys", "gfxinfo", PACKAGE, "framestats"))
+        (self.output / "navigation-meminfo.txt").write_text(self.shell("dumpsys", "meminfo", PACKAGE))
         self.shell("am", "force-stop", PACKAGE)
         self.shell("am", "start", "-W", "-n", component)
         time.sleep(2)

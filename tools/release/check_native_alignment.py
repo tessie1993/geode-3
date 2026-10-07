@@ -49,6 +49,7 @@ def check_elf(data: bytes) -> None:
 
 def check_archive(path: Path) -> int:
     count = 0
+    errors = []
     with zipfile.ZipFile(path) as archive, path.open("rb") as raw:
         for entry in archive.infolist():
             if not entry.filename.endswith(".so"):
@@ -65,10 +66,12 @@ def check_archive(path: Path) -> int:
                     if start % PAGE_SIZE:
                         raise ValueError(f"uncompressed APK entry starts at unaligned offset {start}")
             except ValueError as error:
-                raise ValueError(f"{path.name}!{entry.filename}: {error}") from error
+                errors.append(f"{path.name}!{entry.filename}: {error}")
             count += 1
     if not count:
         raise ValueError(f"{path}: no native libraries found")
+    if errors:
+        raise ValueError("\n".join(errors))
     return count
 
 
