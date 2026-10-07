@@ -157,7 +157,11 @@ val checkNativePageAlignment =
         commandLine(
             "python3",
             rootProject.file("tools/release/check_native_alignment.py").absolutePath,
-            layout.buildDirectory.dir("outputs").get().asFile.absolutePath,
+            layout.buildDirectory
+                .dir("outputs")
+                .get()
+                .asFile
+                .absolutePath,
         )
     }
 
@@ -179,6 +183,8 @@ dependencies {
     implementation(libs.documentfile)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
+    // The older transitive native binary failed the 16 KB RELRO check in Actions.
+    implementation(libs.androidx.graphics.path)
     implementation(libs.compose.material3)
     implementation(libs.compose.material3.adaptive)
     implementation(libs.hilt.android)

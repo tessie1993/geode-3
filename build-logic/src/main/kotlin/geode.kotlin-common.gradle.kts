@@ -49,10 +49,10 @@ val analysisJdk = extensions.getByType<JavaToolchainService>().launcherFor {
 }
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
     jvmTarget = "17"
-    jdkHome.set(analysisJdk.map { it.metadata.installationPath.asFile })
+    jdkHome.set(analysisJdk.map { it.metadata.installationPath })
 }
 
 tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
     jvmTarget = "17"
-    jdkHome.set(analysisJdk.map { it.metadata.installationPath.asFile })
+    jdkHome.set(analysisJdk.map { it.metadata.installationPath })
 }

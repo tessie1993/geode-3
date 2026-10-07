@@ -25,6 +25,7 @@ Store listing inspection does not establish how a competitor behaves on a device
 | [Authentication, premium and security](SECURITY_AUTH_PREMIUM.md) | Identity, verified purchases, backend API contract, threat model and abuse tests |
 | [Build and delivery plan](DELIVERY_PLAN.md) | Ordered work packages, dependencies, migration, verification and completion gates |
 | [Play release plan](PLAY_RELEASE.md) | Signing, native compatibility, Console tasks, privacy, listing and rollout |
+| [GitHub Actions](CI.md) | Debug APK download, build/test jobs, emulator evidence and opt-in signed AAB |
 | [Implementation status](IMPLEMENTATION_STATUS.md) | Changes in this branch and evidence still needed |
 
 ## Relationship to the existing plan
