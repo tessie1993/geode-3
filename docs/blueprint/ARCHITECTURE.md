@@ -11,7 +11,7 @@ flowchart TD
   UI["Compose screens + ViewModels"] --> Session["MediaController / playback service"]
   UI --> Projects["Project + preset repositories"]
   Session --> Media["Media3 player + PCM tap"]
-  Sources["Oboe mic / playback capture"] --> PCM["Source router + bounded PCM queues"]
+  Sources["AAudio mic / playback capture"] --> PCM["Source router + bounded PCM queues"]
   Media --> PCM
   PCM --> Analysis["C++ analysis + timestamped features"]
   Analysis --> Render["C++ scene graph + safety composite"]
@@ -37,31 +37,30 @@ Keep current modules initially. Introduce `:feature:studio`, `:feature:player`,
 `:core:data` or `:integration:*` only after their interfaces are proven. Module
 count is not a quality objective.
 
-## Media3 and Oboe have distinct jobs
+## Media3 and AAudio have distinct jobs
 
 **Music:** ExoPlayer decodes and outputs local music, publishes one MediaSession
 and supplies PCM through an AudioProcessor. The service owns preferences and
 transport rules. UI, notification, widget and Auto are clients. Handle focus and
 becoming-noisy in the same lifetime as the player. Do not create a second audible
-Oboe output of the same PCM.
+native output of the same PCM.
 
-**Microphone:** Oboe opens an input stream with low-latency performance mode,
+**Microphone:** AAudio (NDK, API 26+) opens an input stream with low-latency performance mode,
 tries exclusive then shared, accepts actual sample rate/channel count/format and
-has a tested fallback. Its callback copies into preallocated native storage and
+has a tested AudioRecord fallback on releases where AAudio input is unreliable. Its callback copies into preallocated native storage and
 returns. Stream open/close/recovery belongs to a control thread. Request microphone
 permission only on source selection; default capture ends when its visible
 experience ends. Background capture, if added, requires its own valid microphone
 foreground service and launch rules.
 
 **Other-app audio:** Android playback capture uses AudioRecord + MediaProjection
-consent on supported devices. Oboe does not grant cross-app capture permission.
+consent on supported devices. AAudio does not grant cross-app capture permission.
 DRM/private/ineligible playback remains unavailable. On token revocation stop
 capture immediately, clear stale features and tell the UI.
 
-**Migration:** the current Oboe-backed NativePlayer is a competing output engine
-with unresolved focus and lifetime defects. Keep it out of the final advertised
-release path until repaired. Retiring it must migrate the saved engine preference
-to Media3 and remove unsupported controls; retain Oboe for the new input path.
+**Migration:** the Oboe-backed NativePlayer, bit-perfect output, crossfade and the
+Oboe dependency are removed (PR #10). The saved engine preference is ignored and
+playback runs on Media3.
 
 ## PCM, analysis and clocks
 
@@ -99,7 +98,7 @@ write is 16,384 frames. Inventory all producers before replacing it.
 
 | Buffer | Units / producer → consumer | Required behavior |
 |---|---|---|
-| Oboe input queue | PCM frames; audio callback → analyzer | Capacity derived from negotiated burst/rate plus measured worker jitter; preallocated; overwrite policy documented |
+| AAudio input queue | PCM frames; audio callback → analyzer | Capacity derived from negotiated burst/rate plus measured worker jitter; preallocated; overwrite policy documented |
 | Media3 tap queue | PCM frames; audio render thread → analyzer | Nonblocking; epoch/rate transition; bounded downmix and chunking |
 | FFT window/history | Frames; analyzer worker only | Size selected by frequency resolution/latency; hop tied to samples, not wall-clock polling |
 | Feature history | Timestamped frames; analyzer → renderer | Bounded enough for output lead and smoothing; deterministic interpolation; preserve event IDs |

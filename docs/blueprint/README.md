@@ -6,7 +6,7 @@ Research date: **7 October 2026** (Europe/Amsterdam). Repository inspected at
 **Product:** a premium Android music player and audiovisual instrument. Listen,
 explore fluid and spatial visuals, shape a look, and turn it into a repeatable
 performance, wallpaper or edited video. The implementation uses **C++20,
-Media3 and Oboe**, with Kotlin/Compose for Android integration and UI.
+Media3 and AAudio**, with Kotlin/Compose for Android integration and UI.
 
 This is the implementation blueprint, not a claim that the app is complete.
 The existing app has substantial code, but the October audit records failures
@@ -30,21 +30,34 @@ Store listing inspection does not establish how a competitor behaves on a device
 
 ## Relationship to the existing plan
 
-`docs/rebuild/PLAN.md` remains the historical work-package outline. This blueprint
-expands its acceptance criteria and resolves the owner's latest instruction:
-**retain Oboe**. Its A2/A2b instruction to remove Oboe and use AAudio directly is
-superseded. Use Media3 for normal music playback and Oboe for native low-latency
-capture; a competing native music player is not required to satisfy that choice.
-The current native player must be repaired or retired through a tested migration.
+`docs/rebuild/PLAN.md` remains the work-package outline. This blueprint expands
+its acceptance criteria. Owner decision (7 October 2026): **Oboe is removed**
+together with the native player, bit-perfect output and crossfade (PR #10). Media3
+plays music; native low-latency microphone input uses AAudio from the NDK directly,
+with an AudioRecord fallback where AAudio input is unreliable.
 
 Retain the planned Music, Visualizer, Customize, Studio, optional Google and
-premium capabilities. Do not delete the approximately 82 older styles until
-replacement coverage, saved-preset migration and user-visible quality are proven.
-Preserve the Fluid family, eight raymarched styles and MilkDrop boundary.
+premium capabilities. The owner's decision stands: the approximately 82 older
+styles are removed, and the removal ships with saved-preset migration (a removed
+style id maps to a kept style). Preserve the Fluid family, eight raymarched styles
+and MilkDrop boundary.
 
 GitHub Actions remains the compile/test/lint gate for this work, as specified by
 the existing plan. Device checks are separate gates. No production release or
 store readiness claim follows merely from an APK compiling.
+
+## Ownership (owner decision, 7 October 2026)
+
+Two agent sessions work on this repository. Each package has one owner; the other
+session does not edit its files while a PR for it is open.
+
+| Area | Owner | Packages |
+|---|---|---|
+| Visuals: engine correctness, projectM, 3D prototype and foundation, signature scenes, style catalog, universal controls and the new Visualizer/Customize screens | Claude Code session (`docs/rebuild/PLAN.md` lane B) | D03, D05, D08, D09, D11, the Visualizer/Customize part of D15 |
+| Microphone input (AAudio) | Claude Code session (lane A2b) | D06 |
+| Playback, data, account, premium and billing, Google identity and Drive, exporter and Studio, app shell, release | Codex sessions | D00–D02, D04, D07, D10, D12–D14, the rest of D15, D16–D19 |
+
+In-flight visual changes in PR #9 land first; later visual work builds on them.
 
 ## Decisions and unresolved external inputs
 
@@ -52,7 +65,7 @@ store readiness claim follows merely from an APK compiling.
 |---|---|
 | Engine | Retain the existing GLES C++ engine; evaluate Diligent in an isolated prototype before any renderer replacement |
 | Music | Media3 owns decoding, queue, media session, focus and background lifetime |
-| Native audio | Oboe input feeds a bounded native PCM queue; no JNI or allocation in the audio callback |
+| Native audio | AAudio input feeds a bounded native PCM queue; no JNI or allocation in the audio callback |
 | Privacy | Core experience works offline; Google/Drive and billing require separately reviewed disclosures |
 | Monetization | Existing plan's monthly/yearly subscription and lifetime purchase retained in specification; prices and product configuration are owner inputs |
 | Purchase security | Client-only entitlements have limitations; server verification is the recommended premium architecture, requiring an explicit change to the old no-backend decision |
