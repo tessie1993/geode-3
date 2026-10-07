@@ -17,25 +17,15 @@ A Play Store–ready app with these parts:
 - **Engineering:** Android best practices throughout.
 
 ## Ownership (owner decision, 7 October 2026)
-Codex sessions work on this repo too. They wrote the `docs/blueprint/` set and PRs #6–#9.
-The work is split by area. The table is also in `docs/blueprint/README.md`.
-
-| Area | Owner |
-|---|---|
-| **Visuals:** engine correctness, MilkDrop, the 3D prototype and foundation, new styles, the style cull with preset migration, universal controls, the new Visualizer/Customize screens (B1–B7) | This session |
-| **Mic:** low-latency AAudio microphone (A2b) | This session |
-| **Native player and Oboe removal (A2)** | This session, PR #10 |
-| **App and data:** player rules (A3, partly done in #6), premium and billing, sign-in and Drive, best practices (A4–A6) | Codex |
-| **Export:** exporter and Studio (C1–C2) | Codex |
-| **Release:** Play readiness and release (F2) | Codex |
-
-- PR #9 (Codex) changes `core/viz`, MilkDrop import, `VisualsHub` and `CustomizeTabs`.
-- Visual work here starts on top of it once it merges. Until then this session only does research and the mic, which #9 doesn't touch.
-- Research now covers only this session's areas:
-  - R1 visual sources (it extends `docs/blueprint/REFERENCE_APPS.md` and `OPEN_SOURCE.md`);
-  - R2 the 3D engine route;
-  - R5 buffers and limits on the visual and mic paths.
-- R3 (Play/Google) and R4 (readiness) are covered by `docs/blueprint/SECURITY_AUTH_PREMIUM.md` and `PLAY_RELEASE.md`.
+- **This session owns everything.** The owner said that what was written for Codex, Claude must do. Codex sessions stop.
+- That covers all lanes:
+  - visuals (B1–B7) and the mic (A2b);
+  - player rules, premium and billing, sign-in and Drive, best practices (A3–A6);
+  - exporter and Studio (C1–C2);
+  - Play readiness and release (F1–F3).
+- It also covers the Codex blueprint packages D00–D19 in `docs/blueprint/`.
+- PR #9 (Codex's visuals, audio, imports, export and account foundation) is taken over and driven to green first. Visual work builds on it.
+- Research R1, R2, R5 and R6 are in `docs/rebuild/research/`. R6 is the Play Store risk register and sets the release order: Scope A (free, offline, Play-ready) first, then Scope B (accounts, premium, Drive).
 
 ## Rules
 - **Workers and branches:** only Sonnet workers. Each worker does one job on one branch, which becomes one PR.
