@@ -11,6 +11,24 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Microphone capture on AAudio, with a tighter AudioRecord fallback.**
+  On Android 9 and later the microphone is read from a low-latency AAudio
+  input stream (`core/audio/capture/MicStream`): float, one channel, the
+  device's own sample rate, EXCLUSIVE with a SHARED retry, UNPROCESSED where
+  the device supports it and VOICE_RECOGNITION otherwise. It uses blocking
+  reads on the capture thread, so no code runs inside an audio callback, and
+  a headset or Bluetooth mic plugged in or out closes and reopens the stream
+  by itself and reports the new sample rate to the analysis again. Android
+  8.0 and 8.1, and any device where AAudio will not open, use AudioRecord,
+  now with the device's native rate tried before 44.1 kHz, a buffer of two
+  minimum sizes and 256-frame reads on an urgent-audio thread (it was 44.1
+  kHz, four minimum sizes and 1,024-frame reads). Permission handling,
+  `MicCapture`'s public API and other apps' audio capture are unchanged.
+  `AudioCapturePump` now reads a small `CaptureSource` instead of an
+  `AudioRecord`. New: `geode_mic_*` in the C ABI, `geode_mic_jni.cpp`, the
+  `aaudio` link (part of the NDK; no new library, `minSdk` still 26) and a
+  host test of the sample helpers in the native-regressions job.
+
 - **Native audio engine, bit-perfect USB output, crossfade and Oboe
   removed.** Playback always runs on Media3 ExoPlayer now, and nothing that
   ran on it changes: gapless joins, the equalizer, ReplayGain, speed and
