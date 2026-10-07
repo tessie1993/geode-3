@@ -4,7 +4,9 @@
 #include <cmath>
 
 #include "viz/LiveSignal.hpp"
+#include "viz/fluid/AllocationPlan.hpp"
 #include "viz/fluid/FluidMath.hpp"
+#include "viz/fluid/FluidQuality.hpp"
 
 namespace geode::viz {
 
@@ -13,7 +15,7 @@ void CurlFlowScene::init() {
     formats_ = fluid::probeFormats();
     available_ = formats_.ok;
     if (!available_) {
-        host_.onShaderError("Curl Flow unavailable: this GPU can't render half-float buffers");
+        host_.onShaderError("Curl Flow solver unavailable on this GPU; showing a recovery visual");
         return;
     }
     choreography_.reset();
@@ -26,43 +28,73 @@ void CurlFlowScene::init() {
         return;
     }
     fieldUniforms_ = UniformCache(program);
-    particles_.create(49152, formats_);
-    if (!particles_.available()) {
-        host_.onShaderError("Curl Flow unavailable: this GPU refused the particle state buffers");
-        release();
-    }
+    appliedTier_ = -1;
+    applyQualityTier();
 }
 
 void CurlFlowScene::resize(int width, int height) {
+    width_ = std::max(width, 1);
+    height_ = std::max(height, 1);
+    aspect_ = static_cast<float>(width_) / static_cast<float>(height_);
     if (!available_) return;
-    aspect_ = static_cast<float>(width) / static_cast<float>(std::max(height, 1));
-    if (field_) field_->release();
-    const auto [fw, fh] = fluid::resolution(96, width, height);
-    field_.emplace(fw, fh, formats_.rg, true);
-    field_->create();
-    if (!field_->ok()) {
-        field_->release();
-        field_.reset();
-        host_.onShaderError("Curl Flow unavailable: this GPU refused the flow-field buffer");
+    fluid::AllocationState state;
+    for (int attempt = 0; attempt < fluid::kAllocationAttempts; ++attempt) {
+        const int res = fluid::allocationRequest(fieldRes_, fieldRes_, attempt).sim;
+        const auto [fw, fh] = fluid::resolution(res, width_, height_);
+        std::optional<fluid::Fbo> field(std::in_place, fw, fh, formats_.rg, true);
+        field->create();
+        if (!field->ok()) continue;
+        field_ = std::move(field);
+        particles_.invalidateSeed();
+        allocationErrorReported_ = false;
+        return;
     }
-    particles_.invalidateSeed();
+    if (!allocationErrorReported_) {
+        host_.onShaderError(field_ ? "Curl Flow resize refused by GPU; keeping the previous buffer"
+                                  : "Curl Flow buffer refused by GPU; showing a recovery visual");
+        allocationErrorReported_ = true;
+    }
+}
+
+void CurlFlowScene::onApplyQualityTier(int index, bool userChanged) {
+    (void) userChanged;
+    if (!available_) return;
+    const auto& tier = fluid::quality::tier(index);
+    fieldRes_ = std::min(tier.simRes, 96);
+    const int requestedSide = std::min(tier.particleSide, 224);
+    for (int attempt = 0; attempt < fluid::kAllocationAttempts; ++attempt) {
+        const int side = fluid::particleSideRequest(requestedSide, attempt);
+        particles_.create(side * side, formats_);
+        if (particles_.available()) break;
+    }
+    if (!particles_.available()) host_.onShaderError("Curl Flow particle buffers refused by GPU; showing a recovery visual");
+    if (width_ > 1 && height_ > 1) resize(width_, height_);
 }
 
 void CurlFlowScene::update(const GeodeFeatureFrame& features, float dt) {
     pending_ = features;
     hasPending_ = true;
     lastDt_ = std::clamp(dt, 0.0f, 1.0f / 30.0f);
-    pcmKick_ = std::clamp(tickPcm(dt), 0.0f, 1.0f);
+    pcmKick_ = std::clamp(fluid::math::driven(tickPcm(dt), params_.audioDrive), 0.0f, 1.0f);
 }
 
 void CurlFlowScene::draw(float timeSeconds) {
     (void) timeSeconds;
-    if (!available_ || !field_) return;
+    resetFrameState();
+    saveGlState();
+    autoQualityTick();
+    if (!available_ || !field_ || !particles_.available()) {
+        restoreFramebufferAndViewport();
+        const auto f = hasPending_ ? fluid::scaledFeatures(pending_, params_.audioDrive) : GeodeFeatureFrame{};
+        recovery_.draw(loader_, params_, f, lastDt_, 10, host_.onShaderError);
+        hasPending_ = false;
+        restoreBlend();
+        return;
+    }
     const fluid::Fbo& fld = *field_;
-    saveFramebufferAndViewport();
 
     if (hasPending_) {
-        const GeodeFeatureFrame& f = pending_;
+        const GeodeFeatureFrame f = fluid::scaledFeatures(pending_, params_.audioDrive);
         wallTime_ = std::fmod(wallTime_ + lastDt_, kWallWrapSeconds);
         beatEnv_ = std::max(live::hit(f), beatEnv_ * std::exp(-lastDt_ / 0.35f));
         beatDrive_ = fluid::curl::beatDrive(beatEnv_, params_.beatResponse);
@@ -97,18 +129,22 @@ void CurlFlowScene::draw(float timeSeconds) {
     particles_.draw(aspect_, std::clamp(params_.particleSize, 0.4f, 4.0f) * viewportDpiScale(), params_.paletteBase(),
                     hue::span(params_.hueRange, params_.paletteRange()), fluid::curl::particleBrightness(beatDrive_),
                     static_cast<float>(params_.particleShape), particle_look::glow(params_.bloom), wallTime_);
+    restoreBlend();
 }
 
 float CurlFlowScene::trailRetention(const SceneParams& params) const { return fluid::curl::retention(params.trailLength, params.trails); }
 
 void CurlFlowScene::release() {
     particles_.release();
+    recovery_.release();
     if (field_) field_->release();
     field_.reset();
     if (fieldUniforms_.program() != 0) glDeleteProgram(fieldUniforms_.program());
     fieldUniforms_ = UniformCache(0);
     quad_.release();
     available_ = false;
+    allocationErrorReported_ = false;
+    appliedTier_ = -1;
 }
 
 }  // namespace geode::viz

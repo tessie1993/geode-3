@@ -7,7 +7,7 @@ namespace geode::viz::fluid {
 
 // Port of FluidMath.kt.
 namespace math {
-constexpr float kMinAudioDrive = 0.2f;
+constexpr float kMinAudioDrive = 0.0f;
 constexpr float kMaxAudioDrive = 2.5f;
 constexpr float kDriveCeiling = 1.5f;
 

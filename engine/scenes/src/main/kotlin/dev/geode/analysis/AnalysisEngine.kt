@@ -36,7 +36,12 @@ class AnalysisEngine(
     @Volatile
     var sampleRateHz: Int = 44100
         set(value) {
-            synchronized(publicationLock) { field = value }
+            synchronized(publicationLock) {
+                if (field != value) {
+                    field = value
+                    requestReset()
+                }
+            }
         }
 
     @Volatile
@@ -62,45 +67,21 @@ class AnalysisEngine(
 
     private val resetPending = AtomicBoolean(false)
 
+    private data class ResetRequest(
+        val position: SampleRing.Position,
+        val sampleRateHz: Int,
+    )
+
+    private var pendingReset: ResetRequest? = null
+
     fun reset() {
-        synchronized(publicationLock) {
-            resetPending.set(true)
-            _features.value = AudioFeatures.empty(bandCount)
-        }
+        synchronized(publicationLock) { requestReset() }
     }
 
-    /**
-     * A one-hop pulse held for the hops a display frame can span.
-     *
-     * The analyser fires `beat`, `transient`, `kick`, `snare`, `hat`, `downbeat`, `sectionBoundary`,
-     * `drop` and `arrival` for exactly one 16 ms hop. [features] is a StateFlow, which conflates,
-     * and the renderer reads it once per display frame, so at 30 fps (the thermal governor's
-     * paced rate) every other pulse used to be lost before any scene saw it. Each pulse now
-     * stays in the emitted frame for [PULSE_HOLD_HOPS] hops, long enough for any consumer
-     * sampling at 20 Hz or better. Consumers that must fire once per pulse edge-detect already
-     * (`live::Edge` in the fluid emitters); the rest take a max-envelope, for which a held
-     * value is the same value.
-     */
-    private class PulseHold {
-        var level = 0f
-            private set
-        private var hopsLeft = 0
-
-        fun step(value: Float): Float {
-            if (value > 0f) {
-                level = maxOf(level, value)
-                hopsLeft = PULSE_HOLD_HOPS
-            } else if (hopsLeft > 0) {
-                hopsLeft--
-                if (hopsLeft == 0) level = 0f
-            }
-            return level
-        }
-
-        fun reset() {
-            level = 0f
-            hopsLeft = 0
-        }
+    private fun requestReset() {
+        pendingReset = ResetRequest(ring.position(), sampleRateHz)
+        resetPending.set(true)
+        _features.value = AudioFeatures.empty(bandCount)
     }
 
     private inner class Pass {
@@ -110,89 +91,115 @@ class AnalysisEngine(
                 !resetPending.get() && ring.epoch == input.window.epoch
             }
         private var silent = false
-        private val beat = PulseHold()
-        private val beatStrength = PulseHold()
-        private val transient = PulseHold()
-        private val kick = PulseHold()
-        private val snare = PulseHold()
-        private val hat = PulseHold()
-        private val downbeat = PulseHold()
-        private val sectionBoundary = PulseHold()
-        private val drop = PulseHold()
-        private val arrival = PulseHold()
+        private val events = AnalysisEvents()
 
-        fun reset() {
+        private fun resetAnalyzer() {
             analyzer.reset()
-            listOf(beat, beatStrength, transient, kick, snare, hat, downbeat, sectionBoundary, drop, arrival)
-                .forEach(PulseHold::reset)
+            events.reset()
+        }
+
+        fun reset(request: ResetRequest) {
+            input.reset(request.position, request.sampleRateHz)
+            resetAnalyzer()
+            silent = false
         }
 
         fun tick(configuredRateHz: Int): Boolean {
-            val state = input.poll(System.nanoTime(), sampleRateHz)
-            if (input.discontinuity) {
-                reset()
-                silent = false
-            }
-            // Preserve the fixed 62.5 Hz native tracker cadence across normal chunk gaps.
-            // Freshness is used to bound stalled input, not to rescale tempo on bursty playback.
-            if (state == AnalysisInput.State.SILENT) {
-                if (!silent) {
-                    reset()
+            val nowNs = System.nanoTime()
+            events.beginBatch()
+            var newest: AudioFeatures? = null
+            for (hop in 0 until AnalysisInput.MAX_HOPS_PER_WAKE) {
+                val state = input.poll(nowNs, configuredRateHz)
+                if (input.discontinuity) {
+                    // The cursor already selected a retained window. Reset DSP
+                    // history without discarding that new epoch's fresh PCM.
+                    resetAnalyzer()
+                    newest = null
+                    silent = false
                     synchronized(publicationLock) {
                         _features.value = AudioFeatures.empty(bandCount)
                     }
-                    silent = true
                 }
-                return false
+                if (state == AnalysisInput.State.SILENT) {
+                    if (!silent) {
+                        resetAnalyzer()
+                        synchronized(publicationLock) {
+                            _features.value = AudioFeatures.empty(bandCount)
+                        }
+                        silent = true
+                    }
+                    return false
+                }
+                if (state == AnalysisInput.State.WAITING) break
+                silent = false
+                val window = input.window
+                val accepted =
+                    frameGate.run(
+                        configuredRateHz,
+                        analyze = {
+                            analyzer.analyze(window.mid, window.side, input.dtSeconds)
+                            snapshotFeatures()
+                        },
+                        publish = { frame ->
+                            newest = frame
+                            events.add(frame)
+                        },
+                    )
+                if (!accepted) {
+                    resetAnalyzer()
+                    return false
+                }
             }
-            silent = false
-            val window = input.window
+            // Only continuous values come from the newest window. Event maxima
+            // across all drained hops survive StateFlow/display conflation.
+            // WAITING advances these wall-time holds without a native FFT.
+            val frame = events.apply(newest ?: _features.value, nowNs)
             return frameGate.run(
                 configuredRateHz,
-                analyze = {
-                    analyzer.analyze(window.mid, window.side, DT_SECONDS)
-                    AudioFeatures(
-                        bands = analyzer.bands.copyOf(),
-                        waveform = analyzer.waveform.copyOf(),
-                        rms = analyzer.rms,
-                        bass = analyzer.bass,
-                        mid = analyzer.mid,
-                        treble = analyzer.treble,
-                        onset = analyzer.onset,
-                        beat = beat.step(if (analyzer.beat) 1f else 0f) > 0f,
-                        bpm = analyzer.bpm,
-                        centroid = analyzer.centroid,
-                        flux = analyzer.fluxValue,
-                        beatStrength = beatStrength.step(analyzer.beatStrength),
-                        transient = transient.step(analyzer.transient),
-                        beatPhase = analyzer.beatPhase,
-                        pulseConfidence = analyzer.pulseConfidence,
-                        macroEnergy = analyzer.macroEnergy,
-                        kick = kick.step(analyzer.kick),
-                        snare = snare.step(analyzer.snare),
-                        hat = hat.step(analyzer.hat),
-                        chroma = analyzer.chroma.copyOf(),
-                        chromaConfidence = analyzer.chromaConfidence,
-                        stereoWidth = analyzer.stereoWidth,
-                        stereoCorrelation = analyzer.stereoCorrelation,
-                        stereoPan = analyzer.stereoPan,
-                        tempoStability = analyzer.tempoStability,
-                        barPhase = analyzer.barPhase,
-                        beatInBar = analyzer.beatInBar,
-                        downbeat = downbeat.step(if (analyzer.downbeat) 1f else 0f) > 0f,
-                        downbeatConfidence = analyzer.downbeatConfidence,
-                        novelty = analyzer.novelty,
-                        sectionBoundary = sectionBoundary.step(if (analyzer.sectionBoundary) 1f else 0f) > 0f,
-                        buildup = analyzer.buildup,
-                        drop = drop.step(if (analyzer.drop) 1f else 0f) > 0f,
-                        arrival = arrival.step(if (analyzer.arrival) 1f else 0f) > 0f,
-                        harmonicity = analyzer.harmonicity,
-                        warmup = analyzer.warmup,
-                    )
-                },
-                publish = { frame -> _features.value = frame },
+                analyze = { frame },
+                publish = { _features.value = it },
             )
         }
+
+        private fun snapshotFeatures(): AudioFeatures =
+            AudioFeatures(
+                bands = analyzer.bands.copyOf(),
+                waveform = analyzer.waveform.copyOf(),
+                rms = analyzer.rms,
+                bass = analyzer.bass,
+                mid = analyzer.mid,
+                treble = analyzer.treble,
+                onset = analyzer.onset,
+                beat = analyzer.beat,
+                bpm = analyzer.bpm,
+                centroid = analyzer.centroid,
+                flux = analyzer.fluxValue,
+                beatStrength = analyzer.beatStrength,
+                transient = analyzer.transient,
+                beatPhase = analyzer.beatPhase,
+                pulseConfidence = analyzer.pulseConfidence,
+                macroEnergy = analyzer.macroEnergy,
+                kick = analyzer.kick,
+                snare = analyzer.snare,
+                hat = analyzer.hat,
+                chroma = analyzer.chroma.copyOf(),
+                chromaConfidence = analyzer.chromaConfidence,
+                stereoWidth = analyzer.stereoWidth,
+                stereoCorrelation = analyzer.stereoCorrelation,
+                stereoPan = analyzer.stereoPan,
+                tempoStability = analyzer.tempoStability,
+                barPhase = analyzer.barPhase,
+                beatInBar = analyzer.beatInBar,
+                downbeat = analyzer.downbeat,
+                downbeatConfidence = analyzer.downbeatConfidence,
+                novelty = analyzer.novelty,
+                sectionBoundary = analyzer.sectionBoundary,
+                buildup = analyzer.buildup,
+                drop = analyzer.drop,
+                arrival = analyzer.arrival,
+                harmonicity = analyzer.harmonicity,
+                warmup = analyzer.warmup,
+            )
     }
 
     private val worker = AnalysisWorker(loop = ::runAnalysis, release = analyzer::close)
@@ -218,8 +225,16 @@ class AnalysisEngine(
         var deadlineNs = System.nanoTime()
         while (currentCoroutineContext().isActive) {
             val configuredRateHz = applyConfiguration()
-            if (resetPending.getAndSet(false)) pass.reset()
-            pass.tick(configuredRateHz)
+            val resetRequest =
+                synchronized(publicationLock) {
+                    if (resetPending.getAndSet(false)) {
+                        pendingReset.also { pendingReset = null }
+                    } else {
+                        null
+                    }
+                }
+            if (resetRequest != null) pass.reset(resetRequest)
+            if (configuredRateHz == sampleRateHz) pass.tick(configuredRateHz)
             deadlineNs += TICK_NS
             val now = System.nanoTime()
             if (deadlineNs < now) deadlineNs = now
@@ -245,12 +260,7 @@ class AnalysisEngine(
     companion object {
         private const val TICK_NS = 16_000_000L
 
-        // Three hops is 48 ms: one 30 fps display frame plus scheduling jitter.
-        private const val PULSE_HOLD_HOPS = 3
-
         internal const val HOP_RATE_HZ = 1000f / 16f
-        internal const val DT_SECONDS = 16f / 1000f
-
         const val DEFAULT_BAND_COUNT = 64
 
         const val DEFAULT_FFT_SIZE = 2048

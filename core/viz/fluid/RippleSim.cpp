@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "util/Log.hpp"
+#include "viz/fluid/AllocationPlan.hpp"
 #include "viz/fluid/RippleMath.hpp"
 
 namespace geode::viz::fluid {
@@ -55,38 +56,39 @@ bool RippleSim::applyResolution(int newSimRes) {
 }
 
 void RippleSim::allocGrid() {
-    GLint prevFbo = 0;
-    GLint prevVp[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &prevFbo);
-    glGetIntegerv(GL_VIEWPORT, prevVp);
-    if (grid_) grid_->release();
-    if (ink_) ink_->release();
-    ink_.reset();
-    const auto [gw, gh] = resolution(simRes_, width_, height_);
-    grid_.emplace(gw, gh, formats_.rg, true);
-    grid_->create();
-    if (!grid_->ok()) {
-        GEODE_LOGW(kTag, "ripple grid allocation failed (%dx%d) - water disabled", gw, gh);
-        onShaderError("Water grid could not be allocated on this GPU");
-        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
-        glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
-        release();
+    AllocationState state;
+    int previous = 0;
+    for (int attempt = 0; attempt < kAllocationAttempts; ++attempt) {
+        const int request = allocationRequest(simRes_, simRes_, attempt).sim;
+        if (request == previous) break;
+        previous = request;
+        const auto [gw, gh] = resolution(request, width_, height_);
+        std::optional<DoubleFbo> grid(std::in_place, gw, gh, formats_.rg, true);
+        grid->create();
+        if (!grid->ok()) continue;
+        std::optional<DoubleFbo> ink;
+        if (inkEnabled && programsBuilt_ > kInkSplat) {
+            ink.emplace(gw, gh, formats_.rgba, true);
+            ink->create();
+            if (!ink->ok()) {
+                ink.reset();
+                // Ink is optional; retain visible waves even on the last retry.
+                if (attempt + 1 < kAllocationAttempts && request > 32) continue;
+            }
+        }
+        grid_ = std::move(grid);
+        ink_ = std::move(ink);
+        clearInk();
+        cellSize_ = 2.0f / static_cast<float>(gh);
+        allocationErrorReported_ = false;
+        if (attempt > 0) GEODE_LOGW(kTag, "using reduced ripple grid (%dx%d)", gw, gh);
         return;
     }
-    if (inkEnabled && programsBuilt_ > kInkSplat) {
-        ink_.emplace(gw, gh, formats_.rgba, true);
-        ink_->create();
-        if (!ink_->ok()) {
-            GEODE_LOGW(kTag, "ink grid allocation failed (%dx%d) - liquid layer off", gw, gh);
-            ink_->release();
-            ink_.reset();
-        } else {
-            clearInk();
-        }
+    if (!allocationErrorReported_) {
+        onShaderError(available() ? "Water resize refused by GPU; keeping the previous buffers"
+                                  : "Water buffers refused by GPU; showing a recovery visual");
+        allocationErrorReported_ = true;
     }
-    cellSize_ = 2.0f / static_cast<float>(gh);
-    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
-    glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
 }
 
 void RippleSim::clearInk() {
@@ -212,6 +214,7 @@ void RippleSim::release() {
     std::lock_guard<std::mutex> lock(pendingLock_);
     pending_.clear();
     available_ = false;
+    allocationErrorReported_ = false;
 }
 
 void RippleSim::useProgram(int prog, int gridW, int gridH) {

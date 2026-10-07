@@ -284,9 +284,6 @@ const float KIFS_SEED_MIX_MAX = 0.5;
 /** Far enough out that the camera stays outside the escape ball at every centre this style can reach. */
 const float KIFS_CAM_R = 4.15;
 
-/** Bass pushes the camera in as well as subdividing the structure - the two together read as one breath. */
-const float KIFS_CAM_PUSH = 0.20;
-
 /**
  * Chosen with KIFS_CAM_R so the cell box very nearly fills the frame height.
  *
@@ -498,11 +495,9 @@ vec3 kifsSky(vec3 rdLocal, float energy) {
 }
 
 void main() {
-    // view() first: zoom, rotation, drift, kaleidoscope, tiling, pixelate,
-    // shake, twist, warp, ripple and the beat pulse all live in there, and a
-    // style that builds its own screen coordinates silently drops fifteen of
-    // the user's controls.
-    vec2 uv = view();
+    // Stable perspective coordinates; orbit/rotation/sway belong to the rig,
+    // while fast audio deformation belongs to the folds below.
+    vec2 uv = spatialView();
 
     // Clamped once. The audio uniforms are 0..1.5 and auto-gained; the ceiling
     // stops a loud transient from taking a coefficient somewhere its constant
@@ -515,24 +510,17 @@ void main() {
     float trebA = min(uTrebleSmooth, 1.3);
     float enA = min(uEnergySmooth, 1.3);
 
-    // uSpike: the same accent, with a rise, and already silent between hits.
-    float hit = uSpike;
+    float hit = uAccent;
 
     // ---- camera -----------------------------------------------------------
     //
-    // It orbits forever on two unrelated slow rates, so the cathedral is seen
-    // from a new angle every second even in silence, and the yaw never repeats
-    // against the pitch inside a listening session. The pitch stays under 0.35
-    // rad, which is also what keeps the world up vector well away from the
-    // view direction so the basis below can never degenerate.
-    float yaw = uTime * 0.037;
-    float pitch = 0.34 * sin(uTime * 0.0231);
-    float camR = KIFS_CAM_R - KIFS_CAM_PUSH * bassA;
-    vec3 ro = vec3(cos(pitch) * sin(yaw), sin(pitch), cos(pitch) * cos(yaw)) * camR;
-    vec3 fwd = normalize(-ro);
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), fwd));
-    vec3 up = cross(fwd, right);
-    vec3 rd = normalize(right * uv.x + up * uv.y + fwd * KIFS_FOCAL);
+    // Slow native orbit/dolly and a world-up basis keep the composition
+    // legible while the faster band envelopes deform local folds.
+    vec3 ro = uCameraPosition;
+    vec3 fwd = uCameraForward;
+    vec3 right = uCameraRight;
+    vec3 up = uCameraUp;
+    vec3 rd = cameraRay(uv, KIFS_FOCAL);
 
     // ---- the fold set, built once per fragment ----------------------------
 
@@ -612,23 +600,9 @@ void main() {
 
     gSym = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 0.0;
 
-    // Detail buys fold depth as well as march steps: uSteps runs 64..128, and
-    // the extra rounds are what the extra steps are for. The BEAT steps it by
-    // one more - the only discrete thing on the frame, per the audio rules.
-    // One extra round adds a level of structure finer than everything already
-    // on screen, so the silhouette does not move and the surfaces gain texture
-    // instead: a crystallization on the hit rather than a pop. Scaled by the
-    // user's Beat response, so setting that to zero really does stop it.
-    //
-    // A held snap - a fold angle jumping to a NEW value on each beat and
-    // staying there until the next one - is what this wanted to be, and it is
-    // not available: a fragment shader has no state between frames, and there
-    // is no beat INDEX in the uniform contract to hash. uBeatPhase says how
-    // long ago the last transient was, not which transient it was, and
-    // recovering an index from it needs the tempo, which is not uploaded. The
-    // lurch in foldAngle above is the continuous form of the same gesture.
-    float iterBeat = step(0.30, hit * clamp(uBeatResponse, 0.0, 2.0));
-    gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0)) + iterBeat;
+    // Detail selects topology. Accents ease the fold angle above instead of
+    // adding/removing an entire fractal iteration on a threshold crossing.
+    gIters = mix(5.0, 7.0, clamp((uSteps - 64.0) / 64.0, 0.0, 1.0));
 
     // ---- march ------------------------------------------------------------
     //
@@ -706,7 +680,7 @@ void main() {
     float budget = max(uSteps, 1.0);
     // Camera-relative, so the mandala sits behind the cathedral from every
     // point of the orbit and turns as the view does.
-    vec3 sky = kifsSky(vec3(dot(rd, right), dot(rd, up), dot(rd, fwd)), enA);
+    vec3 sky = kifsSky(vec3(dot(rd, right), dot(rd, up), dot(rd, fwd)), min(uSwell, 1.3));
     vec3 col;
 
     if (hitT > 0.0) {

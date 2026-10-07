@@ -7,9 +7,11 @@
 #include <string>
 #include <vector>
 
+#include "viz/CameraRig.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
+#include "viz/SceneAudioResponse.hpp"
 #include "viz/Texture.hpp"
 
 namespace geode::viz {
@@ -42,40 +44,14 @@ private:
     static constexpr float kTwoPi = 6.2831853f;
     static constexpr float kAudioClamp = 1.5f;
 
-    // ---- the smoothed motion layer -----------------------------------------
-    //
-    // A fragment style has no frame-to-frame state, so everything a style could
-    // use to move SMOOTHLY has to be integrated here and handed over as a
-    // uniform. The raw uBass/uMid/uTreble envelopes still ship unchanged; these
-    // are the slew-limited companions a style reads when it wants the picture
-    // to breathe rather than to jump.
-    //
-    // Rise is deliberately slower than fall is fast, and both are slow enough
-    // that no single frame can move a value far: an 8 Hz one-pole covers about
-    // 13% of the gap in one 60fps frame, so a band spiking 0 -> 1 in one frame
-    // moves the smoothed value by 0.13, not by 1. That is what stops the flash.
-    static constexpr float kBandRiseHz = 8.0f;
-    static constexpr float kBandFallHz = 2.6f;
-    // The overall swell is slower again: it is the "how loud is this passage"
-    // signal, not the "what just happened" one.
-    static constexpr float kSwellRiseHz = 1.6f;
-    static constexpr float kSwellFallHz = 0.8f;
-
-    // One-pole toward `target`, framerate independent, with its own rate for
-    // rising and falling. Returns the new value.
-    static float slew(float current, float target, float dt, float riseHz, float fallHz);
-
-    // ---- wave three: the continuous motion layer ----------------------------
-    //
-    // motionField_ is this scene's own instance (see viz/MotionField.hpp): it
-    // is a pure function of the same GeodeFeatureFrame/dt sequence update()
-    // already receives, so every ShaderScene settles to the same continuous
-    // uniforms without needing a channel back to Renderer's own instance
-    // (which shapes SceneParams instead - see Renderer::resolveParams).
+    // MotionField supplies continuous musical structure, SceneAudioResponse
+    // supplies fast local geometry envelopes, and CameraRig deliberately
+    // filters audio more slowly. All retain state on the owning GL thread.
 
     void compilePendingIfAny();
     void uploadParams();
     void uploadMotion();
+    void uploadCamera();
     void uploadTouch();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
@@ -108,19 +84,17 @@ private:
 
     // The motion layer's integrated state. All of it survives from frame to
     // frame; none of it can be reconstructed inside the shader.
-    float smoothBass_ = 0.0f;
-    float smoothMid_ = 0.0f;
-    float smoothTreble_ = 0.0f;
-    float smoothEnergy_ = 0.0f;
-    float swell_ = 0.0f;
-    // Wave three: the continuous replacement for the old spike-latched state
-    // (uSpike/uMoveDir/uSpawnSeed/uSpawnAge/uFormPhase). See MotionField.hpp.
+    SceneAudioResponse audioResponse_;
+    CameraRig camera_;
+    // Legacy spike/spawn uniforms remain neutral; local accents have their
+    // own uAccent uniform so they cannot revive full-frame beat flashes.
     MotionField motionField_;
     SceneParams params_;
     float rotationAngle_ = 0.0f;
     float zoomPhase_ = 0.0f;
     float cyclePhase_ = 0.0f;
     float shaderTime_ = 0.0f;
+    double flowPhase_ = 0.0;
 
     std::vector<float> pcm_;
     int pcmCount_ = 0;

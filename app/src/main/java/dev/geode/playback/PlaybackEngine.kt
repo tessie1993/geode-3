@@ -36,6 +36,8 @@ class PlaybackSession internal constructor(
 
     internal val sampleRing = SampleRing(capacityFrames = 1 shl 16, channelCount = 2)
 
+    val analysis = dev.geode.analysis.AnalysisEngine(sampleRing)
+
     @Volatile
     var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
 
@@ -72,7 +74,6 @@ class PlaybackSession internal constructor(
         }.apply {
             boundaryListener =
                 TapBoundaryListener { ended, endedFrames, begun ->
-                    sampleRing.beginEpoch()
                     clockDriver.onTapBoundary(ended, endedFrames, begun)
                 }
         }
@@ -123,8 +124,6 @@ class PlaybackSession internal constructor(
     private val playbackPreferences = PlaybackPreferences(exoPlayer, replayGain::configure)
 
     val sleepTimer = SleepTimer(player, scope)
-
-    val analysis = dev.geode.analysis.AnalysisEngine(sampleRing)
 
     private val interestHook: () -> Unit = { syncAnalysis() }
 

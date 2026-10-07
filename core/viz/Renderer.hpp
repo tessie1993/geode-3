@@ -14,6 +14,7 @@
 #include "viz/Adsr.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Framebuffer.hpp"
+#include "viz/FramePcm.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/MotionField.hpp"
@@ -90,6 +91,7 @@ private:
 
     Scene* sceneFor(const std::string& id);
     Scene* builtScene(const std::string& id);
+    void pruneInactiveHeavyScenes(const std::string& keepId = {});
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
     void applyRenderScale();
@@ -152,9 +154,7 @@ private:
     std::atomic<bool> reducedMotion_{false};
     float morphFadeSec_ = 0.0f;
     float morphRemainSec_ = 0.0f;
-    std::vector<float> pcm_;
-    int pcmCount_ = 0;
-    std::vector<float> pcmDeliverScratch_;
+    FramePcm pcm_;
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
     std::vector<std::pair<std::string, std::string>> customShaders_;
     std::string fluidForceSrc_;

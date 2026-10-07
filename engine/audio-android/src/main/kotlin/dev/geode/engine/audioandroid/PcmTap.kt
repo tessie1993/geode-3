@@ -49,6 +49,9 @@ class PcmTap(
         }
         framesWritten = 0L
         format = next
+        // A same-rate seek or processor flush still ends the PCM epoch.
+        // Invalidate every sink consumer before any new-format notification.
+        sink.discontinuity()
         try {
             boundaryListener?.onTapBoundary(ended, endedFrames, next)
         } catch (survivable: RuntimeException) {

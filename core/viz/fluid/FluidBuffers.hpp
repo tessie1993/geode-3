@@ -26,6 +26,24 @@ struct Formats {
 Formats probeFormats();
 std::pair<int, int> resolution(int res, int width, int height);
 
+// Allocation and resampling must also work when called outside the frame reset.
+// In particular nullptr in TexImage2D is a PBO offset when an unpack buffer is bound.
+class AllocationState {
+public:
+    AllocationState();
+    ~AllocationState();
+    AllocationState(const AllocationState&) = delete;
+    AllocationState& operator=(const AllocationState&) = delete;
+
+private:
+    GLint drawFbo_ = 0, readFbo_ = 0, texture_ = 0, unpackBuffer_ = 0;
+    GLint program_ = 0, vao_ = 0, arrayBuffer_ = 0, activeTexture_ = GL_TEXTURE0, texture0_ = 0;
+    GLint viewport_[4]{}, blendFunc_[4]{};
+    GLfloat clearColor_[4]{};
+    GLboolean colorMask_[4]{};
+    bool scissor_ = false, blend_ = false;
+};
+
 // Port of FluidBuffers.Fbo: one texture behind one framebuffer, cleared to opaque black on creation.
 class Fbo {
 public:

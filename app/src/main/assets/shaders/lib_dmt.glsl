@@ -493,9 +493,9 @@ float dmtSatelliteCount() {
 
 /**
  * The flight path's lateral offset at depth z: two incommensurate sines per
- * axis (a tight weave inside a long sweep), plus a lean toward the current
- * travel direction. Because the lean is on uMoveDir, a spike banks the whole
- * tunnel ahead toward the new heading and the turn glides in on the CPU.
+ * axis (a tight weave inside a long sweep). CameraRig::tunnelCenter evaluates
+ * the same equation on the CPU. Sound deforms local surfaces, never the
+ * corridor under the camera, so a hit cannot teleport the whole environment.
  *
  * The camera rides this path and the tunnel is warped onto it, so the tube
  * curves up, down, left and right ahead of the viewer and the view is always
@@ -503,8 +503,7 @@ float dmtSatelliteCount() {
  */
 vec2 dmtTunnelPath(float z) {
     return vec2(1.4 * sin(z * 0.21) + 2.6 * sin(z * 0.043 + 1.3),
-                1.2 * cos(z * 0.17 + 0.7) + 2.2 * cos(z * 0.031))
-         + uMoveDir * z * 0.12;
+                1.2 * cos(z * 0.17 + 0.7) + 2.2 * cos(z * 0.031));
 }
 
 /**

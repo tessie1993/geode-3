@@ -6,6 +6,7 @@
 
 #include "viz/Quad.hpp"
 #include "viz/fluid/FluidEmitters.hpp"
+#include "viz/fluid/FluidRecovery.hpp"
 #include "viz/fluid/RippleSim.hpp"
 #include "viz/scenes/FluidSceneBase.hpp"
 
@@ -43,6 +44,7 @@ private:
     float nextFloat() { return uniform_(rng_); }
 
     fluid::RippleSim sim_;
+    fluid::RecoveryDisplay recovery_;
     fluid::Emitters emitters_;
     std::vector<fluid::Splat> splats_;
     UniformCache display_{0};

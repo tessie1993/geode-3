@@ -31,7 +31,8 @@ public:
     std::function<void(const std::string&)> onShaderError = [](const std::string&) {};
 
     int simRes() const { return simRes_; }
-    bool available() const { return available_; }
+    bool ready() const { return available_; }
+    bool available() const { return available_ && grid_ && grid_->ok(); }
     float aspect() const { return aspect_; }
     GLuint heightTex() const { return grid_ ? grid_->read().tex() : 0; }
     GLuint inkTex() const { return ink_ ? ink_->read().tex() : 0; }
@@ -76,6 +77,7 @@ private:
     const ProgramLoader& loader_;
     int simRes_ = 384;
     bool available_ = false;
+    bool allocationErrorReported_ = false;
     int width_ = 1;
     int height_ = 1;
     float aspect_ = 1.0f;

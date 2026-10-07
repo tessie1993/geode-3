@@ -63,10 +63,14 @@ private:
     static constexpr float kNoveltyAvgSeconds = 10.0f;
 
     // Relative-level attack/release (seconds).
-    static constexpr float kEnergyAttackSeconds = 0.25f;
-    static constexpr float kEnergyReleaseSeconds = 1.0f;
-    static constexpr float kBandAttackSeconds = 0.15f;
-    static constexpr float kBandReleaseSeconds = 0.6f;
+    static constexpr float kEnergyAttackSeconds = 0.10f;
+    static constexpr float kEnergyReleaseSeconds = 0.50f;
+    static constexpr float kBassAttackSeconds = 0.030f;
+    static constexpr float kBassReleaseSeconds = 0.25f;
+    static constexpr float kMidAttackSeconds = 0.055f;
+    static constexpr float kMidReleaseSeconds = 0.24f;
+    static constexpr float kTrebleAttackSeconds = 0.012f;
+    static constexpr float kTrebleReleaseSeconds = 0.09f;
 
     // Symmetric one-pole time constants (seconds).
     static constexpr float kBrightSeconds = 0.5f;

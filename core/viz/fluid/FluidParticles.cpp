@@ -13,6 +13,7 @@ constexpr const char* kTag = "FluidSim";
 }
 
 void Particles::create(int particleCount, const Formats& formats) {
+    AllocationState state;
     release();
     side_ = math::stateSide(particleCount);
     count_ = side_ * side_;
@@ -55,6 +56,13 @@ void Particles::create(int particleCount, const Formats& formats) {
     glBindVertexArray(pointsVao_);
     glBindBuffer(GL_ARRAY_BUFFER, pointsVbo_);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(texels.size() * sizeof(float)), texels.data(), GL_STATIC_DRAW);
+    GLint allocatedBytes = 0;
+    glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &allocatedBytes);
+    if (pointsVao_ == 0 || pointsVbo_ == 0 || allocatedBytes != static_cast<GLint>(texels.size() * sizeof(float))) {
+        GEODE_LOGW(kTag, "particle coordinate buffer allocation failed");
+        release();
+        return;
+    }
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
     glBindVertexArray(0);

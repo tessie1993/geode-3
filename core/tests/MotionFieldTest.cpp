@@ -85,6 +85,68 @@ void sectionChangesEaseTheRotationRate() {
         previousRate = rate;
     }
 }
+
+void zeroSpeedAndZeroAudioDriveAreRespected() {
+    MotionField motion;
+    motion.step(steadyMusic(), 1.0f / 60.0f);
+    SceneParams params;
+    params.speed = 0.0f;
+    expectNear(motion.apply(params, false).speed, 0.0f, 0.0f,
+               "zero scene speed must not be raised by audio modulation");
+    params.audioDrive = 0.0f;
+    params.speed = 0.7f;
+    params.motionDrift = 0.0f;
+    params.motionAmount = 1.0f;
+    params.motionBreath = 1.0f;
+    params.motionHue = 1.0f;
+    const auto quiet = motion.apply(params, false);
+    auto frame = steadyMusic();
+    frame.rms = 0.1f;
+    frame.bass = 1.5f;
+    frame.mid = 0.0f;
+    frame.treble = 1.5f;
+    frame.centroid = 1.0f;
+    frame.harmonicity = 1.0f;
+    for (int i = 0; i < 120; ++i) motion.step(frame, 1.0f / 60.0f);
+    const auto loud = motion.apply(params, false);
+    expectNear(loud.speed, params.speed, 1e-6f, "zero audio drive must preserve scene speed");
+    expectNear(loud.zoom, quiet.zoom, 1e-6f, "zero audio drive must disable musical breathing");
+    expectNear(loud.warp, quiet.warp, 1e-6f, "zero audio drive must disable musical deformation");
+    expectNear(loud.fluidCurl, quiet.fluidCurl, 1e-6f, "zero audio drive must disable bass fluid modulation");
+    expectNear(loud.colorShift, quiet.colorShift, 1e-6f, "zero audio drive must disable musical hue changes");
+}
+
+MotionField::State bandStepResponse(int fps) {
+    MotionField motion;
+    auto frame = steadyMusic();
+    for (int i = 0; i < 4 * fps; ++i) motion.step(frame, 1.0f / fps);
+    frame.bass = frame.mid = frame.treble = 1.5f;
+    for (int i = 0; i < fps / 10; ++i) motion.step(frame, 1.0f / fps);
+    return motion.state();
+}
+
+void bandsHaveDistinctTimelyResponses() {
+    const auto reference = bandStepResponse(60);
+    if (!(reference.trebRel > reference.bassRel && reference.bassRel > reference.midRel)) {
+        throw std::runtime_error("high detail, bass mass and mid deformation need distinct attacks");
+    }
+    if (reference.bassRel < 1.40f || reference.midRel < 1.35f) {
+        throw std::runtime_error("musical geometry must respond within 100ms");
+    }
+    for (int fps : {30, 120}) {
+        const auto response = bandStepResponse(fps);
+        expectNear(response.bassRel, reference.bassRel, 0.002f, "bass response must be frame-rate independent");
+        expectNear(response.midRel, reference.midRel, 0.002f, "mid response must be frame-rate independent");
+        expectNear(response.trebRel, reference.trebRel, 0.002f, "treble response must be frame-rate independent");
+    }
+    MotionField motion;
+    for (int i = 0; i < 120; ++i) motion.step(steadyMusic(), 1.0f / 60.0f);
+    const GeodeFeatureFrame silence{};
+    for (int i = 0; i < 120; ++i) motion.step(silence, 1.0f / 60.0f);
+    expectNear(motion.state().bassRel, 0.0f, 0.001f, "bass must settle after silence");
+    expectNear(motion.state().midRel, 0.0f, 0.001f, "mid must settle after silence");
+    expectNear(motion.state().trebRel, 0.0f, 0.001f, "treble must settle after silence");
+}
 }  // namespace
 
 int main() {
@@ -92,6 +154,8 @@ int main() {
         for (int fps : {30, 60, 120}) rotationStaysConstantThroughAngleWraps(fps);
         driftDialAndReducedMotionScaleTheRate();
         sectionChangesEaseTheRotationRate();
+        zeroSpeedAndZeroAudioDriveAreRespected();
+        bandsHaveDistinctTimelyResponses();
         std::cout << "MotionField tests passed\n";
         return 0;
     } catch (const std::exception& error) {

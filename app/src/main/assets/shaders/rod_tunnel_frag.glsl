@@ -113,32 +113,22 @@ vec3 normalAt(vec3 p, float eps) {
 }
 
 void main() {
-    vec2 uv = view();
+    vec2 uv = spatialView();
     float bassA = min(uBassSmooth, 1.3);
     float midA = min(uMidSmooth, 1.3);
     float trebA = min(uTrebleSmooth, 1.3);
     float enA = min(uEnergySmooth, 1.3);
-    float hit = uSpike;
+    float hit = uAccent;
 
-    gTwist = 0.25 + 0.55 * midA;
-    // Rod to pearls and back: a triangle of uFormPhase, so the morph is deep
-    // in the middle of the ring and smooth at both ends, and glides because
-    // uFormPhase does.
-    gBeadDepth = 1.0 - abs(2.0 * fract(uFormPhase) - 1.0);
+    gTwist = 0.25 + 0.55 * midA + 0.08 * uTwist;
+    // Low-band deformation and a small local accent walk rods toward pearls.
+    gBeadDepth = clamp(0.18 + 0.28 * bassA + 0.08 * hit + 0.15 * uMorph
+                      + 0.12 * sin(uTime * 0.13), 0.0, 0.85);
 
-    // The camera's distance down the tunnel, INTEGRATED rather than `uTime * rate`.
-    // Multiplying a running clock by a loudness-dependent rate does not speed the
-    // camera up, it teleports it: at t=60s a rate moving 1.4 -> 3.6 jumps the
-    // viewpoint 132 units down the tube in one frame. uFlowPhase only ever advances.
-    float fly = uFlowPhase * 9.0 + uTime * 1.4;
-    // A slow roll, so the horizon of the tube turns as it banks.
-    float roll = uTime * 0.08 + 0.25 * sin(uTime * 0.031);
-    vec3 ro;
-    vec3 rd;
-    dmtFlightRay(uv, ROD_FOCAL, fly, roll, ro, rd);
-    // Sit a little off the axis, in the tube's own frame, so the wall is not
-    // seen dead centre.
-    ro.xy += vec2(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23));
+    // Integrated, look-ahead flight with a world-up horizon. Fast audio
+    // changes bead depth, not the position or roll of the camera.
+    vec3 ro = uCameraPosition;
+    vec3 rd = cameraRay(uv, ROD_FOCAL);
 
     float t = 0.02;
     float hitT = -1.0;
@@ -157,13 +147,11 @@ void main() {
         t += max(d * ROD_STEP, eps);
     }
 
-    float hueShift = 0.12 * hit * clamp(uBeatResponse, 0.0, 2.0);
+    float hueShift = 0.0;
     vec3 coreCol = pal(0.08 + hueShift);
-    // The sky: the mandala on the flight direction. The camera basis from
-    // dmtFlightRay has +z along the path, so the direction is taken relative
-    // to that frame rather than to the world's: the mandala is always ahead.
-    vec3 rdLocal = transpose(dmtFlightBasis(fly, roll)) * rd;
-    vec3 sky = dmtChrysanthemum(rdLocal, 0.62 + hueShift, enA);
+    // The sky follows the stable flight basis and slow passage envelope.
+    vec3 rdLocal = transpose(cameraBasis()) * rd;
+    vec3 sky = dmtChrysanthemum(rdLocal, 0.62 + hueShift, min(uSwell, 1.3));
     float onAxis = pow(max(rdLocal.z, 0.0), 28.0);
     float tGlow = hitT > 0.0 ? hitT : ROD_FAR;
 

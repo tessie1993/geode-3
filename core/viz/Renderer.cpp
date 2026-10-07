@@ -12,7 +12,6 @@ namespace {
 constexpr const char* kTag = "GeodeRenderer";
 constexpr int kPaletteSize = 256;
 constexpr int kPaletteRows = 5;
-constexpr int kPcmCapacity = 512 * 8;
 }  // namespace
 
 Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
@@ -24,9 +23,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); }}),
-      compositePass_(assets_, &programCache_),
-      pcm_(kPcmCapacity, 0.0f),
-      pcmDeliverScratch_(kPcmCapacity, 0.0f) {
+      compositePass_(assets_, &programCache_) {
     programCache_.install(cacheDir_);
 }
 
@@ -72,10 +69,7 @@ void Renderer::beginParamMorph(float seconds) {
 
 void Renderer::pushPcm(const float* samples, int count) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    const int n = std::min(count, kPcmCapacity);
-    if (n <= 0) return;
-    std::copy(samples + (count - n), samples + count, pcm_.begin());
-    pcmCount_ = n;
+    pcm_.push(samples, count);
 }
 
 void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
@@ -326,6 +320,7 @@ void Renderer::onSurfaceCreated() {
     overlays_.recreate();
     {
         std::lock_guard<std::mutex> lock(stateLock_);
+        pcm_.reset();
         if (!fluidForceSrc_.empty() || !fluidDyeSrc_.empty()) fluidInjectionDirty_ = true;
         // W00: the compositePass_.releaseStaleTextures() call above already dropped the overlay/
         // underlay GL textures, so re-arm from the retained pixel buffers to reupload them once
@@ -377,6 +372,7 @@ void Renderer::applyRenderScale() {
     const float scale = supersampleFactor(width_, height_) * thermalTierInfo(appliedTier_).renderScale;
     renderWidth_ = std::max(static_cast<int>(width_ * scale), 1);
     renderHeight_ = std::max(static_cast<int>(height_ * scale), 1);
+    pruneInactiveHeavyScenes();
     for (auto& entry : scenes_) {
         entry.second->resize(renderWidth_, renderHeight_);
         entry.second->setWindowSize(width_, height_);
@@ -417,12 +413,25 @@ Scene* Renderer::builtScene(const std::string& id) {
 }
 
 Scene* Renderer::sceneFor(const std::string& id) {
+    // Release idle solvers before allocating another one. Live transition and
+    // layer pointers are retained until their final render has completed.
+    pruneInactiveHeavyScenes(id);
     if (Scene* scene = builtScene(id)) return scene;
     auto built = buildScene(id);
     if (!built) return nullptr;
     Scene* scene = built.get();
     scenes_.emplace_back(id, std::move(built));
     return scene;
+}
+
+void Renderer::pruneInactiveHeavyScenes(const std::string& keepId) {
+    scenes_.erase(std::remove_if(scenes_.begin(), scenes_.end(), [&](auto& entry) {
+        Scene* scene = entry.second.get();
+        if (scene->family() != SceneFamily::Fluid || entry.first == keepId || scene == activeScene_ ||
+            scene == layerScene_ || scene == outgoingScene_) return false;
+        scene->release();
+        return true;
+    }), scenes_.end());
 }
 
 std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
@@ -446,8 +455,8 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     }
     if (paletteLutTex_ != 0) scene->setPaletteLut(paletteLutTex_);
     scene->setTouchField(&touchField_);
-    scene->init();
     scene->setParams(initialParams);
+    scene->init();
     scene->resize(renderWidth_, renderHeight_);
     const std::string custom = customShaderFor(id);
     if (!custom.empty()) scene->setFragmentSource(custom);

@@ -49,9 +49,8 @@ out vec4 fragColor;
 // ---- audio ------------------------------------------------------------------
 //
 // uSwell sets the dye's density, uBassSmooth the fold depth, uTrebleSmooth the
-// filament sharpness. A spike re-aims the flight (uMoveDir), re-seeds the dye
-// (uSpawnSeed) and moves the fold count to a new plateau (uFormPhase). The
-// core's flare rides uSpike, which has a rise on it, so it swells.
+// filament sharpness. Mid-band energy and edge-latched accents bend local
+// folds and gently widen the small core halo. Camera travel stays independent.
 
 #define NF_MAX_STEPS 96
 #define NF_FOCAL 1.35
@@ -94,16 +93,16 @@ float density(vec3 p, float bend, float squash, float sharp, float scale, float 
 }
 
 void main() {
-    vec2 uv = view();
+    vec2 uv = spatialView();
 
     float bass = clamp(uBassSmooth, 0.0, 1.5);
+    float mid = clamp(uMidSmooth, 0.0, 1.5);
     float treb = clamp(uTrebleSmooth, 0.0, 1.5);
     float swell = clamp(uSwell, 0.0, 1.5);
     float finger = touchFalloff(uv, 0.6);
 
-    // A spike moves the fold's bend to a new plateau: the structure changes
-    // species - crystalline, coral, lattice - and holds there.
-    float bend = 0.35 + 0.55 * uFormPhase;
+    // Local deformation uses the faster mid-band and accent channels.
+    float bend = 0.35 + 0.18 * mid + 0.20 * uMorph + 0.035 * uAccent;
     // Kept inside 1.22..1.42. Below it the iteration barely folds and the
     // volume is fog; above it the trap outruns its own scale correction and
     // the structure turns to noise.
@@ -112,14 +111,10 @@ void main() {
     float warpScale = 0.95 + 0.30 * swell;
     float warpAmount = 0.13 + 0.10 * bass + 0.06 * finger;
 
-    // The flight. Position is INTEGRATED on uFlowPhase - loudness sets how fast
-    // the camera travels, never where it is - and the path banks the heading.
-    float fly = uFlowPhase * 2.2;
-    float roll = uTime * 0.05;
-    vec3 ro;
-    vec3 rd;
-    dmtFlightRay(uv, NF_FOCAL, fly, roll, ro, rd);
-    mat3 flight = dmtFlightBasis(fly, roll);
+    // CPU-integrated flight follows the same corridor without continuous roll.
+    vec3 ro = uCameraPosition;
+    vec3 rd = cameraRay(uv, NF_FOCAL);
+    mat3 flight = cameraBasis();
 
     // ---- the volume march ---------------------------------------------------
     //
@@ -165,8 +160,8 @@ void main() {
 
     // The core the flight is aimed at: a small bright sun on the axis, its
     // halo swelling on a spike rather than flashing.
-    float axis = pow(max(1.0 - length(uv) * 0.9, 0.0), 6.0);
-    col += pal(0.06) * axis * (0.16 + 0.26 * uSpike) * trans;
+    float axis = pow(max(1.0 - length(uv) * (0.9 - 0.06 * uAccent), 0.0), 6.0);
+    col += pal(0.06) * axis * 0.16 * trans;
 
     // The particle layer, matching the rest of the family.
     col += mix(pal(0.50), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;

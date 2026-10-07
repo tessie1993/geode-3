@@ -114,6 +114,38 @@ uniform float uTouchSpin;
  */
 uniform float uSteps;
 
+// The native camera owns its integrated pose and a world-up look-at basis.
+// Unused uniforms link away for legacy and custom shaders using view().
+uniform vec3 uCameraPosition;
+uniform vec3 uCameraRight;
+uniform vec3 uCameraUp;
+uniform vec3 uCameraForward;
+
+mat3 cameraBasis() { return mat3(uCameraRight, uCameraUp, uCameraForward); }
+vec3 cameraRay(vec2 uv, float focal) {
+    return normalize(uCameraRight * uv.x + uCameraUp * uv.y + uCameraForward * focal);
+}
+
+// A perspective ray gets a stable image plane. Geometry receives morph,
+// turbulence and audio deformation separately instead of polar-warping the
+// entire camera projection. Explicit optical effects remain user controlled.
+vec2 spatialView() {
+    vec2 uv = vUv * 2.0 - 1.0;
+    uv.x *= uResolution.x / max(uResolution.y, 1.0);
+    if (uPixelate > 0.001) {
+        float px = mix(1.0, 12.0, uPixelate) * 24.0;
+        uv = floor(uv * px) / px;
+    }
+    if (uMirrorX > 0.5) uv.x = abs(uv.x);
+    if (uKaleido > 0.5 && uSymmetry >= 2.0) {
+        float seg = 6.2831853 / uSymmetry;
+        float ang = abs(mod(atan(uv.y, uv.x), seg) - seg * 0.5);
+        uv = vec2(cos(ang), sin(ang)) * length(uv);
+    }
+    float zoom = uZoom * pow(2.0, 1.0 - abs(2.0 * uZoomPhase - 1.0));
+    return uv / max(zoom, 0.05);
+}
+
 float aband(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.25)).r; }
 float awave(float x) { return texture(uAudioTex, vec2(clamp(x, 0.0, 1.0), 0.75)).r; }
 

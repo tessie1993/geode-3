@@ -795,7 +795,8 @@ vec3 room(vec3 rd, vec2 uv, float hue) {
     // - five fingers in one place sum to five - and a full-screen brightness
     // term is exactly the kind of thing VisualSafety's flash budget is about.
     c += pal(hue + 0.30) * clamp(touchWake(uv), 0.0, 3.0) * 0.045;
-    return c * (0.85 + 0.30 * clamp(uEnergy, 0.0, 1.5));
+    // Passage-level exposure keeps individual drum hits out of the room light.
+    return c * (0.85 + 0.30 * clamp(uSwell, 0.0, 1.5));
 }
 
 void main() {

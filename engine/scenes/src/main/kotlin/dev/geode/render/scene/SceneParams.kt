@@ -14,7 +14,7 @@ data class SceneParams(
     // Inert since wave three; removed with the next format bump.
     val shake: Float = 0f,
     val audioDrive: Float = 1f,
-    // Inert since wave three; removed with the next format bump.
+    // Strength of localized, edge-latched accents in spatial shader scenes.
     val beatResponse: Float = 1f,
     val turbulence: Float = 0f,
     val density: Float = 1f,
@@ -155,8 +155,7 @@ data class SceneParams(
     // with the music. Inert since wave three (core/viz/MotionField replaced it); kept so a preset
     // saved before wave three still decodes.
     val formDrive: Float = 0.7f,
-    // Wave three: the continuous motion system (core/viz/MotionField), which replaces
-    // formDrive/beatResponse/flash/strobe/pulse/shake as the way the music moves a scene.
+    // Continuous motion controls, separate from localized beat accents.
     // Appended after the older fields so every existing wire index survives.
     val motionAmount: Float = 0.7f,
     val motionBreath: Float = 0.5f,

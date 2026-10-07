@@ -822,7 +822,11 @@ void main() {
     // down +z from a fixed standoff, so the world direction is its frame),
     // tilted through the palette by height as the old ramp was. It carries
     // its own floor, so a thin nebula still sits in a space that is not black.
-    vec3 sky = dmtChrysanthemum(rd, NEB_SKY_HUE + NEB_SKY_TILT * rd.y, energy) * glowGain;
+    // Background exposure follows the passage, while fast energy still
+    // controls the medium and local material emission above.
+    float skyEnergy = clamp(uSwell, 0.0, 1.5);
+    float skyGain = NEB_ENERGY_BASE + NEB_ENERGY_GAIN * skyEnergy;
+    vec3 sky = dmtChrysanthemum(rd, NEB_SKY_HUE + NEB_SKY_TILT * rd.y, skyEnergy) * skyGain;
     col += sky * trans;
 
     // Corner falloff, floored: on a wide aspect a fade to zero would black out

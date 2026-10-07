@@ -2,6 +2,7 @@
 #include <GLES3/gl3.h>
 
 #include <array>
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -31,6 +32,7 @@ public:
     float timeSeconds = 0.0f;
     std::array<float, 4> audio{};
     float lookHue = 0.0f;
+    std::function<void(const std::string&)> onShaderError = [](const std::string&) {};
 
     bool available() const { return available_; }
 

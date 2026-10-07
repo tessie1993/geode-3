@@ -9,7 +9,7 @@
 namespace geode::viz {
 
 void WaterScene::init() {
-    quad_.forget();
+    release();
     sim_.onShaderError = [this](const std::string& m) { host_.onShaderError(m); };
     sim_.inkEnabled = true;
     sim_.create();
@@ -18,8 +18,8 @@ void WaterScene::init() {
     lastUserQuality_ = -1;
     autoDowngrade_ = 0;
     displayOk_ = false;
-    if (!sim_.available()) {
-        host_.onShaderError("Water style unavailable: this GPU can't render half-float buffers");
+    if (!sim_.ready()) {
+        host_.onShaderError("Water solver unavailable on this GPU; showing a recovery visual");
         return;
     }
     std::string error;
@@ -90,7 +90,6 @@ void WaterScene::drainTouchStrokes(float rippleStrength, float baseHue) {
 
 void WaterScene::draw(float timeSeconds) {
     (void) timeSeconds;
-    if (!sim_.available() || !displayOk_) return;
     resetFrameState();
     const SceneParams& p = params_;
     const GeodeFeatureFrame f = scaledFeatures();
@@ -98,6 +97,13 @@ void WaterScene::draw(float timeSeconds) {
 
     saveGlState();
     autoQualityTick();
+    if (!sim_.available() || !displayOk_) {
+        restoreFramebufferAndViewport();
+        recovery_.draw(loader_, p, f, lastDt_, 9, host_.onShaderError);
+        hasPending_ = false;
+        restoreBlend();
+        return;
+    }
 
     sim_.waveSpeed = 1.2f * std::clamp(p.waterWaveSpeed, 0.2f, 2.0f);
     sim_.damping = std::clamp(p.waterDamping, 0.9f, 0.999f);
@@ -159,6 +165,7 @@ void WaterScene::draw(float timeSeconds) {
 
 void WaterScene::release() {
     sim_.release();
+    recovery_.release();
     if (display_.program() != 0) glDeleteProgram(display_.program());
     display_ = UniformCache(0);
     displayOk_ = false;
