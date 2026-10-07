@@ -1,0 +1,53 @@
+{
+  "upstream": "https://github.com/androidx/androidx",
+  "commit": "b780700e4b66ed38927ca1de28872d915b06a57c",
+  "subdirectory": "graphics/graphics-path/src/main/cpp",
+  "files": [
+    {
+      "path": "Conic.cpp",
+      "git_blob": "e22e2b2c0643d377f21bc92a18458867618296a2"
+    },
+    {
+      "path": "Conic.h",
+      "git_blob": "2bd34419cd410e0c38391ecf580e068f0fc59191"
+    },
+    {
+      "path": "Path.h",
+      "git_blob": "f25d708782be3f13fb77fef6098fdd26e57b10b6"
+    },
+    {
+      "path": "PathIterator.cpp",
+      "git_blob": "cab9c5d1eb14317ee973cf6198a452393fc94fca",
+      "geode_git_blob": "b0ae973783c79dafdac70cf934a26b33cba5e180",
+      "modification": "Use a separate conic converter when calculating size; do not change next() state."
+    },
+    {
+      "path": "PathIterator.h",
+      "git_blob": "414dbdd1d62f4a50fa30d49143edad60ea6d959e"
+    },
+    {
+      "path": "libandroidx.graphics.path.map",
+      "git_blob": "d1310e52849b7f49928acbd74384c3c7d507a602"
+    },
+    {
+      "path": "math/TVecHelpers.h",
+      "git_blob": "ef7e182d804f20d3ecb3b3f5c69409b335ee8d57"
+    },
+    {
+      "path": "math/compiler.h",
+      "git_blob": "d6e18aaae05a3be3e4fe766b38bb1c3046240b40"
+    },
+    {
+      "path": "math/vec2.h",
+      "git_blob": "ae67a2563332513d7b3fe071494d004dc39ae1af"
+    },
+    {
+      "path": "pathway.cpp",
+      "git_blob": "d3a7d75a447274e8941f327a50593493f495115c"
+    },
+    {
+      "path": "scalar.h",
+      "git_blob": "0342d138393b2bc579e5055fd3ee09e80a6f390d"
+    }
+  ]
+}

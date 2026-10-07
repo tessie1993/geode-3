@@ -41,16 +41,18 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     }
 }
 
-// Detekt defaults --jvm-target to the JDK running Gradle, and the Kotlin compiler it embeds
-// accepts no more than 22. On a JDK 25 daemon - Android Studio's bundled JBR is one - every
-// detekt task dies with "Invalid value (25) passed to --jvm-target" before it analyses a line,
-// so the gate fails for a reason that has nothing to do with the code. CI runs Temurin 25, the
-// same JDK, so it needs the pin too. Pinning here makes the gate independent of whichever JDK a
-// developer happens to launch Gradle with, at the same 17 the rest of this file targets.
+// Detekt's embedded compiler needs both a supported analysis JDK and bytecode
+// target. The daemon is separately pinned to 21 in gradle-daemon-jvm.properties;
+// setting only jvmTarget cannot fix JavaVersion.current() on a Java 25 runtime.
+val analysisJdk = extensions.getByType<JavaToolchainService>().launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(21))
+}
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
     jvmTarget = "17"
+    jdkHome.set(analysisJdk.map { it.metadata.installationPath })
 }
 
 tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
     jvmTarget = "17"
+    jdkHome.set(analysisJdk.map { it.metadata.installationPath })
 }

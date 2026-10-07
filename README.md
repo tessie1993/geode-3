@@ -1,5 +1,10 @@
 # Geode — Android music player, visualizer and video suite
 
+The current implementation is under a release-readiness rebuild. Start with the
+[product blueprint, feature spec, architecture and delivery plan](docs/blueprint/README.md)
+and [implementation status](docs/blueprint/IMPLEMENTATION_STATUS.md). Features
+described below are not all release-verified; the blueprint records the gaps.
+
 Native Android music player, real-time GPU music visualizer and a small video
 suite. Kotlin and Jetpack Compose on top; a C++20 engine built by CMake and
 the NDK underneath (audio analysis, the GLES 3.x renderer, the DSP chain and
@@ -87,10 +92,12 @@ the native core. Inside `:app`, dependency flow is one-way: `ui` depends on
 
 ## Tests
 
-Three test files exist: `app/src/test/.../PresetLinkTest.kt`,
-`app/src/androidTest/.../BuildVariantTest.kt` and
-`engine/audio-core/src/test/.../FeatureRingTest.kt`. Checks that cannot run
-headless (GL behaviour, capture, wallpaper) are listed in
+The original preset-link, build-variant and feature-ring tests are joined by
+playback-preference instrumentation, analysis-lifecycle coroutine tests, native
+motion regressions and release-artifact validation. CI runs unit tests across
+modules. See [implementation status](docs/blueprint/IMPLEMENTATION_STATUS.md) for
+executed evidence and remaining gaps. Checks that cannot run headless
+(GL behaviour, capture, wallpaper) are listed in
 [docs/DEVICE_CHECKS.md](docs/DEVICE_CHECKS.md), a partial reconstruction.
 `tools/hostlink/hostlink.sh` compiles and links the native renderer on the
 host with no undefined symbols allowed; it is a lower bound on portability,

@@ -1,17 +1,13 @@
 package dev.geode.ui
 
 import androidx.annotation.OptIn
-import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.analysis.AnalysisEngine
-import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxState
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
-import dev.geode.playback.ReplayGain
 import dev.geode.ui.theme.ThemePack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +22,6 @@ internal class PlayerSettingsController(
     private val player: Player,
     private val engine: AnalysisEngine,
     private val audioFx: AudioFxController,
-    private val replayGain: ReplayGain,
     private val host: Host,
 ) {
     interface Host {
@@ -41,7 +36,10 @@ internal class PlayerSettingsController(
 
     val playerPrefs: StateFlow<PlayerPrefs> = playerPrefsRepository.prefs
 
-    suspend fun loadedPlayerPrefs(): PlayerPrefs = playerPrefsRepository.loaded()
+    suspend fun loadedPlayerPrefs(): PlayerPrefs {
+        playerPrefsRepository.loaded()
+        return playerPrefs.value
+    }
 
     private val _audioFxState = MutableStateFlow(audioFx.snapshot())
     val audioFxState: StateFlow<AudioFxState> = _audioFxState
@@ -64,16 +62,6 @@ internal class PlayerSettingsController(
     fun setPlayerPrefs(prefs: PlayerPrefs) {
         val p = prefs.coerced()
         scope.launch { playerPrefsRepository.update { p } }
-        applyPlaybackPrefs(p)
-    }
-
-    fun applyPlaybackPrefs(p: PlayerPrefs) {
-        player.playbackParameters = PlaybackParameters(p.speed, PlaybackMath.semitonesToRatio(p.pitchSemitones))
-        (player as? ExoPlayer)?.let {
-            it.skipSilenceEnabled = p.skipSilence
-            it.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
-        }
-        replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
     }
 
     private fun persistPlayerOptions() {

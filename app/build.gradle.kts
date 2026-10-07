@@ -1,7 +1,4 @@
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.util.Properties
-import java.util.zip.ZipFile
 
 plugins {
     alias(libs.plugins.android.application)
@@ -27,10 +24,15 @@ val releaseStorePassword = releaseSecret("storePassword", "GEODE_KEYSTORE_PASSWO
 val releaseKeyAlias = releaseSecret("keyAlias", "GEODE_KEY_ALIAS")
 val releaseKeyPassword = releaseSecret("keyPassword", "GEODE_KEY_PASSWORD")
 val hasReleaseSigning =
-    releaseStorePath != null &&
-        releaseStorePassword != null &&
-        releaseKeyAlias != null &&
-        releaseKeyPassword != null
+    !releaseStorePath.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
+
+if (System.getenv("GEODE_REQUIRE_RELEASE_SIGNING") == "true") {
+    check(hasReleaseSigning) { "Release signing requires all four GEODE signing values." }
+    check(file(releaseStorePath!!).isFile) { "Release signing keystore does not exist." }
+}
 
 android {
     namespace = "dev.geode"
@@ -77,6 +79,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -146,56 +151,19 @@ android {
 }
 
 val checkNativePageAlignment =
-    tasks.register("checkNativePageAlignment") {
-        description = "Fails if a packaged .so is not 16 KB page aligned."
-        val outputs = layout.buildDirectory.dir("outputs")
-        doLast {
-            val archives =
-                outputs
-                    .get()
-                    .asFile
-                    .walkTopDown()
-                    .filter { it.isFile && (it.extension == "apk" || it.extension == "aab") }
-                    .toList()
-            if (archives.isEmpty()) return@doLast
-            val bad = mutableListOf<String>()
-            for (archive in archives) {
-                ZipFile(archive).use { zip ->
-                    zip
-                        .entries()
-                        .asSequence()
-                        .filter { it.name.endsWith(".so") }
-                        .forEach { entry ->
-                            val bytes = zip.getInputStream(entry).use { it.readBytes() }
-                            val align = maxLoadAlignment(bytes)
-                            if (align in 1 until 16384) bad += "${archive.name}!${entry.name} aligned to $align"
-                        }
-                }
-            }
-            if (bad.isNotEmpty()) {
-                throw GradleException(
-                    "16 KB page-size check failed — every packaged .so is built by the root CMakeLists.txt " +
-                        "with GEODE_PAGE_FLAGS:\n" +
-                        bad.joinToString("\n"),
-                )
-            }
-        }
+    tasks.register<Exec>("checkNativePageAlignment") {
+        description = "Checks every native ELF segment and uncompressed APK entry for 16 KB alignment."
+        workingDir(rootProject.projectDir)
+        commandLine(
+            "python3",
+            rootProject.file("tools/release/check_native_alignment.py").absolutePath,
+            layout.buildDirectory
+                .dir("outputs")
+                .get()
+                .asFile
+                .absolutePath,
+        )
     }
-
-fun maxLoadAlignment(bytes: ByteArray): Long {
-    if (bytes.size < 0x40 || bytes[0] != 0x7F.toByte() || bytes[4].toInt() != 2) return 0
-    val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
-    val phoff = buf.getLong(0x20)
-    val phentsize = buf.getShort(0x36).toInt()
-    val phnum = buf.getShort(0x38).toInt()
-    var max = 0L
-    for (i in 0 until phnum) {
-        val at = (phoff + i.toLong() * phentsize).toInt()
-        if (at + 0x38 > bytes.size) return max
-        if (buf.getInt(at) == 1) max = maxOf(max, buf.getLong(at + 0x30))
-    }
-    return max
-}
 
 listOf("assembleRelease", "bundleRelease").forEach { name ->
     tasks.matching { it.name == name }.configureEach { finalizedBy(checkNativePageAlignment) }
@@ -215,6 +183,8 @@ dependencies {
     implementation(libs.documentfile)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
+    // The older transitive native binary failed the 16 KB RELRO check in Actions.
+    implementation(libs.androidx.graphics.path)
     implementation(libs.compose.material3)
     implementation(libs.compose.material3.adaptive)
     implementation(libs.hilt.android)

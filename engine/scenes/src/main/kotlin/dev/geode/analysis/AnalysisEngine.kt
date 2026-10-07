@@ -3,14 +3,22 @@ package dev.geode.analysis
 import dev.geode.engine.audio.MidSideWindow
 import dev.geode.engine.audio.ReactiveAnalyzer
 import dev.geode.engine.audio.SampleRing
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicBoolean
 
 class AnalysisEngine(
     private val ring: SampleRing,
@@ -26,48 +34,32 @@ class AnalysisEngine(
 
     @Volatile
     var sampleRateHz: Int = 44100
-        set(value) {
-            field = value
-            analyzer.sampleRateHz = value
-        }
 
+    @Volatile
     var attack: Float = DEFAULT_ATTACK
-        set(value) {
-            field = value
-            analyzer.attackSeconds = BeatTuning.envelopeSeconds(value)
-        }
 
+    @Volatile
     var decay: Float = DEFAULT_DECAY
-        set(value) {
-            field = value
-            analyzer.releaseSeconds = BeatTuning.envelopeSeconds(value)
-        }
 
+    @Volatile
     var beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT
         set(value) {
             field = BeatTuning.clampSensitivity(value)
-            analyzer.sensitivity = field
         }
 
+    @Volatile
     var beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT
         set(value) {
             field = BeatTuning.clampIntervalMs(value)
-            analyzer.refractoryMs = field
         }
 
     private val _features = MutableStateFlow(AudioFeatures.empty(bandCount))
     val features: StateFlow<AudioFeatures> = _features
 
-    @Volatile
-    private var resetPending = false
-
-    init {
-        attack = DEFAULT_ATTACK
-        decay = DEFAULT_DECAY
-    }
+    private val resetPending = AtomicBoolean(false)
 
     fun reset() {
-        resetPending = true
+        resetPending.set(true)
         _features.value = AudioFeatures.empty(bandCount)
     }
 
@@ -105,7 +97,7 @@ class AnalysisEngine(
         }
     }
 
-    internal inner class Pass {
+    private inner class Pass {
         private val window = MidSideWindow(ring, fftSize)
         private val beat = PulseHold()
         private val beatStrength = PulseHold()
@@ -171,65 +163,50 @@ class AnalysisEngine(
         }
     }
 
-    // job is mutated from AudioBus.onInterestChanged, which can fire on whatever thread calls
-    // AudioBus.addConsumer()/removeConsumer() - not necessarily the analysis scope's thread -
-    // so every read/write of it is synchronised on jobLock.
-    private val jobLock = Any()
-    private var job: Job? = null
+    private val worker = AnalysisWorker(loop = ::runAnalysis, release = analyzer::close)
 
-    // Set before close() cancels the loop's job, and checked by the loop before it re-enters
-    // pass.tick() (which makes native analyzer.analyze calls): close() is not required to wait
-    // for job.cancel() to take effect, so this flag closes most of the window in which the loop
-    // could still be inside a native call - or about to start one - after analyzer.close() has
-    // destroyed the native handle. It does not close that window entirely; closeAndJoin() does.
-    @Volatile
-    private var closed = false
+    // Settings are published by UI/audio threads, but only this worker touches
+    // ReactiveAnalyzer: its native handle and tuning are not thread safe.
+    private fun applyConfiguration() {
+        val rate = sampleRateHz
+        val attackSeconds = BeatTuning.envelopeSeconds(attack)
+        val releaseSeconds = BeatTuning.envelopeSeconds(decay)
+        val sensitivity = beatSensitivity
+        val intervalMs = beatMinIntervalMs
+        if (analyzer.sampleRateHz != rate) analyzer.sampleRateHz = rate
+        if (analyzer.attackSeconds != attackSeconds) analyzer.attackSeconds = attackSeconds
+        if (analyzer.releaseSeconds != releaseSeconds) analyzer.releaseSeconds = releaseSeconds
+        if (analyzer.sensitivity != sensitivity) analyzer.sensitivity = sensitivity
+        if (analyzer.refractoryMs != intervalMs) analyzer.refractoryMs = intervalMs
+    }
 
-    fun start(scope: CoroutineScope) {
-        synchronized(jobLock) {
-            if (job?.isActive == true) return
-            job =
-                scope.launch(Dispatchers.Default) {
-                    val pass = Pass()
-                    var deadlineNs = System.nanoTime()
-                    while (!closed) {
-                        if (resetPending) {
-                            resetPending = false
-                            pass.reset()
-                        }
-                        pass.tick()
-                        deadlineNs += TICK_NS
-                        val now = System.nanoTime()
-                        if (deadlineNs < now) deadlineNs = now
-                        // Never delay(0): it returns without suspending, so a tick that
-                        // overruns the budget would leave this loop with no suspension
-                        // point at all - uncancellable, and spinning a core flat out.
-                        delay(maxOf(1L, (deadlineNs - now) / 1_000_000))
-                    }
-                }
+    private suspend fun runAnalysis() {
+        val pass = Pass()
+        var deadlineNs = System.nanoTime()
+        while (currentCoroutineContext().isActive) {
+            applyConfiguration()
+            if (resetPending.getAndSet(false)) pass.reset()
+            pass.tick()
+            deadlineNs += TICK_NS
+            val now = System.nanoTime()
+            if (deadlineNs < now) deadlineNs = now
+            // A positive delay is a cancellation point even when a tick overruns.
+            delay(maxOf(1L, (deadlineNs - now) / 1_000_000))
         }
     }
 
-    fun stop() {
-        synchronized(jobLock) {
-            job?.cancel()
-            job = null
-        }
-    }
+    fun start(scope: CoroutineScope) = worker.start(scope)
 
-    /** Best-effort teardown: the loop may still observe [closed] one tick late. Prefer [closeAndJoin] where a suspend context is available. */
+    fun stop() = worker.stop()
+
+    /** Schedules safe native teardown without blocking the caller on an in-flight FFT. */
     fun close() {
-        closed = true
-        stop()
-        analyzer.close()
+        worker.close()
     }
 
-    /** Cancels the loop and waits for it to actually stop before destroying the native handle, so no in-flight native call can race the destroy. */
+    /** Waits for the same teardown scheduled by [close], including native destruction. */
     suspend fun closeAndJoin() {
-        closed = true
-        val current = synchronized(jobLock) { job.also { job = null } }
-        current?.cancelAndJoin()
-        analyzer.close()
+        worker.close().await()
     }
 
     companion object {
@@ -248,4 +225,57 @@ class AnalysisEngine(
         const val DEFAULT_ATTACK = 0.6f
         const val DEFAULT_DECAY = 0.12f
     }
+}
+
+/** Serializes native resource ownership across cancelled loops, restarts and teardown. */
+internal class AnalysisWorker(
+    private val loop: suspend () -> Unit,
+    private val release: () -> Unit,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+) {
+    private val jobLock = Any()
+    private val resourceLock = Mutex()
+    private var job: Job? = null
+    private var closing: Deferred<Unit>? = null
+
+    @Volatile
+    private var closed = false
+
+    fun start(scope: CoroutineScope) {
+        synchronized(jobLock) {
+            if (closed || job?.isActive == true) return
+            job =
+                scope.launch(dispatcher) {
+                    // Cancellation is cooperative: a previous job can still be in JNI.
+                    // Keep ownership until its entire loop has unwound before restart.
+                    resourceLock.withLock {
+                        currentCoroutineContext().ensureActive()
+                        if (!closed) loop()
+                    }
+                }
+        }
+    }
+
+    fun stop() {
+        synchronized(jobLock) {
+            job?.cancel()
+            job = null
+        }
+    }
+
+    fun close(): Deferred<Unit> =
+        synchronized(jobLock) {
+            closing ?: run {
+                closed = true
+                job?.cancel()
+                job = null
+                // PlaybackSession cancels its scope immediately after close(). This
+                // finite cleanup job must survive that cancellation, and never blocks
+                // the main thread or destroys a handle still owned by a stopped loop.
+                CoroutineScope(dispatcher)
+                    .async {
+                        resourceLock.withLock { release() }
+                    }.also { closing = it }
+            }
+        }
 }
