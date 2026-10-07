@@ -8,12 +8,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,7 +93,10 @@ fun SettingsDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.export_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 when (val phase = export.phase) {
                     is ExportPhase.Running -> {
                         val run by dev.geode.export.ExportRun.state
@@ -137,7 +139,7 @@ fun SettingsDialog(
                             )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = {
+                            CrystalButton(onClick = {
                                 val share =
                                     Intent(Intent.ACTION_SEND).apply {
                                         type = "video/mp4"
@@ -299,14 +301,15 @@ fun SettingsDialog(
                                 style = MaterialTheme.typography.labelSmall,
                             )
                         }
-                        Button(
+                        CrystalButton(
                             onClick = { onStart(ExportAspect.of(quality, ratio), fps, loopSafe, range, codec) },
                             enabled = hasMedia,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(R.string.export_render_button, quality.shortSide, ratio.label, fps))
                         }
-                        OutlinedButton(
+                        CrystalButton(
+                            filled = false,
                             onClick = { onStartToDestination(ExportAspect.of(quality, ratio), fps, loopSafe, range, codec) },
                             enabled = hasMedia,
                             modifier = Modifier.fillMaxWidth(),

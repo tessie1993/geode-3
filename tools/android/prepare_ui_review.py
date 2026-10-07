@@ -36,15 +36,22 @@ PRIMARY_SCREENSHOTS = (
     (f"visuals-{tab}", (f"*-visuals-{tab}.png",))
     for tab in ("presets", "customize", "textures", "takes")
 )
-EXTRA_SCREENSHOTS = tuple(
+ADAPTIVE_SCREENSHOTS = tuple(
+    (f"font-200-{destination}", (f"*-compact-font-200-{destination}.png",))
+    for destination in ("player", "library", "visuals", "studio", "settings")
+) + tuple(
+    (f"landscape-{destination}", (f"*-landscape-{destination}.png",))
+    for destination in ("player", "library", "visuals", "studio", "settings")
+)
+EXTRA_SCREENSHOTS = (
+    ("visuals-customize-toolbar-a", ("*-visuals-customize-toolbar-a.png",)),
+    ("visuals-customize-toolbar-b", ("*-visuals-customize-toolbar-b.png",)),
+) + ADAPTIVE_SCREENSHOTS + tuple(
     (f"glass-theme-{theme}", (f"*-glass-theme-{theme}.png",))
     for theme in THEME_SLUGS
 ) + tuple(
     (f"settings-{tab}", (f"*-settings-{tab}.png",))
     for tab in ("look", "audio", "export", "folders", "behavior", "help", "about")
-) + (
-    ("font-200-player", ("*-compact-font-200-player.png",)),
-    ("landscape-player", ("*-landscape-player.png",)),
 )
 SCREENSHOTS = COMPONENT_SCREENSHOTS + PRIMARY_SCREENSHOTS + EXTRA_SCREENSHOTS
 COMPONENT_VIDEOS = tuple(
@@ -67,7 +74,7 @@ def loaded_player_hero(xml):
     return any(node.get("text") in ("NOW PLAYING", "PAUSED") for node in tree.iter("node"))
 
 
-def prepare(source, output):
+def prepare(source, output, *, screens_only=False):
     output.mkdir(parents=True, exist_ok=True)
     # The folder is reserved for this disposable CI artifact, never source data.
     for previous in output.iterdir():
@@ -77,9 +84,13 @@ def prepare(source, output):
     manifest = {
         "scope": "selected, unmodified emulator UI evidence; full emulator artifact retains all logs and captures",
         "source_directory": str(source),
+        "screens_only": screens_only,
         "selection": "latest completed PNG/XML pair for each preferred named capture; loaded Player hero required",
-        "priority": ("last UI tree; component previews and motion; main screens and Library/Visuals tabs; "
-                     "main motion; theme previews, Settings sections and adaptive sizes"),
+        "priority": ("last UI tree; component previews; main screens and Library/Visuals tabs; "
+                     "Customize toolbars and adaptive sizes; theme previews and Settings sections"
+                     if screens_only else
+                     "last UI tree; component previews and motion; main screens and Library/Visuals tabs; "
+                     "main motion; Customize toolbars and adaptive sizes; theme previews and Settings sections"),
         "requested_screenshot_roles": [role for role, _ in SCREENSHOTS],
         "budgets_bytes": {"total": TOTAL_BUDGET, "screenshots_and_xml": SCREENSHOT_BUDGET,
                           "video_per_file": VIDEO_BUDGET, "manifest_reserve": MANIFEST_RESERVE},
@@ -160,9 +171,11 @@ def prepare(source, output):
         copy(last_ui, "last-ui.xml", "last-ui.xml")
 
     copy_screenshots(COMPONENT_SCREENSHOTS)
-    copy_videos(COMPONENT_VIDEOS)
+    if not screens_only:
+        copy_videos(COMPONENT_VIDEOS)
     copy_screenshots(PRIMARY_SCREENSHOTS)
-    copy_videos((("ui-motion.mp4", "motion-video"),))
+    if not screens_only:
+        copy_videos((("ui-motion.mp4", "motion-video"),))
     copy_screenshots(EXTRA_SCREENSHOTS)
 
     metadata = [smoke / name for name in (
@@ -200,12 +213,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, default=Path("app/build/reports/emulator"))
     parser.add_argument("--output", type=Path, default=Path("app/build/reports/ui-review"))
+    parser.add_argument("--screens-only", action="store_true",
+                        help="Copy original screenshots, UI XML and metadata without movies")
     args = parser.parse_args()
     source = args.source.resolve()
     output = args.output.resolve()
     if source == output or source in output.parents or output in source.parents:
         raise ValueError("Review output must be outside the full emulator evidence folder")
-    prepare(args.source, args.output)
+    prepare(args.source, args.output, screens_only=args.screens_only)
 
 
 if __name__ == "__main__":

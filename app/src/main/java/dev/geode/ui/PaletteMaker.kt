@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -171,10 +170,13 @@ internal fun PaletteMakerCard(
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(onClick = { onChange(PaletteStore.applyGradient(p, baseHue, hueSpan)) }) {
+            CrystalButton(
+                filled = false,
+                onClick = { onChange(PaletteStore.applyGradient(p, baseHue, hueSpan)) },
+            ) {
                 Text(stringResource(R.string.palette_apply_gradient))
             }
-            OutlinedButton(onClick = {
+            CrystalButton(filled = false, onClick = {
                 baseHue = p.paletteBase
                 hueSpan = p.paletteRange
             }) {
@@ -188,7 +190,8 @@ internal fun PaletteMakerCard(
             label = { Text(stringResource(R.string.palette_name_label)) },
             modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         )
-        OutlinedButton(
+        CrystalButton(
+            filled = false,
             onClick = {
                 val stored = palettes.save(PaletteStore.create(name, baseHue, hueSpan))
                 name = ""

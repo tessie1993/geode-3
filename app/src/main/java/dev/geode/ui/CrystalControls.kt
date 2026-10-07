@@ -81,7 +81,13 @@ fun CrystalButton(
     Box(
         modifier
             .stonePress(interaction, reducedMotion = reducedMotion)
-            .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .defaultMinSize(minHeight = if (compact && !tidal) 36.dp else 48.dp),
     ) {
         StoneSurfaceArt(component, state, Modifier.matchParentSize(), reducedMotion = reducedMotion)
@@ -119,7 +125,13 @@ fun CrystalPlayButton(
             .size(60.dp)
             .stonePress(interaction, reducedMotion = reducedMotion)
             .then(if (enabled) Modifier.softGlow(cs.primary, 14.dp, 0.5f) else Modifier)
-            .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick),
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         StoneSurfaceArt(StoneComponent.ICON_BUTTON, state, Modifier.matchParentSize(), reducedMotion = reducedMotion)
