@@ -184,7 +184,7 @@ fun Modifier.crystalPanel(
         val pack = LocalThemePack.current
         if (pack.isTidalGlass) {
             return@composed this.tidalPanel(
-                capsule = ImageBitmap.imageResource(R.drawable.tidal_glass_capsule),
+                capsule = rememberTidalBitmap(R.drawable.tidal_glass_capsule),
                 opacity = opacity,
                 tint = tint,
                 glow = glow,

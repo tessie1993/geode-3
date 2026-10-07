@@ -251,7 +251,13 @@ EOK
     echo "    val tidalGlass = TidalThemePack.create(kyanite)"
     echo ""
     echo "    /** Picker order; the first entry is the app default. */"
-    echo "    val all: List<ThemePack> = listOf(tidalGlass, $(echo $NAMES | sed 's/ /, /g'))"
+    echo "    val all: List<ThemePack> ="
+    echo "        listOf("
+    echo "            tidalGlass,"
+    for NAME in $NAMES; do
+        echo "            $NAME,"
+    done
+    echo "        )"
     echo ""
     echo "    /** Pack for a persisted slug, or the default when unknown. */"
     echo "    fun bySlug(slug: String?): ThemePack = all.firstOrNull { it.slug == slug } ?: all.first()"

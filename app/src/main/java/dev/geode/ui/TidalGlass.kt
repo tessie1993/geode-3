@@ -2,9 +2,13 @@ package dev.geode.ui
 
 import android.animation.ValueAnimator
 import android.database.ContentObserver
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.LruCache
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -37,6 +41,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -44,8 +49,6 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -59,16 +62,51 @@ import dev.geode.ui.theme.LocalMaterialResumed
 import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.StoneComponent
 import dev.geode.ui.theme.StoneState
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 private val WaterLight = Color(0xFFCDEDE8)
 private val DeepWater = Color(0xFF072A2A)
+private val TidalBitmapResources =
+    setOf(
+        R.drawable.tidal_forest,
+        R.drawable.tidal_glass_pebble,
+        R.drawable.tidal_glass_capsule,
+        R.drawable.tidal_glass_orb,
+    )
+private val TidalBitmapCache = LruCache<Int, ImageBitmap>(4)
+
+/** These four nodpi assets share immutable bitmaps without retaining an activity. */
+@Composable
+internal fun rememberTidalBitmap(
+    @DrawableRes resource: Int,
+): ImageBitmap {
+    val resources = LocalContext.current.applicationContext.resources
+    return remember(resource) {
+        require(resource in TidalBitmapResources) { "Only Tidal UI assets belong in this cache" }
+        synchronized(TidalBitmapCache) {
+            TidalBitmapCache.get(resource)
+                ?: run {
+                    val options =
+                        BitmapFactory.Options().apply {
+                            inPreferredConfig = Bitmap.Config.ARGB_8888
+                            inScaled = false
+                        }
+                    val bitmap =
+                        checkNotNull(BitmapFactory.decodeResource(resources, resource, options)) {
+                            "Unable to decode Tidal UI asset $resource"
+                        }.asImageBitmap()
+                    TidalBitmapCache.put(resource, bitmap)
+                    bitmap
+                }
+        }
+    }
+}
 
 /** Observe the system setting once at the theme root, including changes while open. */
 @Composable
@@ -142,9 +180,10 @@ internal fun TidalForestBackground(
 ) {
     val time = rememberWaterTime(rememberTidalMotionRunning(reducedMotion))
     val dim = LocalBackgroundDim.current.coerceIn(0f, 1f)
+    val forest = rememberTidalBitmap(R.drawable.tidal_forest)
     Box(modifier) {
         Image(
-            painterResource(R.drawable.tidal_forest),
+            bitmap = forest,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
@@ -217,8 +256,7 @@ internal fun Modifier.tidalPanel(
         clip = false,
         ambientColor = Color.Black,
         spotColor = Color(0xFF001214),
-    )
-        .clip(shape)
+    ).clip(shape)
         .drawWithCache {
             val relief = facets.coerceIn(0f, 1.5f)
             val light = glowStrength.coerceIn(0f, 1.5f)
@@ -307,14 +345,16 @@ internal fun TidalSurfaceArt(
     modifier: Modifier,
 ) {
     val round =
-        component in listOf(
+        when (component) {
             StoneComponent.ICON_BUTTON,
             StoneComponent.KNOB,
             StoneComponent.SLIDER_THUMB,
             StoneComponent.PROGRESS_RING,
-        )
+            -> true
+            else -> false
+        }
     val resource = if (round) R.drawable.tidal_glass_pebble else R.drawable.tidal_glass_capsule
-    val art = ImageBitmap.imageResource(resource)
+    val art = rememberTidalBitmap(resource)
     val disabled = state == StoneState.DISABLED
     val intensity =
         when (state) {
@@ -343,10 +383,15 @@ internal fun TidalSurfaceArt(
             )
         }
         Image(
-            painterResource(resource),
+            bitmap = art,
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            alpha = if (disabled) 0.42f else if (state == StoneState.PRESSED) 0.82f else 1f,
+            alpha =
+                when {
+                    disabled -> 0.42f
+                    state == StoneState.PRESSED -> 0.82f
+                    else -> 1f
+                },
             modifier = Modifier.matchParentSize(),
         )
         Canvas(Modifier.matchParentSize().clip(shape)) {
@@ -439,7 +484,7 @@ fun TidalWaterOrb(
     val running = rememberTidalMotionRunning(reducedMotion)
     val time = rememberWaterTime(running)
     val signal = rememberUpdatedState(energy)
-    val orb = ImageBitmap.imageResource(R.drawable.tidal_glass_orb)
+    val orb = rememberTidalBitmap(R.drawable.tidal_glass_orb)
     Box(modifier) {
         Canvas(Modifier.fillMaxSize()) {
             val level = if (running) signal.value().coerceIn(0f, 1f) else 0f
@@ -447,7 +492,7 @@ fun TidalWaterOrb(
             drawOrbWater(time.value, level)
         }
         Image(
-            painterResource(R.drawable.tidal_glass_orb),
+            bitmap = orb,
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier =

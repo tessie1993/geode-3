@@ -20,17 +20,20 @@ internal fun TidalPlayerArtwork(
 ) {
     val reducedMotion = LocalReducedMotion.current
     val running = rememberTidalMotionRunning(reducedMotion) && live
-    val energy = produceState(0f, running) {
-        if (!running) {
-            value = 0f
-            return@produceState
+    val energy =
+        produceState(0f, running) {
+            if (!running) {
+                value = 0f
+                return@produceState
+            }
+            while (true) {
+                val target =
+                    viewModel.features.value.rms
+                        .coerceIn(0f, 1f)
+                value += (target - value) * 0.24f
+                delay(SPECTRUM_TICK_MS)
+            }
         }
-        while (true) {
-            val target = viewModel.features.value.rms.coerceIn(0f, 1f)
-            value += (target - value) * 0.24f
-            delay(SPECTRUM_TICK_MS)
-        }
-    }
     val configuration = LocalConfiguration.current
     val screenHeight = (configuration.screenHeightDp * 0.32f).coerceIn(180f, 300f)
     BoxWithConstraints(modifier.fillMaxWidth()) {

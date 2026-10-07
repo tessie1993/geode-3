@@ -40,9 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -76,7 +74,7 @@ fun WaveformSeekBar(
     modifier: Modifier = Modifier,
 ) {
     val tidal = LocalThemePack.current.isTidalGlass
-    val bead = if (tidal) ImageBitmap.imageResource(R.drawable.tidal_glass_pebble) else null
+    val bead = if (tidal) rememberTidalBitmap(R.drawable.tidal_glass_pebble) else null
     var dragFraction by remember { mutableFloatStateOf(-1f) }
     val played =
         if (dragFraction >= 0f) {

@@ -193,6 +193,7 @@ private fun PlayerHero(
     val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
     val hasSource = foreign || micActive || state.hasMedia
     val isFavourite = uri != null && uri in favourites
+    val localArtwork = state.hasMedia && !foreign && !micActive
     Column(
         modifier
             .fillMaxWidth()
@@ -233,7 +234,7 @@ private fun PlayerHero(
             ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (tidal && state.hasMedia && !foreign && !micActive) {
+            if (tidal && localArtwork) {
                 TrackArtwork(uri, Modifier.size(48.dp), corner = 14.dp)
                 Box(Modifier.width(12.dp))
             }
@@ -447,10 +448,11 @@ private fun TransportCard(
                 selected = state.repeatMode != Player.REPEAT_MODE_OFF,
             )
         }
-        Row(
+        FlowRow(
             Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            maxItemsInEachRow = 3,
         ) {
             TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
                 Text(
@@ -511,11 +513,13 @@ private fun PlayerTransportButton(
 ) {
     val tint =
         if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    val toggle = icon == StoneIcon.SHUFFLE || icon == StoneIcon.REPEAT || icon == StoneIcon.FAVORITE
+    val selection = if (toggle) Modifier.semantics { this.selected = selected } else Modifier
     if (!LocalThemePack.current.isTidalGlass) {
         IconButton(
             onClick = onClick,
             enabled = enabled,
-            modifier = Modifier.semantics { this.selected = selected },
+            modifier = selection,
         ) { StoneIconArt(icon, description, tint = tint) }
         return
     }
@@ -524,7 +528,7 @@ private fun PlayerTransportButton(
     Box(
         Modifier
             .size(if (large) 76.dp else 52.dp)
-            .semantics { this.selected = selected }
+            .then(selection)
             .stonePress(interaction)
             .clickable(
                 interactionSource = interaction,
@@ -785,6 +789,8 @@ private fun QuickActionShell(
     onClick: () -> Unit,
     icon: @Composable (Color) -> Unit,
 ) {
+    val tidal = LocalThemePack.current.isTidalGlass
+    val interaction = rememberStoneInteraction()
     val tint =
         when {
             !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
@@ -795,6 +801,7 @@ private fun QuickActionShell(
         Modifier
             .width(84.dp)
             .defaultMinSize(minHeight = 64.dp)
+            .stonePress(interaction)
             .crystalPanel(
                 if (active) 0.5f else 0.28f,
                 MaterialTheme.colorScheme.surfaceVariant,
@@ -802,7 +809,7 @@ private fun QuickActionShell(
                 corner = 18.dp,
                 glowStrength = if (active) 1.1f else 0.45f,
                 prismatic = active,
-            ).clickable(enabled = enabled, onClick = onClick)
+            ).clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
             .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -812,7 +819,7 @@ private fun QuickActionShell(
             label,
             style = MaterialTheme.typography.labelSmall,
             color = tint,
-            maxLines = 1,
+            maxLines = if (tidal) 2 else 1,
             overflow = TextOverflow.Ellipsis,
         )
     }

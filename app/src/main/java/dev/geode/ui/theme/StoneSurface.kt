@@ -84,7 +84,8 @@ fun Modifier.stonePress(
     val pack = LocalThemePack.current
     val motion = pack.motion
     val motionDisabled =
-        reducedMotion || LocalReducedMotion.current ||
+        reducedMotion ||
+            LocalReducedMotion.current ||
             (pack.isTidalGlass && !LocalMaterialResumed.current)
     val pressed by interaction.collectIsPressedAsState()
     val view = LocalView.current
