@@ -11,6 +11,21 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 ## Unreleased
 
+- **Native audio engine, bit-perfect USB output, crossfade and Oboe
+  removed.** Playback always runs on Media3 ExoPlayer now, and nothing that
+  ran on it changes: gapless joins, the equalizer, ReplayGain, speed and
+  pitch, skip silence, the play/pause fades, the sleep timer, pause on
+  unplug, the visualizer tap and Android Auto behave as before, and so do the
+  microphone and other-apps' audio capture. Settings no longer offer the
+  "Native audio engine" switch or the options behind it (gapless, bit-perfect
+  USB output, crossfade length and curve), which only that engine honoured;
+  their stored values are ignored. `NativePlayer`, `NativePlayerDsp`,
+  `NativeTapPump` and `BitPerfectOutput` are gone, along with the
+  `MODIFY_AUDIO_SETTINGS` permission only the bit-perfect toggle used,
+  `core/audio/player`, the `geode_player_*` C ABI and its JNI exports, the
+  `mediandk` link and the Oboe submodule. The DSP chain the ExoPlayer path
+  uses (`core/audio/dsp`, `NativeDspProcessor`) stays; tag reading stays.
+
 - **Tag writing and the Duplicates tab removed.** The track info editor now
   only edits the app's own copy of a track's metadata: the "write tags into
   the audio file" switch, the `MediaStore.createWriteRequest` consent flow,
@@ -23,13 +38,13 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 - **Toolchain refresh; CI now builds native changes.** NDK r30
   (`30.0.16248370`), CMake 4.1.2, JDK 25 (Gradle toolchain, daemon JVM
   criteria and CI), Gradle 9.8.0, AGP 9.4.1, Kotlin 2.4.20, KSP 2.3.12,
-  Compose BOM 2026.09.00, Media3 1.11.1, Glance 1.2.0 and the Oboe 1.11.0
-  submodule. Kotlin and Java still emit 17; `compileSdk`, `targetSdk` and
-  `minSdk` are unchanged, and the workflows install `platforms;android-37.0`
-  to match `compileSdk`. The PR workflow (`android.yml`) and `ship-apk.yml`
-  now also trigger on `core/**`, the root `CMakeLists.txt`, `third_party/**`,
-  `tools/*.patch`, `.gitmodules` and workflow changes, so a native-only change
-  is built and checked.
+  Compose BOM 2026.09.00, Media3 1.11.1 and Glance 1.2.0. Kotlin and Java
+  still emit 17; `compileSdk`, `targetSdk` and `minSdk` are unchanged, and
+  the workflows install `platforms;android-37.0` to match `compileSdk`. The
+  PR workflow (`android.yml`) and `ship-apk.yml` now also trigger on
+  `core/**`, the root `CMakeLists.txt`, `third_party/**`, `tools/*.patch`,
+  `.gitmodules` and workflow changes, so a native-only change is built and
+  checked.
 
 - **`tools/glslcheck` removed.** The headless shader compile-and-render
   harness and its pointers in the README and `tools/shaderpreview/README.md`

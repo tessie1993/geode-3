@@ -40,11 +40,7 @@ class PlaybackPreferencesTest {
                 )
                 val gains = mutableListOf<Triple<Int, Float, Boolean>>()
                 val preferences =
-                    PlaybackPreferences(
-                        player,
-                        { mode, preamp, guard -> gains.add(Triple(mode, preamp, guard)) },
-                        { error("Media3 must not apply native mixer preferences") },
-                    )
+                    PlaybackPreferences(player) { mode, preamp, guard -> gains.add(Triple(mode, preamp, guard)) }
 
                 preferences.apply(store.load())
 
@@ -64,7 +60,7 @@ class PlaybackPreferencesTest {
     fun unrelatedSettingsDoNotResetControllerQueueChoices() {
         withPlayer { _, player ->
             var gainApplications = 0
-            val preferences = PlaybackPreferences(player, { _, _, _ -> gainApplications++ }, {})
+            val preferences = PlaybackPreferences(player) { _, _, _ -> gainApplications++ }
             val initial = PlayerPrefs()
             preferences.apply(initial)
 
@@ -85,11 +81,7 @@ class PlaybackPreferencesTest {
         withPlayer { _, player ->
             val gains = mutableListOf<Triple<Int, Float, Boolean>>()
             val preferences =
-                PlaybackPreferences(
-                    player,
-                    { mode, preamp, guard -> gains.add(Triple(mode, preamp, guard)) },
-                    {},
-                )
+                PlaybackPreferences(player) { mode, preamp, guard -> gains.add(Triple(mode, preamp, guard)) }
             val initial = PlayerPrefs(skipSilence = true, shuffle = true, repeatMode = Player.REPEAT_MODE_ALL)
             preferences.apply(initial)
             val edited =
