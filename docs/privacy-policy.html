@@ -24,7 +24,7 @@
 <body>
 
 <h1>Geode — Privacy Policy</h1>
-<p class="updated">Last updated: 23 August 2026</p>
+<p class="updated">Last updated: 7 October 2026</p>
 
 <p>Geode is an offline music player and visualizer for Android. This policy describes
 what the app does with your information. The short version: Geode collects nothing,
@@ -107,12 +107,20 @@ information. Specifically, the app has:</p>
       controls notification and the ongoing notifications Android requires while
       <em>Visualize other apps</em> or a video render is running.</li>
   <li><strong><code>FOREGROUND_SERVICE</code></strong> (with the media-playback,
-      media-projection and media-processing types): lets playback, capture and video
-      rendering keep running while the app is not on screen, always with a visible
-      notification.</li>
+      media-projection, media-processing and data-sync types): lets playback, capture
+      and video rendering keep running while the app is not on screen, always with a
+      visible notification. The data-sync type is used only as the fallback for video
+      rendering on Android 14 and below, which do not have the media-processing type.
+      Despite its name it does not synchronise anything with a server.</li>
   <li><strong><code>VIBRATE</code></strong>: haptic feedback for the app's controls.</li>
   <li><strong><code>WAKE_LOCK</code></strong>: keeps music playing reliably while the
       screen is off. It grants no access to any data.</li>
+  <li><strong><code>RECEIVE_BOOT_COMPLETED</code></strong>: Geode does not ask for this
+      itself. It is added automatically by WorkManager, an Android Jetpack component
+      that the home-screen widget library (Jetpack Glance) relies on to update the
+      widget. It lets Android tell that component the device has restarted so it can
+      pick up its pending widget-update work again. Geode does not start itself,
+      start any service or schedule any task of its own when the device boots.</li>
 </ul>
 <p>Geode requests no camera, contacts, location or Internet permission.</p>
 
@@ -133,10 +141,22 @@ revoke this at any time in <em>Settings → Notifications → Notification acces
 the feature simply goes without labels.</p>
 
 <h2>Video export</h2>
-<p>When you export a visualization, Geode writes an MP4 file to the location you choose
-in Android's save dialog. The file stays on your device unless <em>you</em> choose to
-share it — at which point the app you pick (for example a messaging or cloud-storage
-app) handles it under its own privacy policy.</p>
+<p>When you export a visualization or a Studio video, Geode renders an MP4 file on your
+device. Where it is saved depends on your Android version and on what you choose when you
+start the export:</p>
+<ul>
+  <li>On Android 10 and newer the default is your device's Videos library. Geode adds the
+      file to the shared <code>Movies/Geode</code> folder through Android's media store.
+      Other apps that have permission to see videos on your device can see it there.</li>
+  <li>On any version you can instead pick a location in Android's save dialog. On
+      Android 9 and below this is the only option.</li>
+  <li>The Studio editor can also export captions as an <code>.srt</code> file, which
+      always goes to a location you pick in the save dialog.</li>
+</ul>
+<p>While a video renders, Geode keeps temporary working files in its private cache and
+removes them when the render ends. An exported file stays on your device unless
+<em>you</em> choose to share it — at which point the app you pick (for example a
+messaging or cloud-storage app) handles it under its own privacy policy.</p>
 
 <h2>Backups</h2>
 <p>If Android backup is enabled on your device, your Geode presets, playlists and
@@ -151,12 +171,13 @@ other people. It collects no data from anyone, including children.</p>
 <h2>Deleting your data</h2>
 <p>All Geode data lives in the app's private storage. Uninstalling the app, or using
 Android's <em>Settings → Apps → Geode → Storage → Clear data</em>, removes it.
-Exported videos are ordinary files in the folder you saved them to and are deleted like
-any other file.</p>
+Exported videos are ordinary files, either in <code>Movies/Geode</code> or in the
+location you picked, and are deleted like any other file; uninstalling the app does not
+remove them.</p>
 
 <h2>Third-party components</h2>
-<p>Geode bundles open-source libraries (including libprojectM, AndroidX/Jetpack and
-JTransforms). None of them collect or transmit data in this app. The full notices are
+<p>Geode bundles open-source libraries (including libprojectM, TagLib, KISS FFT, Media3
+and AndroidX/Jetpack). None of them collect or transmit data in this app. The full notices are
 in the app under <strong>Settings → Export &amp; About → Open source licenses</strong>.</p>
 
 <h2>Changes to this policy</h2>
@@ -164,6 +185,7 @@ in the app under <strong>Settings → Export &amp; About → Open source license
 "last updated" date above will change.</p>
 
 <h2>Contact</h2>
+<!-- OWNER: add developer name and public contact e-mail (PC-09) -->
 <p>Questions about this policy: <a href="mailto:tessie-1993@hotmail.com">tessie-1993@hotmail.com</a></p>
 
 </body>
