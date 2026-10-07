@@ -20,7 +20,7 @@
     <string name="account_premium_operation_error">The purchase check could not be completed. Your local music and projects remain available.</string>
     <string name="account_premium_owned">Premium is active</string>
     <string name="account_premium_manage">Manage purchase</string>
-    <string name="account_premium_local_access">Local playback, visual safety controls and access to your files remain free. A Google profile is optional and does not determine purchase ownership.</string>
+    <string name="account_premium_local_access">Local playback, visual safety controls and access to your files remain free. Google sign-in is optional.</string>
     <string name="account_premium_privacy">Privacy</string>
     <string name="account_premium_terms">Terms</string>
 </resources>

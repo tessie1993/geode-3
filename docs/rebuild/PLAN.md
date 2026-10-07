@@ -6,11 +6,18 @@
 > superseded. Auth, premium unlock and security are part of the release goal;
 > see the blueprint's security design for server verification requirements.
 > The historical outline below is retained for traceability, not completion evidence.
+>
+> Latest owner decisions: **keep every existing C++ style and MilkDrop**; cancel
+> the old style cull. Add native C++ psychedelic 3D tunnels, objects and camera
+> motion driven by music/touch with fresh generative variation. Capture the
+> realized performance. See [native camera contract](../blueprint/VISUAL_STYLE_CAMERA.md).
+> The owner now explicitly requests separate fix agents plus independent bug
+> and feature hunters; the old two-worker limit is superseded for this work.
 
 ## Goal (owner)
 A Play Store–ready app with these parts:
 - **Music player.**
-- **Visualizer:** new, high-end, trippy 3D styles, plus the Fluid family, the 8 raymarched styles and a working MilkDrop.
+- **Visualizer:** new native 3D tunnels/objects with music-driven camera, plus every existing C++ style and working MilkDrop.
 - **Customize tab:** new, with universal controls.
 - **Exporter:** includes the full Studio editor.
 - **Accounts and Google:** a free → premium unlock, Google sign-in, and Google integration.
@@ -48,7 +55,7 @@ A Play Store–ready app with these parts:
 - The optional native player has no audio focus and ignores speed and pitch.
 
 ### Visualizer
-- 102 styles. We keep the Fluid family, the 8 raymarched styles and MilkDrop; about 82 go.
+- Historical count: 102 styles. Latest scope preserves all existing styles; no cull.
 - Beat uniforms are pinned to 0, so styles don't react to the beat.
 - Rotation spins up and then snaps back.
 - The last audio chunk is re-fed every frame, so visuals keep moving while paused.
@@ -81,7 +88,7 @@ A Play Store–ready app with these parts:
 - Tag writing (tag reading stays).
 - Duplicate finder.
 - Unused theme art.
-- About 82 styles.
+- Style removal is canceled by the owner's latest instruction.
 
 ### 3D
 - Prototype with Diligent Engine first, behind a go/no-go gate. Research R2 picks the integration route.
@@ -160,7 +167,7 @@ Four Sonnet agents, one job each, all read-only. Reports go to `scratchpad/resea
 ### Lane B: visuals
 | # | Package | Done when |
 |---|---|---|
-| B1 | Style cull: ~82 styles, their shaders and C++, dead Kotlin mirrors, dead controls | Only the kept styles are listed; CI green |
+| B1 | Preserve all style IDs, audit capabilities, repair or hide inert controls | Existing looks survive; displayed controls affect output; CI green |
 | B2 | Engine correctness | See below |
 | B3 | MilkDrop fixed | See below |
 | B4 | 3D prototype (R2 route): one tunnel style end to end, live and export | Go/no-go on CI plus a device check |

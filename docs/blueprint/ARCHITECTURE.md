@@ -28,7 +28,7 @@ flowchart TD
 | Playback service/domain | Queue, focus, noisy handling, prefs, history, A-B, timer, recovery | No Activity requirement |
 | `:engine:audio-android` | Media3 PCM tap, capture permission/service, clocks, JNI adapters | No UI state |
 | `:engine:audio-core` + `core/analysis` | Typed PCM, DSP, feature production, bounded buffers | No Android Context in portable C++ |
-| `:engine:scenes` + `core/viz` | Scene contract, GPU resources, GL thread, deterministic evaluation | No playback ownership or storage scans |
+| `:engine:scenes` + `core/viz` | Scene contract, GPU resources, GL thread, generative native state and captured-performance evaluation | No playback ownership or storage scans |
 | Studio domain | Immutable project snapshot, clip/time evaluation, commands/undo | No separate interpretation of time in preview and export |
 | Data | Repositories, migrations, imports, atomic persistence | No UI callbacks inside storage transactions |
 | Optional integrations | Billing, identity, Drive adapters behind interfaces | No blocking dependency of offline playback |
@@ -113,10 +113,10 @@ underruns; this is a tuning rule, not a reason to always choose large buffers.
 ## Renderer contract
 
 Each scene exposes stable ID/schema version, capabilities, universal parameter
-mappings, GPU requirements, seeded state, `prepare`, `resize`, `renderAt` and
+mappings, GPU requirements, live session state, `prepare`, `resize`, `renderAt` and
 `release`. GL resources are created/destroyed on the owning GL thread. CPU scene
 state survives surface replacement; context loss recreates resources and restores
-preset/seed instead of silently resetting the user's look.
+preset and realized session state instead of silently resetting the user's look.
 
 Render order: source layers → simulation/geometry → trails → bounded bloom →
 colour/tone mapping → overlays as specified → final safety composite. Apply
@@ -126,8 +126,12 @@ capability and driver identity, and invalidate safely.
 
 Universal macros map through per-scene adapters; do not send unused uniforms and
 declare a control implemented. Rotation rate and rotation angle are separate
-quantities. Camera director uses time-based easing, bounded velocity/acceleration,
-and seeded paths. Gyro offsets a stable camera rig and has recenter/disable.
+quantities. The native camera director uses time-based easing, bounded velocity,
+acceleration and jerk, and fresh generative local intentions shaped by music and
+touch. Tunnel geometry and camera share one path frame. A preset stores artistic
+choices, not a repeated journey. Obtain fresh entropy outside realtime audio work;
+fixed entropy belongs in tests only. Gyro offsets a stable rig with recenter/disable.
+See [VISUAL_STYLE_CAMERA.md](VISUAL_STYLE_CAMERA.md) for the full native contract.
 
 ## Studio: one evaluator, two consumers
 
@@ -144,7 +148,9 @@ Moving/splitting/deleting a clip also transforms or removes its keyed tracks.
 Preview and export use that evaluator. Prototype Media3 CompositionPlayer and
 Transformer for supported media sequences. Feed native visual layers through an
 explicit texture/frame adapter; where direct integration is not supported,
-pre-render a deterministic visual intermediate. Do not pretend a Media3
+use an intermediate captured from the realized performance. Editable rerendering
+requires recorded camera, scene choices, inputs and simulation checkpoints; never
+reroll live randomness and call it the same take. Do not pretend a Media3
 Composition automatically renders the custom C++ scene graph.
 
 Export owns a snapshot, offscreen EGL context/resources, encoder, muxer and temp

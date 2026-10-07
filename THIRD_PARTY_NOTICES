@@ -1,6 +1,17 @@
 THIRD-PARTY NOTICES
 ===================
 
+AndroidX Graphics Path native rebuild
+------------------------------------
+Geode rebuilds the Apache-2.0 AndroidX Graphics Path native sources at commit
+b780700e4b66ed38927ca1de28872d915b06a57c with NDK 30 and 16 KB LOAD/RELRO alignment.
+Copyright 2022 The Android Open Source Project; math headers retain their own
+upstream copyright notices. Original Java classes and consumer rules are unchanged.
+Source provenance and complete license: third_party/androidx-graphics-path/.
+The packaged app also includes assets/licenses/androidx-graphics-path/LICENSE.txt
+and NOTICE.txt from the rebuilt dependency.
+
+
 WebGL-Fluid-Simulation
 ----------------------
 The fluid simulation shaders and pipeline in app/src/main/assets/shaders/fluid_*.glsl

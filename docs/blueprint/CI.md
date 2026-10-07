@@ -1,5 +1,12 @@
 # Android build and verification
 
+The shared setup also rebuilds AndroidX Graphics Path's two shipped native
+binaries from pinned, unchanged Apache-2.0 source. Its official 1.1.0 artifact
+failed the 16 KB RELRO gate on both ABIs. See the
+[dependency rebuild contract](../../third_party/androidx-graphics-path/README.md).
+The debug download includes the exact original/rebuilt hashes and source/toolchain
+provenance. The whole-app native check remains mandatory.
+
 `.github/workflows/android.yml` is the single workflow. It replaces the former
 `ship-apk.yml` and `release.yml` entry points, preserving signed AAB generation as
 an explicitly requested job in the same workflow.

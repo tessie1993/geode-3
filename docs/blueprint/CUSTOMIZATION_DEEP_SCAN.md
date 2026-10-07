@@ -9,6 +9,13 @@ The user's current first gate is a working downloadable debug APK. This audit
 does not change application code, dependencies, workflows or renderer behavior.
 No local build, test, emulator run or lint was performed.
 
+Later source review and corrections: [APP_BUG_CONFIG_AUDIT.md](APP_BUG_CONFIG_AUDIT.md).
+The main library Save path already confirms replacement, while Customize Save
+still needs a repository-level copy/update distinction. Palette names already
+use the hashed sanitizer, so the earlier simple punctuation-collision claim is
+superseded. Keep all existing native styles; follow the new camera contract for
+generative live motion and capture of realized performance.
+
 ## 1. What is already usable, and what blocks a complete experience
 
 Geode has a substantial customization implementation: scene-aware advanced tabs,

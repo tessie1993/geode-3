@@ -47,6 +47,7 @@ jobs:
           "$SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose dist/Geode-debug.apk
           python3 tools/release/check_native_alignment.py dist/Geode-debug.apk
           git rev-parse HEAD > dist/commit.txt
+          cp build/graphics-path-rebuild/provenance.json dist/native-dependency-provenance.json
           (cd dist && sha256sum Geode-debug.apk Geode-debug-androidTest.apk > SHA256SUMS)
       - name: Upload downloadable APKs
         id: apk
@@ -72,6 +73,7 @@ jobs:
           path: |
             build/reports/
             app/build/reports/
+            build/graphics-path-rebuild/provenance.json
           if-no-files-found: ignore
           retention-days: 3
 
@@ -116,6 +118,10 @@ jobs:
           "$RUNNER_TEMP/motion-test"
       - name: Release validation regressions
         run: python3 -m unittest discover -s tools/release/tests -v
+      - name: Native dependency packaging regression
+        run: python3 -m unittest discover -s tools/android/tests -v
+      - name: Purchase domain regressions
+        run: PYTHONPATH=server python3 -m unittest discover -s server/tests -v
 
   emulator:
     name: Test the built APK on an emulator
@@ -212,6 +218,7 @@ jobs:
             app/build/outputs/bundle/release/app-release.aab.sha256
             app/build/outputs/mapping/release/mapping.txt
             app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+            build/graphics-path-rebuild/provenance.json
           if-no-files-found: error
           retention-days: 14
 

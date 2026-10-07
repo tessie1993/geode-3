@@ -5,6 +5,12 @@ briefs and tokens are implementation targets. They are not screenshots of a
 completed app or evidence of a device test. Use this with [FEATURE_SPEC.md](FEATURE_SPEC.md)
 and [ARCHITECTURE.md](ARCHITECTURE.md); record shipped coverage separately.
 
+The latest owner direction preserves **all existing C++ styles and MilkDrop**.
+New 3D tunnels, morphing objects and camera movement are native C++ additions.
+Live motion is fresh and generative. The supplied screenshot mappings and more
+detailed rigs in [VISUAL_STYLE_CAMERA.md](VISUAL_STYLE_CAMERA.md) refine this
+initial art direction and govern any conflicting older wording.
+
 ## 1. Product direction
 
 Geode should feel like a precise instrument surrounding a living image. Give the
@@ -61,7 +67,7 @@ independent; sampling album art never changes error, selection or focus semantic
 | Buttons | One filled primary action per dialog/sheet; tonal secondary; destructive actions explicitly named. Disable with a stated reason rather than silent no-op. |
 | Sliders | Label, current value, reset, accessibility range and optional numeric entry. Do not require a circular drag to change a value. |
 | Feedback | Inline field errors; persistent job/error card for long operations; brief snackbar with Undo for reversible edits. |
-| Artwork | Square album art in lists/player; 16:10 preset thumbnails, generated from a stable seed and identified as preview. |
+| Artwork | Square album art in lists/player; 16:10 preset thumbnails captured from representative frames and identified as previews; the live journey stays fresh. |
 
 ### Motion and haptics
 
@@ -136,12 +142,13 @@ or Cancelling state with a generic Loading screen.
 
 1. Choose a source: Local music, Microphone, Device audio or Silent. Each has a
    distinct selected state; microphone/projection consent is requested on demand.
-2. Browse six signature looks and the retained Fluid, raymarched and MilkDrop
-   families. Tapping a card previews the selection without restarting music.
+2. Browse six additive signature looks and the full retained C++/MilkDrop
+   catalog. Tapping a card previews the selection without restarting music.
 3. Drag the canvas to steer; cancel/palm interruption releases the interaction.
    An on-screen equivalent allows a user to steer without a gesture.
 4. Open Customize; change macros, choose a palette and use Compare. Randomize
-   respects locks and is one undoable operation, including the new random seed.
+   respects locks and is one undoable configuration change. Live evolution stays
+   fresh; undoing a setting does not force a previous camera journey to replay.
 5. **Save copy** creates a unique stable preset. Export/share names the preset
    and required assets. The original and imported file are not overwritten.
 6. Set as wallpaper through the system preview. Wallpaper has its own selected
@@ -215,7 +222,7 @@ is the final constraint and is never a premium control.
 
 ## 7. Six signature scene briefs
 
-All six are planned original C++ scenes. Keep seed, camera time, simulation time
+All six are planned original C++ scenes. Keep realized camera state, simulation time
 and input feature timestamps explicit. Each ships with a neutral demo, restrained
 default and performance preset. The quality values below are prototype ceilings,
 to be revised from GPU/memory evidence rather than treated as measured budgets.
@@ -226,8 +233,8 @@ to be revised from GPU/memory evidence rather than treated as measured budgets.
 space and thin warm emissive seams. The silhouette remains architectural even in
 monochrome; bloom does not supply the geometry.
 
-**Camera:** a seeded spline through arches, with a fixed horizon and eased
-look-ahead. Confident section changes select a new path at a corridor junction.
+**Camera:** a locally generated spline through arches, with a stable horizon and
+eased look-ahead. Music, touch and fresh variation shape the next corridor segment.
 Reduced motion uses a stationary viewpoint and gentle local deformation.
 
 **Audio:** bass changes arch opening, midrange bends ribs, treble reveals seam
@@ -345,7 +352,7 @@ only after the common frame and thermal budgets are satisfied.
 
 Record each scene with silence, sustained tones, transient pulses and at least
 three licensed musical fixtures. Check macro extremes, touch cancellation,
-source switch, seed restore, GL context replacement, portrait/landscape,
+source switch, live state restoration, GL context replacement, portrait/landscape,
 30/60/120 Hz displays and preview/export checkpoints. The evidence includes
 screenshots/video, frame timing, peak memory and a sustained thermal run.
 Keep only looks that remain distinct without their palette.

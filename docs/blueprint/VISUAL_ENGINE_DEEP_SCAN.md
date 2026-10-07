@@ -9,8 +9,15 @@ lands. Only this document was written during this scan.
 
 **The next implementation gate is a successful GitHub Actions debug APK job
 with a downloadable APK.** The packages below are proposed work after that
-gate, not completed changes. Follow the two-worker, disjoint-file ownership and
-Actions-only validation rules in [the rebuild plan](../rebuild/PLAN.md).
+gate, not completed changes. The owner subsequently requested additional fix
+agents and independent bug/feature reviewers. Disjoint worktrees/file ownership
+and Actions-only validation remain required.
+
+Owner update: preserve every existing C++ style and MilkDrop. Follow
+[VISUAL_STYLE_CAMERA.md](VISUAL_STYLE_CAMERA.md) for fresh generative live
+movement and captured-performance fidelity; a fixed seed alone does not record
+the realized live session. Later native findings are in
+[NATIVE_BUG_CONFIG_AUDIT.md](NATIVE_BUG_CONFIG_AUDIT.md).
 
 Read this with [the architecture](ARCHITECTURE.md),
 [feature acceptance criteria](FEATURE_SPEC.md), [design](DESIGN.md),
