@@ -11,6 +11,9 @@ interface CaptureSource {
 
     val readFrames: Int
 
+    /** Changes at disconnect and reopen, including reconnects with an unchanged format. */
+    val generation: Int get() = 0
+
     /**
      * Blocks for the next chunk and fills the front of [dst]. Returns the frames read, 0 when nothing
      * arrived yet, negative when the capture has failed for good. [sampleRateHz] may change between

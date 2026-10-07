@@ -168,37 +168,58 @@ callback nothing runs on a real-time thread, and the pump's ordinary reader
 thread closes and reopens the stream itself. The API 28 input-preset call is a
 weak reference behind `__builtin_available(android 28, *)`, so `minSdk` stays 26.
 
-**Route changes.** When the headset or Bluetooth mic is plugged in or out the
-read fails with `AAUDIO_ERROR_DISCONNECTED`. `MicStream::read` closes the stream
-and reopens it with the same settings over the next calls, waiting 0, 100, 200,
-400, 800 and then 1,000 ms between attempts, and gives up after 12 failures
-(about ten seconds), which ends the pump like any other read error. A reopen can
-come back at another sample rate: `AAudioMicSource.sampleRateHz` follows it and
-the pump calls `onSampleRate` again before the first chunk at the new rate, which
-is how `CaptureController` retunes the analysis.
+**Route changes.** A recoverable AAudio read error closes the stream and advances
+its generation immediately. Later reads attempt to reopen with bounded backoff;
+a successful reopen advances the generation again. The pump invalidates both PCM
+rings and published analysis at each boundary, including same-rate reconnects.
+It reports a changed sample rate before writing new PCM and refreshes the clamped
+burst-based read size. The Kotlin read buffer changes only when its required size
+changes; steady-state reads reuse it.
 
-**Stopping.** `stop()` bumps the pump's generation. The reader leaves within one
-read, a read that was already blocked cannot write into the sink, and the reader
-thread itself closes and destroys the native stream, so nothing else touches the
-stream while it closes.
+If native recovery is exhausted, the microphone pump releases AAudio and tries
+AudioRecord once. A successful fallback keeps capture active; a failed fallback
+ends it and lets the existing controller report unavailable. Other-app playback
+capture does not receive this microphone-specific fallback.
 
-**The AudioRecord path** is used below API 28 and whenever AAudio will not open.
-It tries the device's native output rate first (`PROPERTY_OUTPUT_SAMPLE_RATE`,
-usually 48 kHz), then 44.1 kHz, then 48 and 22.05 kHz; a buffer of two minimum
-sizes; 256-frame reads; float and then 16-bit. `PlaybackCapture` (other apps'
-audio) is untouched: it still uses AudioRecord with 1,024-frame reads and a
-buffer of four minimum sizes.
+**Stopping.** `stop()` invalidates the pump generation under the same lock used
+for PCM and format publication. A blocked read or fallback open that returns
+late cannot publish into a new session. The reader owns source release; a late
+replacement is released without being adopted. Stop waits up to 500 ms for the
+reader and can return before a blocked open finishes. Native read, close and
+reopen operations remain on the owning reader thread.
 
-Known limits:
+**The AudioRecord path** is used below API 28, whenever AAudio will not open, and
+when native recovery fails. It tries the device's native output rate first
+(`PROPERTY_OUTPUT_SAMPLE_RATE`, usually 48 kHz), then the remaining 44.1, 48 and
+22.05 kHz rates without duplicates; float and then 16-bit; a buffer of two
+minimum sizes; and 256-frame reads. An initialized recorder whose start fails is
+released, then the next configuration is tried. `PlaybackCapture` retains
+AudioRecord with 1,024-frame reads and a buffer of four minimum sizes.
 
-- A reopen reports the new rate but does not start a new sample-ring epoch
-  (`CaptureController` only passes the rate on), so the one analysis window that
-  straddles a reopen can mix audio from the two routes.
-- About 10–20 ms of capture latency is what a device with a low-latency (MMAP)
-  input path gives. Elsewhere AAudio uses a legacy path no faster than
-  AudioRecord. `MicStream` logs what it was granted on every open (tag
-  `geode.mic`: rate, burst, buffer, sharing and performance mode); the analysis
-  window and hop sit on top of that figure.
+**Analysis continuity.** Ring boundaries discard old PCM, and analysis waits for
+a complete fresh FFT window. The legacy renderer ring retains monotonic sample
+indices so a renderer cursor resumes without consuming pre-boundary audio. The
+native analyzer keeps its fixed 62.5 Hz cadence during ordinary inter-chunk gaps;
+a previously copied window can be reused during that bounded interval. With no
+fresh PCM for two FFT-window durations (at least 48 ms), analysis resets to
+silence. An explicit disconnect bypasses that grace and clears immediately.
+Offline export analysis is unchanged.
+
+Verification limits:
+
+- Scripted pump, configuration-selection, ring and analysis-input tests exercise
+  these production seams. Passing results must come from the patch's Actions
+  run; source inspection alone does not verify runtime behavior.
+- Android lifecycle instrumentation covers actual capture opening, PCM delivery,
+  repeated start/stop and publication stopping on the CI emulator. It does not
+  simulate physical headset, USB or Bluetooth routing, permission revocation,
+  native service failure, or a device HAL's reconnect behavior.
+- No capture-to-visual latency measurement is available for this patch. Low-latency
+  mode is a request; granted rate, burst, buffer, sharing and performance mode
+  are logged under `geode.mic`. Neither buffer arithmetic nor emulator timing
+  establishes physical-device latency or absence of native leaks. Use a focused
+  device route-change flow with Perfetto for scheduling and lock waits; preserve
+  the device/API/build identity and exact trace before making performance claims.
 
 ## Adding a stage
 

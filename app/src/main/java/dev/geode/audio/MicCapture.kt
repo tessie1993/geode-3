@@ -46,7 +46,8 @@ class MicCapture(
         if (!hasPermission()) return Failure.PERMISSION
         val opened = MicSourcePlan.openFirst(Build.VERSION.SDK_INT, this::openSource) ?: return Failure.UNAVAILABLE
         Log.i(TAG, "microphone through ${opened.backend}")
-        startPump(opened.source, onSampleRate)
+        val fallback = if (opened.backend == MicBackend.AAUDIO) this::openRecord else null
+        startPump(opened.source, onSampleRate, fallback)
         return null
     }
 
@@ -84,13 +85,13 @@ class MicCapture(
 
     private fun openRecord(): AudioRecordSource? {
         val audioSource = preferredSource()
-        for (rate in MicSourcePlan.recordRates(nativeRateHz())) {
-            for (encoding in intArrayOf(AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_16BIT)) {
-                val rec = createRecord(audioSource, rate, encoding)
-                if (rec != null) return AudioRecordSource.started(rec, rate, 1, MicSourcePlan.RECORD_READ_FRAMES)
-            }
+        return MicSourcePlan.openRecord(
+            nativeRateHz(),
+            intArrayOf(AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_16BIT),
+        ) { rate, encoding ->
+            val rec = createRecord(audioSource, rate, encoding)
+            rec?.let { AudioRecordSource.started(it, rate, 1, MicSourcePlan.RECORD_READ_FRAMES) }
         }
-        return null
     }
 
     private fun createRecord(
@@ -107,7 +108,7 @@ class MicCapture(
                 @Suppress("MissingPermission")
                 AudioRecord(audioSource, rate, AudioFormat.CHANNEL_IN_MONO, encoding, bufferBytes)
             }.getOrNull()
-        if (rec != null && rec.state == AudioRecord.STATE_INITIALIZED) return rec
+        if (rec != null && runCatching { rec.state == AudioRecord.STATE_INITIALIZED }.getOrDefault(false)) return rec
         bestEffort(TAG, "rec?.release()") { rec?.release() }
         return null
     }

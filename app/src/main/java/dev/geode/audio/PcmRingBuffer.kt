@@ -21,6 +21,15 @@ class PcmRingBuffer(
         require(capacity and (capacity - 1) == 0) { "capacity must be a power of two" }
     }
 
+    private var epochStartIndex = 0L
+
+    @Synchronized
+    override fun discontinuity() {
+        // Keep indices monotonic so existing renderer cursors resume immediately.
+        epochStartIndex = writeIndex
+    }
+
+    @Synchronized
     fun writeInterleaved(
         samples: FloatArray,
         frameCount: Int,
@@ -53,13 +62,14 @@ class PcmRingBuffer(
     var lastCopyEndIndex: Long = 0L
         private set
 
+    @Synchronized
     fun copyNewSince(
         fromIndex: Long,
         out: FloatArray,
     ): Int {
         val w = writeIndex
         lastCopyEndIndex = w
-        var available = w - fromIndex
+        var available = w - maxOf(fromIndex, epochStartIndex)
         if (available <= 0L) return 0
         if (available > out.size) available = out.size.toLong()
         val maxRun = data.size - (data.size shr SNAPSHOT_HEADROOM_SHIFT)
@@ -71,8 +81,10 @@ class PcmRingBuffer(
         return available.toInt()
     }
 
+    @Synchronized
     fun snapshotLatest(out: FloatArray): Boolean = snapshotFrom(data, out)
 
+    @Synchronized
     fun snapshotLatestSide(out: FloatArray): Boolean = snapshotFrom(sideData, out)
 
     private fun snapshotFrom(
@@ -81,7 +93,7 @@ class PcmRingBuffer(
     ): Boolean {
         if (out.size > src.size) return false
         val w = writeIndex
-        if (w < out.size) return false
+        if (w - epochStartIndex < out.size) return false
         var r = w - out.size
         for (i in out.indices) {
             out[i] = src[(r and mask).toInt()]

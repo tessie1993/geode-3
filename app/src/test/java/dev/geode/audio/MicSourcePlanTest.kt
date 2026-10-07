@@ -127,4 +127,40 @@ class MicSourcePlanTest {
         assertEquals(256, MicSourcePlan.RECORD_READ_FRAMES)
         assertEquals(28, MicSourcePlan.AAUDIO_MIN_API)
     }
+
+    @Test
+    fun `record configurations continue when initialized recorder fails to start`() {
+        val attempts = mutableListOf<Pair<Int, Int>>()
+        val result =
+            MicSourcePlan.openRecord(48_000, intArrayOf(4, 2)) { rate, encoding ->
+                attempts += rate to encoding
+                if (encoding == 4) null else "started"
+            }
+        assertEquals("started", result)
+        assertEquals(listOf(48_000 to 4, 48_000 to 2), attempts)
+    }
+
+    @Test
+    fun `record configuration first success skips remaining attempts`() {
+        var attempts = 0
+        val result =
+            MicSourcePlan.openRecord(48_000, intArrayOf(4, 2)) { _, _ ->
+                attempts++
+                "started"
+            }
+        assertEquals("started", result)
+        assertEquals(1, attempts)
+    }
+
+    @Test
+    fun `record configuration failures and exceptions exhaust the ordered configurations`() {
+        val attempts = mutableListOf<Pair<Int, Int>>()
+        val result =
+            MicSourcePlan.openRecord<String>(48_000, intArrayOf(4, 2)) { rate, encoding ->
+                attempts += rate to encoding
+                if (encoding == 4) error("refused start") else null
+            }
+        assertNull(result)
+        assertEquals(listOf(48_000 to 4, 48_000 to 2, 44_100 to 4, 44_100 to 2, 22_050 to 4, 22_050 to 2), attempts)
+    }
 }

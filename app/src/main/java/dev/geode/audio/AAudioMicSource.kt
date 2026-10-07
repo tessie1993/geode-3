@@ -12,7 +12,7 @@ import dev.geode.engine.bridge.GeodeNative
  */
 class AAudioMicSource private constructor(
     private val handle: Long,
-    override val readFrames: Int,
+    initialReadFrames: Int,
     initialRateHz: Int,
 ) : CaptureSource {
     @Volatile
@@ -22,7 +22,11 @@ class AAudioMicSource private constructor(
 
     override val channels: Int = 1
 
-    private var generation = GeodeNative.micGeneration(handle)
+    override var generation: Int = GeodeNative.micGeneration(handle)
+        private set
+
+    override var readFrames: Int = initialReadFrames
+        private set
 
     override fun read(dst: FloatArray): Int {
         val frames = GeodeNative.micRead(handle, dst, dst.size, READ_TIMEOUT_NANOS)
@@ -35,7 +39,8 @@ class AAudioMicSource private constructor(
         if (current == generation) return
         generation = current
         rateHz = GeodeNative.micSampleRate(handle)
-        Log.i(TAG, "stream reopened at $rateHz Hz")
+        readFrames = MicSourcePlan.aaudioReadFrames(GeodeNative.micFramesPerBurst(handle))
+        Log.i(TAG, "stream generation $generation at $rateHz Hz, $readFrames frames per read")
     }
 
     // The blocking read returns within READ_TIMEOUT_NANOS on its own, and closing a stream another thread
@@ -43,8 +48,11 @@ class AAudioMicSource private constructor(
     override fun interrupt() = Unit
 
     override fun release() {
-        GeodeNative.micStop(handle)
-        GeodeNative.micDestroy(handle)
+        try {
+            GeodeNative.micStop(handle)
+        } finally {
+            GeodeNative.micDestroy(handle)
+        }
     }
 
     companion object {
@@ -52,14 +60,20 @@ class AAudioMicSource private constructor(
         fun open(preferUnprocessed: Boolean): AAudioMicSource? {
             val handle = GeodeNative.micCreate(preferUnprocessed)
             if (handle == 0L) return null
-            val rate = if (GeodeNative.micStart(handle)) GeodeNative.micSampleRate(handle) else 0
-            if (rate <= 0) {
-                Log.w(TAG, "AAudio input did not open (error ${GeodeNative.micLastError(handle)})")
-                GeodeNative.micDestroy(handle)
-                return null
+            var transferred = false
+            try {
+                val rate = if (GeodeNative.micStart(handle)) GeodeNative.micSampleRate(handle) else 0
+                if (rate <= 0) {
+                    Log.w(TAG, "AAudio input did not open (error ${GeodeNative.micLastError(handle)})")
+                    return null
+                }
+                val readFrames = MicSourcePlan.aaudioReadFrames(GeodeNative.micFramesPerBurst(handle))
+                val source = AAudioMicSource(handle, readFrames, rate)
+                transferred = true
+                return source
+            } finally {
+                if (!transferred) GeodeNative.micDestroy(handle)
             }
-            val readFrames = MicSourcePlan.aaudioReadFrames(GeodeNative.micFramesPerBurst(handle))
-            return AAudioMicSource(handle, readFrames, rate)
         }
 
         private const val READ_TIMEOUT_NANOS = 40_000_000L

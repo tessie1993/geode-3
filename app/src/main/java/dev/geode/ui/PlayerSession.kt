@@ -111,8 +111,7 @@ class PlayerSession internal constructor(
                 override fun pausePlayback() = player.pause()
 
                 override fun resetAnalysis() {
-                    playback.sampleRing.beginEpoch()
-                    engine.reset()
+                    playback.captureSink.discontinuity()
                 }
 
                 override fun setAnalysisRate(rateHz: Int) {

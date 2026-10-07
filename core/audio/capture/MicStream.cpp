@@ -202,6 +202,8 @@ int MicStream::handleReadError(int result) {
     if (!isRecoverable(result)) return result;
     GEODE_LOGW(kTag, "read failed (%s); reopening", AAudio_convertResultToText(result));
     closeStream();
+    lastPeak_.store(0.0f);
+    generation_.fetch_add(1);
     reopenAttempts_ = 0;
     nextReopenAt_ = Clock::now();
     return 0;

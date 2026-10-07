@@ -59,6 +59,21 @@ object MicSourcePlan {
         return listOf(first, 44_100, 48_000, 22_050).distinct()
     }
 
+    /** The opener owns create/start/release; a refused start continues with the next configuration. */
+    fun <T : Any> openRecord(
+        nativeRateHz: Int?,
+        encodings: IntArray,
+        openAndStart: (rate: Int, encoding: Int) -> T?,
+    ): T? {
+        for (rate in recordRates(nativeRateHz)) {
+            for (encoding in encodings) {
+                val source = runCatching { openAndStart(rate, encoding) }.getOrNull()
+                if (source != null) return source
+            }
+        }
+        return null
+    }
+
     /** Two minimum buffers, but never less than two read chunks. */
     fun recordBufferBytes(
         minBufferBytes: Int,

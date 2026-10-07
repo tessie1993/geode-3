@@ -35,11 +35,14 @@ class SampleRing(
 
     val oldestAvailable: Long get() = maxOf(0L, written + maxWriteFrames - capacityFrames)
 
+    @Synchronized
     fun beginEpoch() {
         written = 0
+        sourceChannels = 0
         epochValue += 1
     }
 
+    @Synchronized
     override fun write(
         interleaved: FloatArray,
         frameCount: Int,
@@ -66,6 +69,7 @@ class SampleRing(
         written = w
     }
 
+    @Synchronized
     fun snapshotLatest(out: Array<FloatArray>): Boolean {
         val frames = out.minOf { it.size }
         if (frames > capacityFrames) return false
@@ -87,6 +91,7 @@ class SampleRing(
         const val DEFAULT_RUNWAY_DIVISOR = 4
     }
 
+    @Synchronized
     internal fun copyInto(
         firstSample: Long,
         count: Int,
