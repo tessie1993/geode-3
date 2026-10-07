@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """UI-tree-driven smoke evidence on a disposable CI emulator.
 
-Every tap and swipe comes from the current UI XML. This covers onboarding,
+Every tap and swipe comes from measured UI XML. Changing production screens use
+fresh hierarchies; the debug component kit reuses its validated fixed layout
+while recording, then proves the resulting callback and selection state. This covers onboarding,
 generated-fixture playback, UI preferences and adaptive navigation. Emulator frame
 and memory reports are emulator diagnostics. This does not measure physical
 route latency or audio fidelity, test export or purchase, or assess all accessibility.
@@ -334,33 +336,47 @@ class SmokeRun:
     def component_movie(self, root, theme_slug, remote, supports_recording):
         stem = f"component-motion-{theme_slug}"
         result = {"scope": "debug shared components; no audio, GL or foreground service", "theme": theme_slug,
-                  "time_limit_seconds": 14, "bit_rate": 700000, "actions": [], "action_elapsed_seconds": {}}
+                  "time_limit_seconds": 14, "bit_rate": 700000, "recording_tail_seconds": 1,
+                  "action_timing_reference": "tap completion since recorder launch, before settling",
+                  "actions": [], "action_elapsed_seconds": {}}
+        labels = ("Awaken", "Press capsule", "Press round button", "Selected capsule")
+        # This debug screen has fixed-height rows and no scroll or navigation.
+        # Awaken only resets its scene generation; these labels and bounds stay
+        # fixed through all three callbacks. Validate every native target before
+        # recording instead of spending most of the film dumping unchanged XML.
         recorder = None
         try:
+            targets = {}
+            for label in labels:
+                node = self.fully_visible_action(root, label)
+                if node is None or node.get("clickable") != "true":
+                    raise AssertionError(f"Component movie target is not fully visible and enabled: {label}")
+                targets[label] = node.get("bounds")
+            result["validated_target_bounds"] = targets
+            started = time.monotonic()
             if supports_recording:
                 recorder = subprocess.Popen(
                     ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "14",
                      "--bit-rate", "700000", remote], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 )
-            started = time.monotonic()
             time.sleep(0.2)
-            self.tap_current(root, "Awaken", settle=0.15)
+            self.tap_current(root, "Awaken", settle=0)
             result["actions"].append("Tapped Awaken")
             result["action_elapsed_seconds"]["Awaken"] = round(time.monotonic() - started, 2)
-            root = self.capture(f"component-awaken-{theme_slug}")
-            self.assert_labels(root, "Scene: 1", "Interactions: 0")
-            self.assert_selected(root, "Selected capsule", allow_checked=True)
-            self.assert_selected(root, "Selected round button", allow_checked=True)
-            for count, label in enumerate(("Press capsule", "Press round button", "Selected capsule"), start=1):
-                # The root is the latest actual XML, captured just before this
-                # press. Animation changes pixels, never these measured targets.
-                self.tap_current(root, label, settle=0.15)
+            time.sleep(1.8)
+            for label in labels[1:]:
+                self.tap_current(root, label, settle=0)
                 result["actions"].append(f"Tapped {label}")
                 result["action_elapsed_seconds"][label] = round(time.monotonic() - started, 2)
-                root = self.capture(f"component-action-{theme_slug}-{count}")
-                self.assert_labels(root, f"Interactions: {count}")
+                time.sleep(0.5)
+            root = self.capture(f"component-action-{theme_slug}-3")
+            self.assert_labels(root, "Scene: 1", "Interactions: 3")
             self.assert_not_selected(root, "Selected capsule", allow_checked=True)
             self.assert_selected(root, "Selected round button", allow_checked=True)
+            for label, bounds in targets.items():
+                node = self.fully_visible_action(root, label)
+                if node is None or node.get("clickable") != "true" or node.get("bounds") != bounds:
+                    raise AssertionError(f"Component movie target changed its measured layout: {label}")
             if recorder is not None:
                 stdout, stderr = recorder.communicate(timeout=25)
                 (self.output / f"{stem}-screenrecord.txt").write_bytes(stdout + stderr)
@@ -370,11 +386,8 @@ class SmokeRun:
                 self.adb("pull", remote, str(destination))
                 if not destination.stat().st_size:
                     raise RuntimeError(f"Component screenrecord was empty: {theme_slug}")
+                self.assert_recorded_actions(result, labels)
                 result["status"] = "recorded"
-                result["actions_within_recording"] = [
-                    label for label, elapsed in result["action_elapsed_seconds"].items()
-                    if elapsed <= result["time_limit_seconds"]
-                ]
             else:
                 result["status"] = "unsupported: screenrecord unavailable; native callbacks still verified"
         finally:
@@ -384,6 +397,18 @@ class SmokeRun:
             self.adb("shell", "rm", "-f", remote, check=False)
             result.setdefault("status", "failed; inspect exact component UI and recording diagnostics")
             (self.output / f"{stem}.json").write_text(json.dumps(result, indent=2))
+
+    @staticmethod
+    def assert_recorded_actions(result, expected):
+        """A successful capture must contain every action and its settling tail."""
+        deadline = result["time_limit_seconds"] - result["recording_tail_seconds"]
+        result["actions_within_recording"] = [
+            label for label, elapsed in result["action_elapsed_seconds"].items()
+            if math.isfinite(elapsed) and 0 <= elapsed <= deadline
+        ]
+        missing = [label for label in expected if label not in result["actions_within_recording"]]
+        if missing:
+            raise AssertionError(f"Motion actions missing from recording before {deadline}s tail deadline: {missing}")
 
     def visit(self, label, profile="default"):
         self.tap(label)
@@ -851,7 +876,9 @@ class SmokeRun:
         self.events.append("All five destinations replayed at 200% compact, landscape and restored display")
 
     def motion_video(self):
-        result = {"scope": "emulator UI animation sample; no physical-device performance claim", "time_limit_seconds": 10}
+        result = {"scope": "emulator UI animation sample; no physical-device performance claim",
+                  "time_limit_seconds": 40, "bit_rate": 700000, "recording_tail_seconds": 1,
+                  "action_timing_reference": "tap completion since recorder launch, before settling"}
         if not self.adb("shell", "which", "screenrecord", check=False).strip():
             result["status"] = "unsupported: screenrecord unavailable"
             (self.output / "motion-video.json").write_text(json.dumps(result, indent=2))
@@ -866,32 +893,31 @@ class SmokeRun:
             self.restart("motion-ready")
             self.ensure_playing("motion-ready")
             self.seek("Search", scroll="vertical", reverse=True)
+            started = time.monotonic()
             recorder = subprocess.Popen(
-                ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "10", "--bit-rate", "2000000", remote],
+                ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "40", "--bit-rate", "700000", remote],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             )
-            started = time.monotonic()
             time.sleep(0.2)
             result["actions"] = []
             result["action_elapsed_seconds"] = {}
-            for label in ("Library", "Player", "Search", "Close search"):
+            labels = ("Library", "Player", "Search", "Close search")
+            for label in labels:
                 self.tap(label, scroll="vertical" if label == "Search" else None,
-                         reverse=label == "Search", settle=0.15)
+                         reverse=label == "Search", settle=0)
                 result["actions"].append(f"Tapped {label}")
                 result["action_elapsed_seconds"][label] = round(time.monotonic() - started, 2)
-            stdout, stderr = recorder.communicate(timeout=25)
+                time.sleep(0.15)
+            stdout, stderr = recorder.communicate(timeout=55)
             (self.output / "screenrecord.txt").write_bytes(stdout + stderr)
             if recorder.returncode:
                 raise RuntimeError(f"screenrecord exited {recorder.returncode}")
             self.adb("pull", remote, str(self.output / "ui-motion.mp4"))
             if not (self.output / "ui-motion.mp4").stat().st_size:
                 raise RuntimeError("screenrecord produced an empty video")
+            self.assert_recorded_actions(result, labels)
             result["status"] = "recorded"
-            result["actions_within_recording"] = [
-                label for label, elapsed in result["action_elapsed_seconds"].items()
-                if elapsed <= result["time_limit_seconds"]
-            ]
-            self.events.append("Recorded 10-second animation sample with navigation pebble presses and Search, animation scales temporarily enabled")
+            self.events.append("Recorded 40-second animation sample with every navigation/Search action inside the recording and a settling tail, animation scales temporarily enabled")
         finally:
             if recorder is not None and recorder.poll() is None:
                 recorder.kill()
