@@ -68,6 +68,7 @@ abstract class AudioCapturePump(
             running = true
             lastAudibleAtMs = 0L
             resetLevel()
+            var transferred = false
             try {
                 sink.discontinuity()
                 sampleRateHz = source.sampleRateHz
@@ -84,11 +85,13 @@ abstract class AudioCapturePump(
                             pumpRun.close()
                         }
                     }
-            } catch (error: Throwable) {
-                activeSource = null
-                running = false
-                runCatching { source.release() }
-                throw error
+                transferred = true
+            } finally {
+                if (!transferred) {
+                    activeSource = null
+                    running = false
+                    runCatching { source.release() }
+                }
             }
         }
     }
