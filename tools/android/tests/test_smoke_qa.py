@@ -27,6 +27,83 @@ class RestartEvidenceTest(unittest.TestCase):
 
 
 class SemanticSelectorTest(unittest.TestCase):
+    def test_fixture_directory_uses_resolved_emulator_external_volume(self):
+        self.assertEqual(SmokeRun.fixture_directory("/storage/emulated/0"), "/storage/emulated/0/Music/GeodeUiQa")
+        self.assertEqual(SmokeRun.fixture_directory("/storage/emulated/10/"), "/storage/emulated/10/Music/GeodeUiQa")
+
+    def test_fixture_directory_rejects_sdcard_alias_and_unresolved_volume(self):
+        for root in ("/sdcard", "/storage/self/primary", "", "/storage/emulated"):
+            with self.subTest(root=root), self.assertRaisesRegex(AssertionError, "canonical emulator volume"):
+                SmokeRun.fixture_directory(root)
+
+    def test_scanner_placeholder_rows_cannot_prove_fixture_ingestion(self):
+        remote = "/storage/emulated/0/Music/GeodeUiQa/geode_qa_river_a.wav"
+        rows = f"Row: 0 _id=18, _display_name=geode_qa_river_a.wav, title=geode_qa_river_a, duration=NULL, is_music=NULL, _data={remote}"
+        self.assertIsNone(SmokeRun.indexed_audio_row(rows, "geode_qa_river_a.wav", remote))
+
+    def test_indexed_music_requires_actual_duration_and_matching_fixture_path(self):
+        remote = "/storage/emulated/0/Music/GeodeUiQa/geode_qa_river_a.wav"
+        rows = f"Row: 0 _id=18, _display_name=geode_qa_river_a.wav, title=geode_qa_river_a, duration=45000, is_music=1, _data={remote}"
+        indexed = SmokeRun.indexed_audio_row(rows, "geode_qa_river_a.wav", remote)
+        self.assertEqual(indexed["title"], "geode_qa_river_a")
+        self.assertIsNone(SmokeRun.indexed_audio_row(rows, "geode_qa_river_a.wav", "/sdcard/Music/GeodeUiQa/geode_qa_river_a.wav"))
+
+    def test_current_hero_track_rejects_expected_title_only_in_queue(self):
+        root = ET.fromstring('''<hierarchy>
+            <node bounds="[32,323][288,380]">
+                <node text="PAUSED" bounds="[32,323][177,337]" />
+                <node text="geode_qa_river_a" bounds="[32,337][278,365]" />
+                <node text="Unknown artist" bounds="[32,365][234,380]" />
+            </node>
+            <node bounds="[20,400][300,500]">
+                <node text="UP NEXT" bounds="[20,400][100,420]" />
+                <node text="geode_qa_river_b" bounds="[20,430][280,460]" />
+            </node>
+        </hierarchy>''')
+        self.assertEqual(SmokeRun.current_hero_track(root), "geode_qa_river_a")
+        self.assertNotEqual(SmokeRun.current_hero_track(root), "geode_qa_river_b")
+
+    def test_current_hero_track_accepts_title_only_in_status_metadata_subtree(self):
+        for status in ("NOW PLAYING", "PAUSED"):
+            with self.subTest(status=status):
+                root = ET.fromstring(f'''<hierarchy>
+                    <node bounds="[32,323][288,380]">
+                        <node text="{status}" bounds="[32,323][177,337]" />
+                        <node text="geode_qa_river_b" bounds="[32,337][278,365]" />
+                        <node text="Unknown artist" bounds="[32,365][234,380]" />
+                    </node>
+                    <node text="geode_qa_river_a" bounds="[20,430][280,460]" />
+                </hierarchy>''')
+                self.assertEqual(SmokeRun.current_hero_track(root), "geode_qa_river_b")
+
+    def test_queue_title_without_hero_status_cannot_prove_current_track(self):
+        root = ET.fromstring('''<hierarchy>
+            <node text="UP NEXT" bounds="[20,400][100,420]" />
+            <node text="geode_qa_river_b" bounds="[20,430][280,460]" />
+        </hierarchy>''')
+        self.assertIsNone(SmokeRun.current_hero_track(root))
+
+    def test_flat_status_without_metadata_column_cannot_prove_queue_title(self):
+        root = ET.fromstring('''<hierarchy>
+            <node text="PAUSED" bounds="[20,400][100,420]" />
+            <node text="geode_qa_river_b" bounds="[20,430][280,460]" />
+        </hierarchy>''')
+        self.assertIsNone(SmokeRun.current_hero_track(root))
+
+    def test_playback_progress_rejects_static_elapsed_position(self):
+        before = ET.fromstring('<node content-desc="Seek. 0:27 of 0:45" />')
+        after = ET.fromstring('<node content-desc="Seek. 0:27 of 0:45" />')
+        with self.assertRaisesRegex(AssertionError, "did not advance"):
+            SmokeRun.assert_position_advanced(before, after)
+
+    def test_playback_progress_requires_same_duration_and_two_elapsed_seconds(self):
+        before = ET.fromstring('<node content-desc="Seek. 0:27 of 0:45" />')
+        after = ET.fromstring('<node content-desc="Seek. 0:29 of 0:45" />')
+        self.assertEqual(SmokeRun.assert_position_advanced(before, after), (27, 29, 45))
+        changed_track = ET.fromstring('<node content-desc="Seek. 0:31 of 1:00" />')
+        with self.assertRaisesRegex(AssertionError, "did not advance"):
+            SmokeRun.assert_position_advanced(before, changed_track)
+
     def test_active_tab_is_targeted_when_android_exports_it_as_nonclickable(self):
         # Captured run-35 shape: a separate Player heading, then the selected
         # nav ancestor containing both icon description and text descendants.

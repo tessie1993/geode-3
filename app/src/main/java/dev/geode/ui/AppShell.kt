@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -431,39 +432,7 @@ private fun AppShellExpanded(
     val tidal = LocalThemePack.current.isTidalGlass
     Row(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         if (tidal) {
-            Column(
-                Modifier
-                    .width(112.dp)
-                    .fillMaxHeight()
-                    .padding(8.dp)
-                    .crystalPanel(
-                        0.56f,
-                        MaterialTheme.colorScheme.surfaceVariant,
-                        MaterialTheme.colorScheme.primary,
-                        corner = 28.dp,
-                        glowStrength = 0.45f,
-                    ).verticalScroll(rememberScrollState())
-                    .padding(horizontal = 8.dp, vertical = 16.dp)
-                    .selectableGroup(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                CrystalGem(MaterialTheme.colorScheme.primary, size = 10.dp)
-                Text(
-                    stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.height(4.dp))
-                navEntries.forEach { (destination, item) ->
-                    TidalNavigationPebble(
-                        item = item,
-                        selected = appState.dest == destination,
-                        onSelect = { appState.navigateTo(destination) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+            TidalNavigationRail(navEntries, appState)
         } else {
             NavigationRail(containerColor = Color.Transparent) {
                 navEntries.forEach { (destination, item) ->
@@ -485,6 +454,51 @@ private fun AppShellExpanded(
         Column(Modifier.weight(1f)) {
             if (hasMedia && !appState.onPlayer) miniPlayer()
             Box(Modifier.weight(1f)) { content() }
+        }
+    }
+}
+
+@Composable
+private fun TidalNavigationRail(
+    navEntries: List<NavEntry>,
+    appState: GeodeAppState,
+) {
+    BoxWithConstraints(Modifier.width(112.dp).fillMaxHeight()) {
+        val compact = maxHeight < 520.dp
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(8.dp)
+                .crystalPanel(
+                    0.56f,
+                    MaterialTheme.colorScheme.surfaceVariant,
+                    MaterialTheme.colorScheme.primary,
+                    corner = 28.dp,
+                    glowStrength = 0.45f,
+                ).verticalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp, vertical = if (compact) 8.dp else 16.dp)
+                .selectableGroup(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 8.dp),
+        ) {
+            if (!compact) {
+                CrystalGem(MaterialTheme.colorScheme.primary, size = 10.dp)
+                Text(
+                    stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+            navEntries.forEach { (destination, item) ->
+                TidalNavigationPebble(
+                    item = item,
+                    selected = appState.dest == destination,
+                    onSelect = { appState.navigateTo(destination) },
+                    modifier = Modifier.fillMaxWidth(),
+                    compact = compact,
+                )
+            }
         }
     }
 }

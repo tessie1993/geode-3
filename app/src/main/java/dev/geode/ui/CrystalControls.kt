@@ -324,6 +324,7 @@ internal fun TidalNavigationPebble(
     selected: Boolean,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     val cs = MaterialTheme.colorScheme
     val reducedMotion = LocalReducedMotion.current
@@ -341,7 +342,7 @@ internal fun TidalNavigationPebble(
     )
     Column(
         modifier
-            .defaultMinSize(minWidth = 48.dp, minHeight = 80.dp)
+            .defaultMinSize(minWidth = 48.dp, minHeight = if (compact) 56.dp else 80.dp)
             .selectable(
                 selected = selected,
                 role = Role.Tab,
@@ -354,7 +355,7 @@ internal fun TidalNavigationPebble(
     ) {
         Box(
             Modifier
-                .size(50.dp)
+                .size(if (compact) 36.dp else 50.dp)
                 .graphicsLayer { translationY = if (reducedMotion) 0f else -4.dp.toPx() * lift }
                 .stonePress(interaction, reducedMotion = reducedMotion),
             contentAlignment = Alignment.Center,
@@ -362,7 +363,7 @@ internal fun TidalNavigationPebble(
             StoneSurfaceArt(StoneComponent.ICON_BUTTON, state, Modifier.matchParentSize(), reducedMotion = reducedMotion)
             StoneIconArt(item.icon, item.label, tint = tint)
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(if (compact) 2.dp else 4.dp))
         Text(
             item.label,
             style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.1.sp),

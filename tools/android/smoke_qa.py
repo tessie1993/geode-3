@@ -301,12 +301,43 @@ class SmokeRun:
                 raise AssertionError(f"Empty-queue transport should be disabled: {label}")
         self.events.append(f"{profile}: transport retained; has_media={has_media}, playing={has_media}")
 
+    @staticmethod
+    def fixture_directory(canonical_external):
+        root = canonical_external.rstrip("/")
+        if re.fullmatch(r"/storage/emulated/\d+", root) is None:
+            raise AssertionError(f"External storage did not resolve to a canonical emulator volume: {canonical_external!r}")
+        return f"{root}/Music/GeodeUiQa"
+
+    @staticmethod
+    def indexed_audio_row(rows, filename, expected_remote):
+        for row in rows.splitlines():
+            if f"_display_name={filename}," not in row:
+                continue
+            title = re.search(r"title=(.*?), duration=", row)
+            length = re.search(r"duration=(\d+)", row)
+            music = re.search(r"is_music=(\d+)", row)
+            data = re.search(r"(?:^|, )_data=(.*)$", row)
+            if (title and title.group(1) and length and int(length.group(1)) >= 44000
+                    and music and music.group(1) == "1" and data and data.group(1) == expected_remote):
+                return {"title": title.group(1), "media_store_row": row}
+        return None
+
     def seed_audio(self):
         """Create deterministic, original PCM fixtures; verify actual MediaStore ingestion."""
-        remote_dir = "/sdcard/Music/GeodeUiQa"
+        # Run-36's MediaProvider could not traverse /sdcard -> self/primary in
+        # its SELinux namespace. Resolve that alias in the shell namespace and
+        # broadcast the actual /storage/emulated/<user> path, not the alias.
+        canonical_external = self.shell("readlink", "-f", "/sdcard")
+        (self.output / "fixture-storage-root.txt").write_text(f"readlink -f /sdcard: {canonical_external}\n")
+        remote_dir = self.fixture_directory(canonical_external)
         self.shell("mkdir", "-p", remote_dir)
+        directories = self.adb("shell", "ls", "-ldZ", "/sdcard", "/storage/self/primary",
+                               canonical_external, remote_dir, check=False).decode("utf-8", errors="replace")
+        (self.output / "fixture-storage-root.txt").write_text(
+            f"readlink -f /sdcard: {canonical_external}\nfixture directory: {remote_dir}\n{directories}"
+        )
         fixture_dir = self.output / "audio-fixtures"
-        fixture_dir.mkdir()
+        fixture_dir.mkdir(exist_ok=True)
         sample_rate, duration = 44100, 45
         for name, frequency in (("geode_qa_river_a", 220), ("geode_qa_river_b", 330)):
             path = fixture_dir / f"{name}.wav"
@@ -326,23 +357,32 @@ class SmokeRun:
                 audio.writeframes(pcm.tobytes())
             remote = f"{remote_dir}/{path.name}"
             self.adb("push", str(path), remote)
+            storage = {"path": remote, "expected_bytes": path.stat().st_size}
+            try:
+                storage["ls_with_selinux_context"] = self.shell("ls", "-lZ", remote)
+                storage["stat_mode_uid_gid_bytes"] = self.shell("stat", "-c", "%a:%u:%g:%s", remote)
+                if int(storage["stat_mode_uid_gid_bytes"].split(":")[-1]) != storage["expected_bytes"]:
+                    raise AssertionError(f"Pushed WAV size differs from original fixture: {remote}")
+                self.adb("shell", "test", "-r", remote)
+                storage["shell_readable"] = True
+                header = self.adb("exec-out", "head", "-c", "12", remote)
+                storage["header_hex"] = header.hex()
+                if header[:4] != b"RIFF" or header[8:12] != b"WAVE":
+                    raise AssertionError(f"Pushed fixture is not readable PCM WAV: {remote}")
+            finally:
+                (self.output / f"fixture-storage-{name}.json").write_text(json.dumps(storage, indent=2))
             scan = self.shell("am", "broadcast", "-a", "android.intent.action.MEDIA_SCANNER_SCAN_FILE", "-d", f"file://{remote}")
             (self.output / f"scanner-{name}.txt").write_text(scan)
             self.fixtures.append({"file": path.name, "remote": remote, "seconds": duration,
                                   "sample_rate": sample_rate, "channels": 2, "pcm_bits": 16})
         for _ in range(30):
             rows = self.shell("content", "query", "--uri", "content://media/external/audio/media",
-                              "--projection", "_id:_display_name:title:duration:is_music")
+                              "--projection", "_id:_display_name:title:duration:is_music:_data")
             (self.output / "media-store-fixtures.txt").write_text(rows)
             for fixture in self.fixtures:
-                row = next((line for line in rows.splitlines() if f"_display_name={fixture['file']}," in line), None)
-                if row:
-                    title = re.search(r"title=(.*?), duration=", row)
-                    length = re.search(r"duration=(\d+)", row)
-                    music = re.search(r"is_music=(\d+)", row)
-                    if title and length and music and int(length.group(1)) >= 44000 and music.group(1) == "1":
-                        fixture["title"] = title.group(1)
-                        fixture["media_store_row"] = row
+                indexed = self.indexed_audio_row(rows, fixture["file"], fixture["remote"])
+                if indexed is not None:
+                    fixture.update(indexed)
             if all("title" in fixture for fixture in self.fixtures):
                 break
             time.sleep(1)
@@ -364,6 +404,59 @@ class SmokeRun:
         minutes, seconds, duration_minutes, duration_seconds = map(int, match.groups())
         return minutes * 60 + seconds, duration_minutes * 60 + duration_seconds
 
+    @staticmethod
+    def current_hero_track(root):
+        """Read the title in the exact PlayerHero status/metadata column.
+
+        Run-35's hierarchy exports this column as overline, title, subtitle.
+        QueuePreview and the mini-player are outside that immediate subtree.
+        """
+        parents = {child: parent for parent in root.iter() for child in parent}
+        for status in root.iter("node"):
+            if status.get("text") not in ("NOW PLAYING", "PAUSED") or not SmokeRun.bounds(status):
+                continue
+            metadata = parents.get(status)
+            if metadata is None or metadata.tag != "node":
+                continue
+            texts = [node for node in metadata.findall("node")
+                     if node.get("text") and SmokeRun.bounds(node)]
+            if len(texts) >= 2 and texts[0] is status:
+                return texts[1].get("text")
+        return None
+
+    def seek_current_hero_track(self, expected, label):
+        actual = None
+        for attempt in range(8):
+            root = self.capture(f"{label}-current-hero-{attempt}")
+            actual = self.current_hero_track(root)
+            if actual == expected:
+                self.events.append(f"Current PlayerHero track verified: {expected}")
+                return root
+            self.swipe(root, "vertical", reverse=True)
+            time.sleep(1)
+        raise AssertionError(f"Current PlayerHero track did not become {expected!r}; last hero title={actual!r}")
+
+    @staticmethod
+    def assert_position_advanced(before_node, after_node):
+        before, duration = SmokeRun.position_seconds(before_node)
+        after, after_duration = SmokeRun.position_seconds(after_node)
+        if duration <= 0 or after_duration != duration or after < before + 2:
+            raise AssertionError(f"Playback position did not advance >=2s: before={before}, after={after}, duration={duration}/{after_duration}")
+        return before, after, duration
+
+    def playback_progress(self):
+        before_root = self.capture("resumed-playback-position-before")
+        before_node = self.seek_node(before_root)
+        if before_node is None or self.action(before_root, "Pause") is None:
+            raise AssertionError("Resumed playback needs enabled Pause and a visible position control")
+        time.sleep(2)
+        after_root = self.capture("resumed-playback-position-after")
+        after_node = self.seek_node(after_root)
+        if after_node is None or self.action(after_root, "Pause") is None:
+            raise AssertionError("Playback or position control disappeared while measuring elapsed progress")
+        before, after, duration = self.assert_position_advanced(before_node, after_node)
+        self.events.append(f"Resumed playback advanced {before}s → {after}s of {duration}s")
+
     def playback(self):
         self.visit("Library")
         self.tap("Tracks", scroll="horizontal", reverse=True)
@@ -373,12 +466,12 @@ class SmokeRun:
         self.tap("Pause", scroll="vertical")
         self.assert_labels(self.capture("fixture-paused"), "Play")
         self.tap("Next", scroll="vertical")
-        self.seek(self.fixtures[1]["title"], scroll="vertical", reverse=True)
+        self.seek_current_hero_track(self.fixtures[1]["title"], "next-track")
         self.capture("fixture-next-track")
         # Stay paused so Media3's Previous action goes to the preceding item
         # rather than restarting an item that has already played >3 seconds.
         self.tap("Previous", scroll="vertical")
-        self.seek(self.fixtures[0]["title"], scroll="vertical", reverse=True)
+        self.seek_current_hero_track(self.fixtures[0]["title"], "previous-track")
         self.capture("fixture-previous-track")
         root, _ = self.seek("Play", scroll="vertical")
         slider = self.seek_node(root)
@@ -410,6 +503,7 @@ class SmokeRun:
         self.tap("Repeat", scroll="vertical")
         self.assert_selected(self.capture("repeat-all-for-navigation"), "Repeat", allow_checked=True)
         self.tap("Play", scroll="vertical")
+        self.playback_progress()
         self.transport("fixture-resumed", has_media=True)
         for destination in DESTINATIONS:
             self.visit(destination, "playing")

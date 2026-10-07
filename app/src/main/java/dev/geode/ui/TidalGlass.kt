@@ -388,9 +388,9 @@ internal fun TidalSurfaceArt(
             contentScale = ContentScale.Fit,
             alpha =
                 when {
-                    disabled -> 0.42f
-                    state == StoneState.PRESSED -> 0.82f
-                    else -> 1f
+                    disabled -> if (round) 0.42f else 0.12f
+                    state == StoneState.PRESSED -> if (round) 0.82f else 0.20f
+                    else -> if (round) 1f else 0.28f
                 },
             modifier = Modifier.matchParentSize(),
         )
