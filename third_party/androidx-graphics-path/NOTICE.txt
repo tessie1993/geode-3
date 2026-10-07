@@ -1,0 +1,13 @@
+AndroidX Graphics Path
+Copyright 2022 The Android Open Source Project.
+Copyright 2013 and 2017 The Android Open Source Project (math support headers).
+Licensed under the Apache License, Version 2.0; see LICENSE.txt.
+
+Source: https://github.com/androidx/androidx
+Native source snapshot: b780700e4b66ed38927ca1de28872d915b06a57c
+Path: graphics/graphics-path/src/main/cpp
+
+Geode rebuilds these unchanged native sources with NDK 30 and explicit 16 KB
+LOAD/RELRO alignment. The build adapter and AAR repackaging script are Geode
+changes. The original AndroidX 1.1.0 classes, resources and consumer rules are
+preserved. Only Geode's supported arm64-v8a and x86_64 binaries are replaced.

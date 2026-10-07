@@ -18,6 +18,20 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        // The upstream 1.1.0 AAR has incompatible RELRO alignment. CI rebuilds
+        // its native binaries from pinned, unchanged Apache-2.0 sources.
+        // Exclusive resolution fails closed if preparation has not run.
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "verifiedGraphicsPath"
+                    url = uri("build/verified-maven")
+                }
+            }
+            filter {
+                includeModule("androidx.graphics", "graphics-path")
+            }
+        }
         google()
         mavenCentral()
     }

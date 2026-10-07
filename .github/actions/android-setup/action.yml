@@ -22,3 +22,6 @@ runs:
         "$SDKMANAGER" "platform-tools" "platforms;android-37.0" \
           "build-tools;36.0.0" "ndk;30.0.16248370" "cmake;4.1.2"
         chmod +x gradlew
+    - name: Rebuild AndroidX PathIterator for 16 KB devices
+      shell: bash
+      run: python3 tools/android/rebuild_graphics_path.py
