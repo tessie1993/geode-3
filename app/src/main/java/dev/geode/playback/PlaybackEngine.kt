@@ -44,9 +44,21 @@ class PlaybackSession internal constructor(
     internal val clockDriver = SinkClockDriver(presentationClock)
 
     internal val captureSink =
-        PcmSink { samples, frames, channels ->
-            ring.writeInterleaved(samples, frames, channels)
-            sampleRing.write(samples, frames, channels)
+        object : PcmSink {
+            override fun write(
+                interleaved: FloatArray,
+                frameCount: Int,
+                sourceChannelCount: Int,
+            ) {
+                ring.writeInterleaved(interleaved, frameCount, sourceChannelCount)
+                sampleRing.write(interleaved, frameCount, sourceChannelCount)
+            }
+
+            override fun discontinuity() {
+                ring.discontinuity()
+                sampleRing.beginEpoch()
+                analysis.reset()
+            }
         }
 
     internal val tap =

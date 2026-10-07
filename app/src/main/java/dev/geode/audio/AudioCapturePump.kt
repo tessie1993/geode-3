@@ -11,6 +11,8 @@ abstract class AudioCapturePump(
     defaultRateHz: Int,
     protected val nowMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
 ) {
+    private val stateLock = Any()
+
     private var activeSource: CaptureSource? = null
     private var worker: Thread? = null
 
@@ -58,40 +60,55 @@ abstract class AudioCapturePump(
     protected fun startPump(
         source: CaptureSource,
         onSampleRate: (Int) -> Unit,
+        fallback: (() -> CaptureSource?)? = null,
     ) {
-        activeSource = source
-        val generation = ++runGeneration
-        running = true
-        lastAudibleAtMs = 0L
-        resetLevel()
-        sampleRateHz = source.sampleRateHz
-        onSampleRate(source.sampleRateHz)
-        worker =
-            thread(name = threadName, isDaemon = true) {
-                applyThreadPriority()
-                val pumpRun = PumpRun(source, generation, onSampleRate)
-                var live = true
-                while (live && running && runGeneration == generation) live = pumpRun.step()
-                // This worker is the sole owner of the source; release it regardless of whether the
-                // generation moved on, since nobody else will.
-                source.release()
-                if (runGeneration == generation) running = false
+        synchronized(stateLock) {
+            val generation = ++runGeneration
+            activeSource = source
+            running = true
+            lastAudibleAtMs = 0L
+            resetLevel()
+            try {
+                sink.discontinuity()
+                sampleRateHz = source.sampleRateHz
+                onSampleRate(sampleRateHz)
+                worker =
+                    thread(name = threadName, isDaemon = true) {
+                        val pumpRun = PumpRun(source, generation, onSampleRate, fallback)
+                        try {
+                            applyThreadPriority()
+                            while (running && runGeneration == generation && pumpRun.step()) {
+                                // The blocking source paces the loop.
+                            }
+                        } finally {
+                            pumpRun.close()
+                        }
+                    }
+            } catch (error: Throwable) {
+                activeSource = null
+                running = false
+                runCatching { source.release() }
+                throw error
             }
+        }
     }
 
     @AnyThread
     @Synchronized
     fun stop() {
-        running = false
-        // Invalidate the generation the worker captured at start. If join() below times out
-        // with the worker still inside a blocking read, this lets it notice on return
-        // and exit without writing into the sink or touching a source a later run now owns.
-        runGeneration++
-        activeSource?.let { runCatching { it.interrupt() } }
+        synchronized(stateLock) {
+            running = false
+            // Publication and invalidation use the same lock: an old worker cannot pass a
+            // generation check and then write after stop or a replacement session's reset.
+            runGeneration++
+            activeSource?.let { runCatching { it.interrupt() } }
+            activeSource = null
+            sink.discontinuity()
+            resetLevel()
+        }
+        // The worker needs stateLock to unwind. Never hold that lock while joining it.
         worker?.let { runCatching { it.join(500) } }
         worker = null
-        activeSource = null
-        resetLevel()
     }
 
     private fun applyThreadPriority() {
@@ -101,42 +118,94 @@ abstract class AudioCapturePump(
     }
 
     private inner class PumpRun(
-        private val source: CaptureSource,
+        initialSource: CaptureSource,
         private val generation: Int,
         private val onSampleRate: (Int) -> Unit,
+        private var fallback: (() -> CaptureSource?)?,
     ) {
-        private val channels = source.channels
-        private val buffer = FloatArray(source.readFrames * channels)
+        private var source: CaptureSource? = initialSource
+        private var buffer = FloatArray(initialSource.readFrames * initialSource.channels)
         private val startedAt = nowMs()
-        private var reportedRate = source.sampleRateHz
+        private var sourceGeneration = initialSource.generation
+        private var reportedRate = initialSource.sampleRateHz
 
-        /** One read and what follows from it; false once this run is over. */
+        private fun isCurrent(): Boolean = running && runGeneration == generation
+
+        /** Reads/opening/closing belong to this worker; only publication uses stateLock. */
         fun step(): Boolean {
-            val frames = source.read(buffer)
-            // stop() bumps runGeneration before it returns, so a read that was already blocked
-            // when stop() was called but only unblocks afterwards lands here with a stale
-            // generation — skip writing into a sink this run no longer owns.
-            if (runGeneration != generation) return false
-            if (frames < 0) {
-                android.util.Log.w(this@AudioCapturePump.javaClass.simpleName, "capture read error $frames")
-                return false
+            val current = source ?: return false
+            val samples = current.readFrames * current.channels
+            if (buffer.size != samples) buffer = FloatArray(samples)
+            val frames = runCatching { current.read(buffer) }.getOrDefault(-1)
+            synchronized(stateLock) {
+                if (!isCurrent()) return false
+                if (current.generation != sourceGeneration || current.sampleRateHz != reportedRate || frames < 0) {
+                    sink.discontinuity()
+                    resetLevel()
+                    sourceGeneration = current.generation
+                }
+                if (frames >= 0) {
+                    reportRate(current)
+                    if (frames > 0) {
+                        require(frames <= buffer.size / current.channels)
+                        sink.write(buffer, frames, current.channels)
+                        noteLevel(buffer, frames * current.channels, startedAt)
+                    }
+                    return true
+                }
             }
-            reportRateChange()
-            if (frames > 0) {
-                sink.write(buffer, frames, channels)
-                noteLevel(buffer, frames * channels, startedAt)
+            android.util.Log.w(TAG, "capture read failed ($frames); fallback available=${fallback != null}")
+            return replaceSource()
+        }
+
+        private fun replaceSource(): Boolean {
+            val open = fallback
+            fallback = null
+            detachAndRelease()
+            if (open == null || !isCurrent()) return false
+            // This may block. stop() can invalidate the run while no active source is installed.
+            val replacement = runCatching { open() }.getOrNull() ?: return false
+            source = replacement
+            synchronized(stateLock) {
+                if (!isCurrent()) return false // close() releases the late replacement.
+                activeSource = replacement
+                sourceGeneration = replacement.generation
+                sink.discontinuity()
+                resetLevel()
+                reportRate(replacement)
             }
             return true
         }
 
-        // A source that reopens on another device can come back at another rate; the analysis has to
-        // be told before the first chunk at the new rate reaches the sink.
-        private fun reportRateChange() {
-            val rate = source.sampleRateHz
+        private fun reportRate(current: CaptureSource) {
+            val rate = current.sampleRateHz
             if (rate == reportedRate) return
             reportedRate = rate
             sampleRateHz = rate
             onSampleRate(rate)
+        }
+
+        private fun detachAndRelease() {
+            val owned = source ?: return
+            synchronized(stateLock) {
+                if (runGeneration == generation && activeSource === owned) activeSource = null
+                source = null
+            }
+            runCatching { owned.release() }
+        }
+
+        fun close() {
+            try {
+                synchronized(stateLock) {
+                    if (runGeneration == generation) {
+                        sink.discontinuity()
+                        resetLevel()
+                        running = false
+                    }
+                }
+            } finally {
+                detachAndRelease()
+            }
         }
     }
 

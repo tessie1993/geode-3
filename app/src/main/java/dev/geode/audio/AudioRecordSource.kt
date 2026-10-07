@@ -44,10 +44,16 @@ class AudioRecordSource private constructor(
             channels: Int,
             readFrames: Int,
         ): AudioRecordSource? {
-            val recording =
-                runCatching { record.startRecording() }.isSuccess &&
-                    record.recordingState == AudioRecord.RECORDSTATE_RECORDING
-            if (recording) return AudioRecordSource(record, sampleRateHz, channels, readFrames)
+            val source =
+                runCatching {
+                    record.startRecording()
+                    if (record.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                        AudioRecordSource(record, sampleRateHz, channels, readFrames)
+                    } else {
+                        null
+                    }
+                }.getOrNull()
+            if (source != null) return source
             Log.w(TAG, "startRecording refused")
             bestEffort(TAG, "record.stop()") { record.stop() }
             bestEffort(TAG, "record.release()") { record.release() }

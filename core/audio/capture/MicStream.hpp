@@ -34,7 +34,7 @@ public:
     // read, which is 0 when none arrived in time or while the stream is being reopened, and a negative
     // AAudio result when the stream is gone for good. A disconnect makes the failing call close the stream
     // and return 0; the calls after it reopen and restart the stream with backoff, and generation()
-    // changes once the reopened stream is in place, possibly at another rate.
+    // changes at disconnect and again once the reopened stream is in place, possibly at another rate.
     int read(float* dst, int maxFrames, int64_t timeoutNanos);
 
     int sampleRate() const { return sampleRate_.load(); }

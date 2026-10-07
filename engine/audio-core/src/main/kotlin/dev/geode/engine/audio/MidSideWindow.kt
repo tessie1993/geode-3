@@ -15,11 +15,25 @@ class MidSideWindow(
 
     val side: FloatArray = FloatArray(windowFrames)
 
+    var epoch: Int = ring.epoch
+        private set
+
+    private var endFrame = -1L
+
+    /** Copies each PCM position once, with format and epoch from the same snapshot. */
     fun refresh(): Boolean {
-        if (!ring.snapshotLatest(planar)) return false
+        val sources =
+            synchronized(ring) {
+                if (epoch != ring.epoch) {
+                    epoch = ring.epoch
+                    endFrame = -1L
+                }
+                if (endFrame == ring.writtenFrames || !ring.snapshotLatest(planar)) return false
+                endFrame = ring.writtenFrames
+                ring.sourceChannelCount
+            }
         val left = planar[0]
         val right = planar[1]
-        val sources = ring.sourceChannelCount
         if (sources >= 2) {
             for (i in mid.indices) {
                 mid[i] = (left[i] + right[i]) / 2f

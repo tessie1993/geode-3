@@ -237,7 +237,7 @@ GEODE_API int        geode_mic_buffer_frames(const geode_mic*);
 GEODE_API int        geode_mic_sharing_mode(const geode_mic*);      /* AAudio's: 0 exclusive, 1 shared */
 GEODE_API int        geode_mic_performance_mode(const geode_mic*);  /* AAudio's: 10 none, 12 low latency */
 GEODE_API int        geode_mic_last_error(const geode_mic*);        /* last AAudio result that was not OK */
-GEODE_API int        geode_mic_generation(const geode_mic*);        /* +1 for every successful (re)open */
+GEODE_API int        geode_mic_generation(const geode_mic*);        /* +1 at disconnect and every successful (re)open */
 GEODE_API float      geode_mic_last_peak(const geode_mic*);         /* peak of the last non-empty read, 0..1 */
 
 #ifdef __cplusplus

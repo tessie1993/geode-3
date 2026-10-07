@@ -1,6 +1,5 @@
 package dev.geode.analysis
 
-import dev.geode.engine.audio.MidSideWindow
 import dev.geode.engine.audio.ReactiveAnalyzer
 import dev.geode.engine.audio.SampleRing
 import kotlinx.coroutines.CoroutineDispatcher
@@ -56,11 +55,14 @@ class AnalysisEngine(
     private val _features = MutableStateFlow(AudioFeatures.empty(bandCount))
     val features: StateFlow<AudioFeatures> = _features
 
+    private val publicationLock = Any()
     private val resetPending = AtomicBoolean(false)
 
     fun reset() {
-        resetPending.set(true)
-        _features.value = AudioFeatures.empty(bandCount)
+        synchronized(publicationLock) {
+            resetPending.set(true)
+            _features.value = AudioFeatures.empty(bandCount)
+        }
     }
 
     /**
@@ -98,7 +100,8 @@ class AnalysisEngine(
     }
 
     private inner class Pass {
-        private val window = MidSideWindow(ring, fftSize)
+        private val input = AnalysisInput(ring, fftSize)
+        private var silent = false
         private val beat = PulseHold()
         private val beatStrength = PulseHold()
         private val transient = PulseHold()
@@ -117,10 +120,28 @@ class AnalysisEngine(
         }
 
         fun tick(): Boolean {
-            if (!window.refresh()) return false
+            val state = input.poll(System.nanoTime(), sampleRateHz)
+            if (input.discontinuity) {
+                reset()
+                silent = false
+            }
+            // Preserve the fixed 62.5 Hz native tracker cadence across normal chunk gaps.
+            // Freshness is used to bound stalled input, not to rescale tempo on bursty playback.
+            if (state == AnalysisInput.State.SILENT) {
+                if (!silent) {
+                    reset()
+                    synchronized(publicationLock) {
+                        _features.value = AudioFeatures.empty(bandCount)
+                    }
+                    silent = true
+                }
+                return false
+            }
+            silent = false
+            val window = input.window
             analyzer.analyze(window.mid, window.side, DT_SECONDS)
 
-            _features.value =
+            val frame =
                 AudioFeatures(
                     bands = analyzer.bands.copyOf(),
                     waveform = analyzer.waveform.copyOf(),
@@ -159,6 +180,10 @@ class AnalysisEngine(
                     harmonicity = analyzer.harmonicity,
                     warmup = analyzer.warmup,
                 )
+            synchronized(publicationLock) {
+                // A reset can arrive during native analysis. Never republish its old frame.
+                if (!resetPending.get() && ring.epoch == window.epoch) _features.value = frame
+            }
             return true
         }
     }
