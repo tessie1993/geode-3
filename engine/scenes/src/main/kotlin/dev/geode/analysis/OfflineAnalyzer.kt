@@ -41,13 +41,14 @@ class OfflineAnalyzer(
         onProgress: (Float) -> Unit = {},
         stillWanted: () -> Boolean = { true },
     ): FeatureTimeline {
+        requireAnalysisWanted(stillWanted)
         dev.geode.audio.AiffPcm.open(context, uri)?.let { aiff ->
-            val pipeline = StreamingPipeline(beatSensitivity, beatMinIntervalMs)
+            val pipeline = StreamingPipeline(beatSensitivity, beatMinIntervalMs, stillWanted)
             try {
                 val buf = ShortArray(16384)
                 var last = 0f
                 while (true) {
-                    if (!stillWanted()) throw CancellationException("analysis cancelled")
+                    requireAnalysisWanted(stillWanted)
                     val n = aiff.read(buf)
                     if (n <= 0) break
                     pipeline.feed(java.nio.ShortBuffer.wrap(buf, 0, n), aiff.channels, aiff.sampleRate)
@@ -56,15 +57,17 @@ class OfflineAnalyzer(
                         onProgress(last)
                     }
                 }
+                requireAnalysisWanted(stillWanted)
                 return pipeline.finish()
             } finally {
                 pipeline.close()
                 aiff.close()
             }
         }
+        requireAnalysisWanted(stillWanted)
         val extractor = MediaExtractor()
         var codecRef: MediaCodec? = null
-        val pipeline = StreamingPipeline(beatSensitivity, beatMinIntervalMs)
+        val pipeline = StreamingPipeline(beatSensitivity, beatMinIntervalMs, stillWanted)
         // pipeline.use ensures the native analysis handle is released on every exit path
         // (normal completion, "No audio track in file", a codec error, or cancellation),
         // not only on the success path.
@@ -88,7 +91,7 @@ class OfflineAnalyzer(
                 codec.configure(format, null, null, 0)
                 codec.start()
                 while (!outputDone) {
-                    if (!stillWanted()) throw CancellationException("analysis cancelled")
+                    requireAnalysisWanted(stillWanted)
                     if (!inputDone) {
                         val inIndex = codec.dequeueInputBuffer(10_000)
                         if (inIndex >= 0) {
@@ -142,6 +145,7 @@ class OfflineAnalyzer(
                 }
                 extractor.release()
             }
+            requireAnalysisWanted(stillWanted)
             onProgress(1f)
             streaming.finish()
         }
@@ -150,6 +154,7 @@ class OfflineAnalyzer(
     internal class StreamingPipeline(
         sigma: Float,
         minIntervalMs: Float,
+        private val stillWanted: () -> Boolean = { true },
     ) : AutoCloseable {
         private val analyzer =
             ReactiveAnalyzer(
@@ -175,11 +180,13 @@ class OfflineAnalyzer(
             channels: Int,
             sampleRateHz: Int,
         ) {
+            requireAnalysisWanted(stillWanted)
             if (channels <= 0 || sampleRateHz <= 0) return
             adoptSampleRate(sampleRateHz)
             val n = pcm.remaining()
             if (scratch.size < n) scratch = FloatArray(n.coerceAtLeast(scratch.size * 2))
             for (i in 0 until n) scratch[i] = pcm.get(pcm.position() + i) / 32768f
+            requireAnalysisWanted(stillWanted)
             analyzer.push(scratch, n / channels, channels)
             drain()
         }
@@ -189,11 +196,13 @@ class OfflineAnalyzer(
             channels: Int,
             sampleRateHz: Int,
         ) {
+            requireAnalysisWanted(stillWanted)
             if (channels <= 0 || sampleRateHz <= 0) return
             adoptSampleRate(sampleRateHz)
             val n = pcm.remaining()
             if (scratch.size < n) scratch = FloatArray(n.coerceAtLeast(scratch.size * 2))
             pcm.duplicate().get(scratch, 0, n)
+            requireAnalysisWanted(stillWanted)
             analyzer.push(scratch, n / channels, channels)
             drain()
         }
@@ -207,7 +216,7 @@ class OfflineAnalyzer(
         }
 
         private fun drain() {
-            while (analyzer.pull()) {
+            drainAnalysisFrames(stillWanted, analyzer::pull) {
                 val timeMs = absSample * 1000L / sampleRate
                 frames.add(TimelineFrame(timeMs, snapshot()))
                 absSample += hopSamples

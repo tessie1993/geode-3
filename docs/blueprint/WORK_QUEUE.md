@@ -9,6 +9,7 @@ Current implementation ownership and acceptance criteria are in
 [BATCH_CONTRACTS.md](BATCH_CONTRACTS.md). That contract supersedes the old
 APK-first waiting gate: implement and review the batch before the next remote push.
 No local compilation, testing or linting. No worker GitHub polling.
+Package results and explicit remaining gaps are in [BATCH_RESULTS.md](BATCH_RESULTS.md).
 
 Earlier integrated changes include fresh native PCM delivery, stereo analysis,
 preset transactions, Studio publication/ownership, visual journey/Hold handling

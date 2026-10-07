@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -391,6 +392,7 @@ private fun ClipEditor(
     onClose: () -> Unit,
 ) {
     var edit by remember(clip.uri) { mutableStateOf(ClipEdit()) }
+    var lookRevision by remember(clip.uri) { mutableStateOf(0L) }
     val duration = clip.durationMs.coerceAtLeast(1L)
     val dismiss = rememberPredictiveDismiss(onDismiss = onClose)
     // Mirrors ExportHost's destination picker: below API 29 StudioExporter.publish cannot insert
@@ -409,13 +411,20 @@ private fun ClipEditor(
             ClipEditorHeader(
                 clip = clip,
                 resettable = !edit.isIdentity(duration),
-                onReset = { edit = ClipEdit() },
+                onReset = {
+                    lookRevision++
+                    edit = ClipEdit()
+                },
                 onClose = onClose,
             )
         }
         item { ClipEditorPreview(clip = clip, edit = edit) }
         item { ClipCutSection(clip = clip, edit = edit, duration = duration, onEdit = { edit = it }) }
-        item { ClipLookSection(edit = edit, onEdit = { edit = it }) }
+        item {
+            key(clip.uri, lookRevision) {
+                ClipLookSection(edit = edit, onEdit = { edit = it })
+            }
+        }
         item { ClipFrameSection(edit = edit, onEdit = { edit = it }) }
         item { ClipSoundSection(edit = edit, onEdit = { edit = it }) }
         item {
@@ -540,14 +549,6 @@ private fun ClipLookSection(
     edit: ClipEdit,
     onEdit: (ClipEdit) -> Unit,
 ) {
-    val context = LocalContext.current
-    val lutPicker =
-        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) {
-                runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-                onEdit(edit.copy(lutUri = uri.toString()))
-            }
-        }
     StudioSection(stringResource(R.string.studio_section_look)) {
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -582,18 +583,7 @@ private fun ClipLookSection(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            CrystalButton(filled = false, onClick = { lutPicker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.studio_lut_pick)) }
-            if (edit.lutUri != null) {
-                TextButton(onClick = { onEdit(edit.copy(lutUri = null)) }) { Text(stringResource(R.string.studio_lut_clear)) }
-            }
-        }
-        Text(
-            edit.lutUri?.let { stringResource(R.string.studio_lut_loaded, it.substringAfterLast('/').substringAfterLast(':')) }
-                ?: stringResource(R.string.studio_lut_explainer),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        StudioLutPicker(edit = edit, onEdit = onEdit)
         StudioSlider(stringResource(R.string.studio_gamma_red), edit.gammaRed, GAMMA_RANGE, decimals = 2) {
             onEdit(edit.copy(gammaRed = it))
         }

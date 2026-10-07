@@ -342,7 +342,7 @@ class PlayerSession internal constructor(
 
     fun importTextures(
         uris: List<Uri>,
-        onImported: () -> Unit,
+        onImported: (dev.geode.data.TextureImportOutcome) -> Unit,
     ) = textureController.importTextures(uris, onImported)
 
     fun removeTexture(name: String) = textureController.removeTexture(name)
@@ -882,6 +882,7 @@ class PlayerSession internal constructor(
     fun seekTo(fraction: Float) = queueController.seekTo(fraction)
 
     private fun onTrackChanged() {
+        takeController.onTrackChanged()
         engine.reset()
         autoVisuals.onTrackChanged()
         analysis.timeline = null
@@ -908,6 +909,8 @@ class PlayerSession internal constructor(
     fun startRecording() = takeController.startRecording()
 
     fun stopRecording(name: String? = null) = takeController.stopRecording(name)
+
+    fun retryTakeSave() = takeController.retryTakeSave()
 
     fun playTake(name: String) = takeController.playTake(name)
 

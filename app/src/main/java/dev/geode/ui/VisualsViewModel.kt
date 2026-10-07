@@ -102,7 +102,7 @@ class VisualsViewModel
 
         fun importTextures(
             uris: List<Uri>,
-            onImported: () -> Unit,
+            onImported: (dev.geode.data.TextureImportOutcome) -> Unit,
         ) = session.importTextures(uris, onImported)
 
         fun removeTexture(name: String) = session.removeTexture(name)

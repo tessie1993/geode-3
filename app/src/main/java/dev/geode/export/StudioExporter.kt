@@ -57,7 +57,12 @@ class StudioExporter(
         destination: Uri? = null,
         onProgress: (Float) -> Unit,
     ): Result {
-        val lut = edit.lutUri?.let { uri -> withContext(Dispatchers.IO) { CubeLut.load(context, uri) } }
+        val lut =
+            edit.lutUri?.let { uri ->
+                withContext(Dispatchers.IO) {
+                    requireNotNull(CubeLut.load(context, uri)) { context.getString(R.string.studio_lut_invalid) }
+                }
+            }
         val item =
             MediaItem
                 .Builder()

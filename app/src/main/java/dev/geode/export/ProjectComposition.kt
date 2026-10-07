@@ -233,7 +233,9 @@ object ProjectComposition {
         captions: List<Effect>,
     ): EditedMediaItem {
         val edit = content.edit
-        val lut = edit.lutUri?.let { CubeLut.load(context, it) }
+        val lut = edit.lutUri?.let {
+            requireNotNull(CubeLut.load(context, it)) { context.getString(dev.geode.R.string.studio_lut_invalid) }
+        }
         val tracks = sheet.tracksFor(clip.id).filter { it.enabled && !it.isEmpty }
         val ramp = tracks.firstOrNull { it.paramId == SPEED }?.let { SpeedRamp.fromTrack(it, clip) }
         val graded = tracks.any { it.paramId != SPEED }

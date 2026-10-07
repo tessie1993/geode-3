@@ -11,7 +11,7 @@ interface TakeRepository {
     suspend fun save(
         name: String,
         json: String,
-    ): String
+    ): TakeWrite
 
     suspend fun delete(name: String)
 
@@ -31,7 +31,7 @@ class FileTakeRepository(
     override suspend fun save(
         name: String,
         json: String,
-    ): String = withContext(Dispatchers.IO) { store.save(name, json) }
+    ): TakeWrite = withContext(Dispatchers.IO) { store.save(name, json) }
 
     override suspend fun delete(name: String) {
         withContext(Dispatchers.IO) { store.delete(name) }

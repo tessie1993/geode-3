@@ -32,6 +32,7 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
       host_(std::move(host)),
       pcm_(static_cast<size_t>(kAudioTexWidth) * 8, 0.0f) {
     pendingFragment_ = currentFragment_;
+    if (id_ == "prismatic_passage") spatialCamera_.emplace();
 }
 
 ShaderScene::~ShaderScene() { release(); }
@@ -83,9 +84,14 @@ float ShaderScene::slew(float current, float target, float dt, float riseHz, flo
 
 void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     const SceneParams& p = params_;
-    shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
-    rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * dt, 1.0f) : 0.0f;
+    // The new spatial adapter holds both native travel and its automatic
+    // screen-framing clocks when Motion is zero or reduced motion is enabled.
+    // Existing shader styles keep their established clock behavior.
+    const bool spatialStill = spatialCamera_ && (reducedMotion_ || p.motionAmount <= 0.0f || p.speed <= 0.0f);
+    const float framingDt = spatialStill ? 0.0f : dt;
+    shaderTime_ = std::fmod(shaderTime_ + p.speed * framingDt, kTimeWrapSeconds);
+    rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * framingDt, kTwoPi);
+    zoomPhase_ = p.endlessZoom ? std::fmod(zoomPhase_ + p.endlessZoomSpeed * framingDt, 1.0f) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     const float drive = p.audioDrive;
     bass_ = std::clamp(features.bass * drive, 0.0f, kAudioClamp);
@@ -98,6 +104,20 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     smoothEnergy_ = slew(smoothEnergy_, energy_, dt, kBandRiseHz, kBandFallHz);
     swell_ = slew(swell_, energy_, dt, kSwellRiseHz, kSwellFallHz);
     beatPhase_ = features.beatPhase;
+    if (spatialCamera_) {
+        SpatialCameraDirector::Signals signals;
+        signals.bass = bass_;
+        signals.mid = mid_;
+        signals.treble = treble_;
+        signals.energy = energy_;
+        signals.section = drive > 0.0f && features.sectionBoundary > 0.0f;
+        SpatialCameraDirector::Intent intent;
+        intent.motion = p.motionAmount;
+        intent.orbit = p.motionOrbit;
+        intent.speed = p.speed;
+        intent.reducedMotion = reducedMotion_;
+        spatialCamera_->step(signals, intent, dt);
+    }
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(features, dt);
     if (id_ == "rod_tunnel") {
@@ -155,6 +175,7 @@ void ShaderScene::draw(float timeSeconds) {
         glUniform3f(uniforms_.loc("uCameraOffsetRoll"), camera.x, camera.y, camera.roll);
     }
     uploadTouch();
+    uploadSpatialCamera();
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
@@ -252,6 +273,18 @@ void ShaderScene::uploadMotion() {
     set1f("uSpawnAge", 1000.0f);
     set1f("uFormPhase", 0.0f);
     glUniform2f(uniforms_.loc("uMoveDir"), 1.0f, 0.0f);
+}
+
+void ShaderScene::uploadSpatialCamera() {
+    if (!spatialCamera_) return;
+    const auto& frame = spatialCamera_->frame();
+    glUniform3fv(uniforms_.loc("uCameraPosition"), 1, frame.position.data());
+    glUniform3fv(uniforms_.loc("uCameraRight"), 1, frame.right.data());
+    glUniform3fv(uniforms_.loc("uCameraUp"), 1, frame.up.data());
+    glUniform3fv(uniforms_.loc("uCameraForward"), 1, frame.forward.data());
+    glUniform2fv(uniforms_.loc("uCorridorPhase"), 1, frame.corridorPhase.data());
+    glUniform4fv(uniforms_.loc("uSpatialBands"), 1, frame.bands.data());
+    set1f("uSpatialForm", frame.formPhase);
 }
 
 void ShaderScene::uploadTouch() {

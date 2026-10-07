@@ -34,7 +34,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -124,28 +123,16 @@ internal class ExportController(
     private var exportCancelled = false
 
     private var exportJob: Job? = null
-    private var exportRunId: Long? = null
-    private var loopRunId: Long? = null
-
-    private val _loopState = MutableStateFlow(LoopUiState())
-    val loopState: StateFlow<LoopUiState> = _loopState
 
     init {
-        val attached = ExportRun.state.value
-        if (attached.running) {
-            if (attached.isLoop) loopRunId = attached.runId else exportRunId = attached.runId
+        if (ExportRun.running) {
             scope.launch {
                 ExportRun.state
-                    .takeWhile { it.running && it.runId == attached.runId }
+                    .takeWhile { it.running }
                     .collect { run ->
-                        if (attached.isLoop) {
-                            _loopState.value = LoopUiState(ExportPhase.Running(run.progress ?: 0f))
-                        } else {
-                            _exportState.update { it.copy(phase = ExportPhase.Running(run.progress ?: 0f)) }
-                        }
+                        _exportState.update { it.copy(phase = ExportPhase.Running(run.progress ?: 0f)) }
                     }
-                val phase = ExportRun.state.value.failure?.let(ExportPhase::Failed) ?: ExportPhase.Idle
-                if (attached.isLoop) _loopState.value = LoopUiState(phase) else _exportState.value = ExportUiState(phase = phase)
+                if (!ExportRun.running) _exportState.value = ExportUiState()
             }
         }
     }
@@ -163,7 +150,6 @@ internal class ExportController(
         val uri = host.exportUri ?: return
         if (_exportState.value.phase.isBusy || ExportRun.running) return
         val admission = ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/')) ?: return
-        exportRunId = admission.id
         exportCancelled = false
         _exportState.value =
             ExportUiState(customDestination = destination != null, phase = ExportPhase.Running(0f))
@@ -171,9 +157,13 @@ internal class ExportController(
         // label goes straight into the foreground-service notification, where the lock
         // screen and every enabled notification listener can read it.
         exportJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
+            ExportRun.launch(
+                admission,
+                onCancelled = {
+                    _exportState.value = ExportUiState(phase = admission.failure?.let(ExportPhase::Failed) ?: ExportPhase.Idle)
+                },
+            ) {
                 try {
-                    admission.bind(currentCoroutineContext().job)
                     ExportService.start(application, admission)
                     admission.awaitPromotion()
                     val analysed =
@@ -241,7 +231,7 @@ internal class ExportController(
                                 _exportState.update { it.copy(phase = ExportPhase.Running(overall)) }
                                 ExportRun.publish(overall)
                             },
-                            isCancelled = { exportCancelled || ExportRun.cancelRequested },
+                            isCancelled = { admission.isCancelled || exportCancelled || ExportRun.cancelRequested },
                         )
                     currentCoroutineContext().ensureActive()
                     _exportState.value =
@@ -255,7 +245,6 @@ internal class ExportController(
                     // coincide the flag branch used to win and swallow the CancellationException,
                     // leaving a cancelled coroutine to finish as if it had succeeded.
                     if (t is kotlinx.coroutines.CancellationException) {
-                        _exportState.value = ExportUiState(phase = admission.failure?.let(ExportPhase::Failed) ?: ExportPhase.Idle)
                         throw t
                     } else if (exportCancelled) {
                         _exportState.value = ExportUiState()
@@ -263,20 +252,12 @@ internal class ExportController(
                         val detail = "${t.javaClass.simpleName}: ${t.message ?: "no message"}"
                         _exportState.value = ExportUiState(phase = ExportPhase.Failed(detail))
                     }
-                } finally {
-                    ExportRun.finish(admission)
                 }
             }
-        exportJob?.let { job ->
-            ExportRun.track(admission, job) {
-                _exportState.value = ExportUiState(phase = admission.failure?.let(ExportPhase::Failed) ?: ExportPhase.Idle)
-            }
-        }
     }
 
     fun cancelExport() {
         exportCancelled = true
-        ExportRun.requestCancel(exportRunId)
         exportJob?.cancel()
     }
 
@@ -356,17 +337,15 @@ internal class ExportController(
         destination: Uri? = null,
     ) {
         studioExports.start { onProgress ->
-            withContext(Dispatchers.IO) {
-                val built = ProjectComposition.build(application, project)
-                if (built !is ProjectComposition.Outcome.Ready) {
-                    ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))
-                } else {
-                    built.use {
-                        val name = "geode_cut_${System.currentTimeMillis()}.mp4"
-                        studioExporter
-                            .exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination, onProgress)
-                            .toPhase()
-                    }
+            val built = withContext(Dispatchers.IO) { ProjectComposition.build(application, project) }
+            if (built !is ProjectComposition.Outcome.Ready) {
+                ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_no_video))
+            } else {
+                built.use {
+                    val name = "geode_cut_${System.currentTimeMillis()}.mp4"
+                    studioExporter
+                        .exportComposition(built.composition, built.durationMs, name, defaultCodec(), destination, onProgress)
+                        .toPhase()
                 }
             }
         }
@@ -390,6 +369,8 @@ internal class ExportController(
     private val loopRenderer = LoopRender(application)
     private val loopExtender = LoopExtend(application)
 
+    private val _loopState = MutableStateFlow(LoopUiState())
+    val loopState: StateFlow<LoopUiState> = _loopState
 
     @Volatile
     private var loopCancelled = false
@@ -417,14 +398,17 @@ internal class ExportController(
     ) {
         val uri = host.exportUri ?: return
         if (_loopState.value.phase.isBusy || ExportRun.running) return
-        val admission = ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/'), isLoop = true) ?: return
-        loopRunId = admission.id
+        val admission = ExportRun.begin(uri.lastPathSegment.orEmpty().substringAfterLast('/')) ?: return
         loopCancelled = false
         _loopState.value = LoopUiState(phase = ExportPhase.Running(0f))
         loopJob =
-            ExportRun.scope.launch(Dispatchers.Default) {
+            ExportRun.launch(
+                admission,
+                onCancelled = {
+                    _loopState.value = LoopUiState(phase = admission.failure?.let(ExportPhase::Failed) ?: ExportPhase.Idle)
+                },
+            ) {
                 try {
-                    admission.bind(currentCoroutineContext().job)
                     ExportService.start(application, admission)
                     admission.awaitPromotion()
                     val analysed =
@@ -434,6 +418,7 @@ internal class ExportController(
                             }.also { if (host.exportUri == uri) host.cachedTimeline = it }
                     val gui = host.guiPrefs
                     val spec = LoopSpec.of(loopMs, crossfadeMs, fps = fps, bpm = analysed.bpm)
+                    val isCancelled = { admission.isCancelled || loopCancelled || ExportRun.cancelRequested }
                     val renderResult =
                         loopRenderer.render(
                             timeline = analysed,
@@ -447,14 +432,13 @@ internal class ExportController(
                             reducedMotion = gui.reducedMotion,
                             codec = codec,
                             onProgress = { p -> publishLoopProgress(ANALYSIS_SPAN + p * RENDER_SPAN) },
-                            isCancelled = { loopCancelled || ExportRun.cancelRequested },
+                            isCancelled = isCancelled,
                         )
-                    val phase = finishLoopRender(renderResult, uri, audioClips, destination)
+                    val phase = finishLoopRender(renderResult, uri, audioClips, destination, isCancelled)
                     currentCoroutineContext().ensureActive()
                     _loopState.value = LoopUiState(phase = phase)
                 } catch (t: Throwable) {
                     if (t is kotlinx.coroutines.CancellationException) {
-                        _loopState.value = LoopUiState(phase = admission.failure?.let(ExportPhase::Failed) ?: ExportPhase.Idle)
                         throw t
                     } else if (loopCancelled) {
                         _loopState.value = LoopUiState()
@@ -462,15 +446,8 @@ internal class ExportController(
                         val detail = "${t.javaClass.simpleName}: ${t.message ?: "no message"}"
                         _loopState.value = LoopUiState(phase = ExportPhase.Failed(detail))
                     }
-                } finally {
-                    ExportRun.finish(admission)
                 }
             }
-        loopJob?.let { job ->
-            ExportRun.track(admission, job) {
-                _loopState.value = LoopUiState(phase = admission.failure?.let(ExportPhase::Failed) ?: ExportPhase.Idle)
-            }
-        }
     }
 
     /** Extends a rendered reel into the long-form file, or passes through a render failure. */
@@ -479,6 +456,7 @@ internal class ExportController(
         trackUri: Uri,
         audioClips: List<Uri>,
         destination: Uri?,
+        isCancelled: () -> Boolean,
     ): ExportPhase =
         when (renderResult) {
             is LoopRender.Result.Failed -> ExportPhase.Failed(renderResult.message)
@@ -504,7 +482,7 @@ internal class ExportController(
                             fileName = name,
                             destination = destination,
                             onProgress = { p -> publishLoopProgress(ANALYSIS_SPAN + RENDER_SPAN + p * EXTEND_SPAN) },
-                            isCancelled = { loopCancelled || ExportRun.cancelRequested },
+                            isCancelled = isCancelled,
                         )
                     when (extended) {
                         is LoopExtend.Result.Saved -> ExportPhase.Done(extended.uri)
@@ -525,7 +503,6 @@ internal class ExportController(
 
     fun cancelLoopRender() {
         loopCancelled = true
-        ExportRun.requestCancel(loopRunId)
         loopJob?.cancel()
     }
 

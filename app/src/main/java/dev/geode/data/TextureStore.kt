@@ -21,6 +21,7 @@ data class TextureImportResult(
 data class TextureImportOutcome(
     val results: List<TextureImportResult>,
     val textures: List<MilkTexture>,
+    val issue: String? = null,
 )
 
 data class TextureRemoveOutcome(
@@ -44,43 +45,31 @@ class TextureStore(
 
     fun import(uris: List<Uri>): List<MilkTexture> = importDetailed(uris).textures
 
-    fun importDetailed(uris: List<Uri>): TextureImportOutcome {
-        if (uris.size > MilkAssetAdmission.MAX_ENTRIES) {
-            return TextureImportOutcome(listOf(TextureImportResult("selection", null, "too many textures")), list())
+    fun importDetailed(uris: List<Uri>): TextureImportOutcome =
+        synchronized(MilkAssetAdmission.importLock) {
+            val budget = MilkAssetAdmission.Budget()
+            val results = uris.take(MilkAssetAdmission.MAX_BATCH_FILES).map { importOne(it, budget) }.toMutableList()
+            val remaining = uris.size - results.size
+            if (remaining > 0) {
+                results += TextureImportResult("$remaining additional files", null, "import file-count limit reached")
+            }
+            TextureImportOutcome(results, list())
         }
-        val budget = MilkAssetAdmission.Budget()
-        return TextureImportOutcome(uris.map { importOne(it, budget) }, list())
-    }
 
-    @Suppress("TooGenericExceptionCaught")
     private fun importOne(
         uri: Uri,
         budget: MilkAssetAdmission.Budget,
     ): TextureImportResult {
         val name = displayName(uri) ?: "texture_${System.currentTimeMillis()}.png"
-        val skipped = { reason: String -> TextureImportResult(name, null, reason) }
-        val ext = name.substringAfterLast('.', "").lowercase()
-        if (ext !in IMAGE_EXTS) {
-            return skipped("not a supported image type (" + IMAGE_EXTS.sorted().joinToString(", ") + ")")
-        }
-        val storedName = safeTextureFileName(name)
-        val staged =
-            runCatching { File.createTempFile("texture-admission-", ".stage", appContext.cacheDir) }
-                .getOrElse { return skipped("could not stage texture") }
-        return try {
-            appContext.contentResolver.openInputStream(uri)?.use { input ->
-                MilkAssetAdmission.stage(input, staged, ext, budget)
-            } ?: return skipped("could not be read")
-            val ok =
-                synchronized(MilkAssetAdmission) {
-                    AtomicWrite.stream(File(dir, storedName)) { out -> staged.inputStream().use { it.copyTo(out) } }
-                }
-            if (ok) TextureImportResult(name, storedName, null) else skipped("could not be written")
-        } catch (error: Exception) {
-            skipped(error.message ?: "invalid texture")
-        } finally {
-            staged.delete()
-        }
+        MilkAssetAdmission.fileNameIssue(name)?.let { return TextureImportResult(name.take(240), null, it) }
+        val storedName = safeTextureFileName(name.substringAfterLast('/').substringAfterLast('\\'))
+        val reason = MilkAssetAdmission.store(
+            target = File(dir, storedName),
+            extension = name.substringAfterLast('.', "").lowercase(),
+            budget = budget,
+            replaceExisting = true,
+        ) { appContext.contentResolver.openInputStream(uri) }
+        return TextureImportResult(name, if (reason == null) storedName else null, reason)
     }
 
     fun remove(name: String): List<MilkTexture> = removeDetailed(name).textures

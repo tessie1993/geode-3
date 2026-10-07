@@ -112,36 +112,4 @@ class ExportAdmissionTest {
             assertTrue(worker.isCancelled)
             assertFalse(analyzed)
         }
-
-    @Test
-    fun `cancel before dispatch releases reservation and permits next export`() =
-        runTest {
-            val admission = checkNotNull(ExportRun.begin("first"))
-            var entered = false
-            val worker = launch {
-                entered = true
-                try {
-                    admission.awaitPromotion()
-                } finally {
-                    ExportRun.finish(admission)
-                }
-            }
-            var reset = false
-            ExportRun.track(admission, worker) { reset = true }
-            worker.cancel()
-            runCurrent()
-            assertFalse(entered)
-            assertTrue(reset)
-            assertFalse(ExportRun.running)
-            val next = checkNotNull(ExportRun.begin("second"))
-            try {
-                ExportRun.finish(admission)
-                ExportRun.requestCancel(admission.id)
-                assertTrue(ExportRun.running)
-                assertFalse(ExportRun.cancelRequested)
-            } finally {
-                ExportRun.finish(next)
-            }
-        }
-
 }

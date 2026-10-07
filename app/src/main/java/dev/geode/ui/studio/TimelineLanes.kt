@@ -152,20 +152,11 @@ fun TimelineEditor(
         actions.edit { p -> p.withCaptionLane(cues, actions, laneNames[LaneKind.Text].orEmpty()) }
     }
 
-    val srtImporter =
-        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri == null) return@rememberLauncherForActivityResult
-            val text =
-                runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
-                    ?: return@rememberLauncherForActivityResult
-            addCaptionClips(Subtitles.parseSrt(text))
-        }
-    val srtExporter =
-        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(SRT_MIME)) { uri ->
-            if (uri == null) return@rememberLauncherForActivityResult
-            val srt = Subtitles.toSrt(Subtitles.cuesFrom(project.timeline.lanes))
-            runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(srt.toByteArray(Charsets.UTF_8)) } }
-        }
+    val subtitleDocuments =
+        rememberSubtitleDocuments(
+            onImport = ::addCaptionClips,
+            captions = { Subtitles.cuesFrom(project.timeline.lanes) },
+        )
     // Mirrors ExportHost's destination picker for the visualizer export: below API 29
     // StudioExporter.publish cannot insert into MediaStore at all, so the project export button
     // forces this picker there instead of trying (and failing) to save into Movies/Geode.
@@ -240,8 +231,8 @@ fun TimelineEditor(
             onAutoCut = { autoCutOpen = true },
             hasLyrics = actions.lyricCues() != null,
             onLyricCaptions = { addCaptionClips(actions.lyricCues().orEmpty()) },
-            onImportSrt = { srtImporter.launch(arrayOf(SRT_MIME, "text/plain", "text/*")) },
-            onExportSrt = { srtExporter.launch("geode_captions_${System.currentTimeMillis()}.srt") },
+            onImportSrt = subtitleDocuments.pick,
+            onExportSrt = subtitleDocuments.save,
         )
         val clip = selectedClip?.let(project.timeline::clip)
         val clipLane = clip?.let { project.timeline.laneOf(it.id) }
@@ -302,6 +293,13 @@ fun TimelineEditor(
                     actions.edit { p -> p.withKeyOn(track, changed) }
                 }
             }
+        }
+        if (subtitleDocuments.importing) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+            Text(stringResource(R.string.studio_input_loading), style = MaterialTheme.typography.bodySmall)
+        }
+        subtitleDocuments.errorRes?.let { error ->
+            Text(stringResource(error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
         editError?.let { error ->
             Text(editErrorMessage(error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -514,7 +512,6 @@ private fun EditorProject.cutVisualLane(
 private val LANE_NAME_LABELS: List<Pair<LaneKind, Int>> =
     listOf(LaneKind.Visual, LaneKind.Media, LaneKind.Text, LaneKind.Overlay, LaneKind.Audio).map { it to laneKindLabel(it) }
 
-private const val SRT_MIME = "application/x-subrip"
 private const val MIN_CONTENT_MS = 60_000L
 private const val CONTENT_MARGIN_MS = 15_000L
 private const val SCENE_MS = 4_000L

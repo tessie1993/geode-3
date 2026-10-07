@@ -22,8 +22,6 @@ public:
     virtual SceneFamily family() const = 0;
     virtual void init() = 0;
     virtual void setParams(const SceneParams& params) = 0;
-    // Spatial cameras may suppress automatic movement beyond the shared speed limit.
-    virtual void setReducedMotion(bool enabled) { (void) enabled; }
     virtual void resize(int width, int height) = 0;
     virtual void update(const GeodeFeatureFrame& features, float dt) = 0;
     virtual void draw(float timeSeconds) = 0;
@@ -32,6 +30,8 @@ public:
     virtual void acceptPcm(const float* samples, int count) { (void) samples; (void) count; }
     virtual void setFlow(GLuint texture, float strength) { (void) texture; (void) strength; }
     virtual void setPaletteLut(GLuint texture) { (void) texture; }
+    virtual bool ownsNativeSpatialMotion() const { return false; }
+    virtual void setReducedMotion(bool on) { (void) on; }
     virtual void setTouchField(const TouchField* field) { (void) field; }
     virtual void setFragmentSource(const std::string& source) { (void) source; }
     // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.

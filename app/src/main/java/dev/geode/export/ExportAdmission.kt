@@ -2,17 +2,25 @@ package dev.geode.export
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicLong
 
 /** One foreground-service lease. A previous service callback cannot admit a new export. */
 internal class ExportAdmission {
     val id: Long = nextId.incrementAndGet()
     private val ready = CompletableDeferred<Unit>()
+
+    @Volatile
     private var job: Job? = null
+
+    @Volatile
     private var cancelled = false
+
+    /** Codec/render loops do not suspend; they must observe service and job cancellation here. */
+    val isCancelled: Boolean get() = cancelled || job?.isCancelled == true
 
     @Volatile
     var failure: String? = null
@@ -39,10 +47,12 @@ internal class ExportAdmission {
     }
 
     suspend fun awaitPromotion(timeoutMs: Long = ADMISSION_TIMEOUT_MS) {
-        checkNotNull(withTimeoutOrNull(timeoutMs) { ready.await() }) {
-            "Export foreground service did not become ready in time"
+        try {
+            withTimeout(timeoutMs) { ready.await() }
+            currentCoroutineContext().ensureActive()
+        } catch (timeout: TimeoutCancellationException) {
+            throw IllegalStateException("Export foreground service did not become ready in time", timeout)
         }
-        currentCoroutineContext().ensureActive()
     }
 
     private companion object {

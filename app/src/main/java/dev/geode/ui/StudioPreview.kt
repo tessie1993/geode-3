@@ -6,10 +6,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +51,7 @@ internal fun ClipPreview(
 ) {
     val context = LocalContext.current
     var playing by remember(clip.uri) { mutableStateOf(true) }
+    var lutUnavailable by remember(clip.uri) { mutableStateOf(false) }
     val player =
         remember(clip.uri) {
             ExoPlayer.Builder(context).build().apply {
@@ -64,6 +67,12 @@ internal fun ClipPreview(
     LaunchedEffect(player, edit) {
         delay(REBUILD_SETTLE_MS)
         val lut = edit.lutUri?.let { uri -> withContext(Dispatchers.IO) { CubeLut.load(context, uri) } }
+        lutUnavailable = edit.lutUri != null && lut == null
+        if (lutUnavailable) {
+            player.playWhenReady = false
+            return@LaunchedEffect
+        }
+        player.playWhenReady = playing
         player.setVideoEffects(edit.videoEffects(lut))
         player.setMediaItems(
             listOf(
@@ -78,7 +87,7 @@ internal fun ClipPreview(
         player.prepare()
     }
     LaunchedEffect(player, playing) {
-        player.playWhenReady = playing
+        player.playWhenReady = playing && !lutUnavailable
     }
 
     val aspect =
@@ -107,6 +116,13 @@ internal fun ClipPreview(
             },
             modifier = Modifier.fillMaxWidth(),
         )
+        if (lutUnavailable) {
+            Text(
+                stringResource(R.string.studio_lut_invalid),
+                color = Color.White,
+                modifier = Modifier.zIndex(2f).background(Color.Black.copy(alpha = 0.8f)).padding(12.dp),
+            )
+        }
         if (!playing) {
             Icon(
                 Icons.Filled.PlayArrow,

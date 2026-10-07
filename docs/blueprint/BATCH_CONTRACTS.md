@@ -7,7 +7,10 @@ pushes or polls GitHub. Compilation, tests and lint still run only in Actions af
 the completed batch is pushed. Authored regression tests are unexecuted until then.
 No automatic merge or Play publication is authorized by this batch.
 
-All workers share the checkout based on `2d1f3f2`, with disjoint file ownership.
+This batch uses isolated worktrees based on `2d1f3f2`; root integrates into
+`codex/local-complete-batch` in `geode-local-batch`. Another active team was
+observed changing `geode-3`; that checkout is left intact. Existing uncommitted
+patches were snapshotted here for review, not assumed complete.
 Scope expansion requires coordination. Each handoff includes changed files,
 acceptance criteria addressed, regression coverage, and unresolved limits. Root
 owns integration, documentation, workflow test registration and final delivery.
@@ -20,17 +23,21 @@ Kotlin owns Android integration. No fake prices, purchases or account verificati
 
 | Owner | Exclusive scope | Acceptance |
 |---|---|---|
-| audio_restart | AnalysisEngine, SampleRing, MidSideWindow and targeted tests | Restart waits for fresh PCM; one sample-rate/config snapshot per hop; obsolete work cannot publish; preserve stereo energy |
-| playlist_import | MusicLibraryController, MusicPlaylistStore, PlaylistFormats and tests | Bounded provider reads and entries; unique name and durable write are one transaction; failure reaches UI; preserve existing bytes |
-| transition_memory | GlTransitionEffect, TransitionFrameStore, ProjectComposition and tests | Consume each CPU frame once; handle late arrival; checked allocation; release at export teardown including cancellation before consumer creation |
-| milkdrop_import | MilkImportController, MilkPackImporter, TextureStore, shared admission and tests | Common byte/dimension/footprint/count limits; staging and rollback; preserve existing assets and supported formats |
-| native_camera | CameraDirector, Scene/RendererFrame flag routing, ShaderScene, rod_tunnel_frag.glsl and native tests | True raymarched camera integration; smooth bounded music response; fresh session variation; Motion zero and Reduced Motion freeze automatic camera travel; preserve catalog |
-| android_export_service | ExportRun, ExportService, ExportController and admission helper/tests | Await actual foreground promotion before analysis; fail visibly on rejected service start; cancellation/timeout stops coroutine; stale callbacks cannot own next run |
-| bug_android_review | Independent source review; bounded CaptureController permission cleanup fix | Trace callers and lifecycle; return concrete blockers to owners; distinguish source review from device proof |
-| root | RenderScratch, GeodeContainer, scratch allocation sites, docs and CI registration | Delayed sweep never selects active-process scratch or new pending media; integrate all patches and review final diff |
+| audio_restart (A1) | AnalysisInput, AnalysisEngine, SampleRing and tests in geode-batch-audio | Full new PCM window after restart/rate/reset; immutable rate per hop; reject stale completed work; preserve stereo |
+| native_admission (N1) | Params, native API and Renderer setters plus tests in geode-batch-admission | Transactional finite/type/domain validation; preserve wire ABI and legal sentinels |
+| spatial_visuals (V1) | SpatialCameraDirector, additive Prismatic Passage scene, shaders/catalog in geode-batch-visuals | Genuine spatial corridor/sculpture and fresh bounded music camera; stationary Motion zero/reduced motion; preserve full catalog |
+| milk_assets (I1) | Direct/folder MilkDrop admission and truthful result UI in geode-batch-assets | Bounded bytes/dimensions/footprint/count; staging; preserve existing assets on failure |
+| studio_inputs (E1) | LUT/SRT parser and async admission UI, configured LUT failures in geode-batch-studio | Bounded off-main parse; retain valid selection on rejected input; no false Loaded; scratch regression |
+| audio_restart follow-up (E2) | ExportAdmission/ExportRun/ExportController and OfflineAnalyzer in integration | Pre-dispatch cancellation releases ownership; foreground failure stops actual nonsuspending render loops |
+| native_admission follow-up (T1) | TakeStore/Repository/Controller, retry UI and source hook in integration | Durable typed save and serialized unique names; exact pending retry; source URI/offset captured together |
+| independent_review (R1) | Read-only call-site and lifecycle review | Small reproducible findings; rereview owner fixes; tests not claimed executed |
+| root | Integration, snapshot review, shared build registration, commit/remote delivery | Preserve prior work; no GitHub during development; all included patches reviewed before one final push |
 
-The audio task finishes before the dedicated Android export task starts, keeping
-at most six workers active. This ledger records task ownership, not test success.
+Prior-team snapshot packages under review: playlist import transaction, transition
+frame ownership, foreground-export admission, scratch run ownership, Rod Tunnel
+camera adapter and permission cleanup. Overlapping implementations are reconciled
+as a single coherent contract, never stacked blindly. Owners send changed paths,
+regression sources, source evidence and limitations. No worker commits or pushes.
 
 ## Review and delivery
 
@@ -43,9 +50,8 @@ at most six workers active. This ledger records task ownership, not test success
 
 ## Remaining release packages
 
-- Bounded off-main LUT/subtitle imports and truthful validation feedback.
 - Presentation-clock synchronization, audible processing tap, Oboe microphone adapter.
-- Additional spatial scenes/objects and complete customization coverage.
+- More spatial scenes/objects, GL-independent session lifetime and complete customization coverage.
 - Studio timeline gaps, Visual/Overlay lanes, preview parity, service-owned Studio lifetime.
 - Actual live-performance recording preserving the performed organic movement.
 - Production Credential Manager/Billing adapters, verified backend entitlements,
@@ -54,22 +60,3 @@ at most six workers active. This ledger records task ownership, not test success
 - Real-device performance, accessibility, playback, export and purchase tests.
 
 This batch is not a claim of AAA visual quality, complete bug removal or Play readiness.
-
-## Integration review outcome
-
-Source review covered audio publication invalidation, playlist durability, common
-MilkDrop admission, camera controls, transition lifetime and Android service
-admission. Review returned and owners repaired: cancellation before a coroutine
-starts leaking the export reservation; cancellation before a transition consumer
-exists retaining its frame; missing permission leaving capture projection alive;
-and incomplete reduced-motion flag routing.
-
-Root added process-owned export scratch and a fixed startup cutoff for old pending
-MediaStore rows. A queued cleanup task cannot age new exports into its selection.
-Native camera tests are registered in the existing Actions job; module unit tests
-and instrumentation discovery include the new regressions automatically.
-
-No compile, unit test, instrumentation, lint, benchmark or visual device validation
-ran locally. A clean whitespace diff is only a source hygiene check. In particular,
-Rod Tunnel quality, actual GLES transition ordering, foreground-service denial,
-provider failures, and 4K memory require Actions/device evidence after delivery.

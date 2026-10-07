@@ -42,13 +42,14 @@ public:
 
     // Any thread.
     void setParams(const SceneParams& params);
+    void setParamFrame(const float* values, int count);
     bool setParam(const std::string& key, float value);
     void setFeatures(const GeodeFeatureFrame& features);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
     void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
-    void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
+    void submitTouchPoints(const float* xy, int n);
     void pushPcm(const float* samples, int count);
     void setOffscreen(bool on);
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
@@ -186,6 +187,8 @@ private:
 
     SceneParams displayedParams_;
     SceneParams lastFinalParams_;
+    SceneParams nativeSpatialParams_;
+    SceneParams legacyMotionParams_;
     std::array<float, LfoEngine::kSlots> envRate_{};
     std::array<float, LfoEngine::kSlots> envDepth_{};
     float postRotationAngle_ = 0.0f;

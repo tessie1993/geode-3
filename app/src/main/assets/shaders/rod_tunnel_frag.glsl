@@ -16,7 +16,8 @@ out vec4 fragColor;
 // Rod Tunnel: real raymarched bead-chain geometry around a curved corridor.
 // The C++ CameraDirector supplies integrated music-responsive travel and fresh,
 // smoothed lateral/bank choices. The camera follows the same path as the walls.
-// Camera state survives shader recompilation and GL resource recreation.
+// Camera state survives shader recompilation while this scene exists;
+// full renderer/context recreation currently creates a new camera session.
 uniform float uCameraDistance;
 uniform vec3 uCameraOffsetRoll;
 

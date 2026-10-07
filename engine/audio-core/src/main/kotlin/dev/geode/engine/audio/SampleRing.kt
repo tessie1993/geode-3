@@ -41,9 +41,8 @@ class SampleRing(
 
     val oldestAvailable: Long get() = maxOf(0L, written + maxWriteFrames - capacityFrames)
 
-    /** A short metadata-only boundary; never holds the producer during analysis. */
-    fun currentPosition(): Position =
-        synchronized(writerLock) { Position(epochValue, written, sourceChannels) }
+    /** Metadata-only checkpoint for consumer lifecycle boundaries; never copies PCM. */
+    fun currentPosition(): Position = synchronized(writerLock) { Position(epochValue, written, sourceChannels) }
 
     fun beginEpoch() {
         synchronized(writerLock) {

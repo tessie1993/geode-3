@@ -77,7 +77,7 @@ class MilkTextureLinks(
 
     /** The texture names [preset] references, excluding projectM's built-ins and `randNN`. */
     fun referencedTextures(preset: File): List<String> {
-        val text = runCatching { preset.readText() }.getOrDefault("")
+        val text = runCatching { MilkAssetAdmission.readPresetText(preset) }.getOrDefault("")
         if (text.isEmpty()) return emptyList()
         return SAMPLER_REFERENCE
             .findAll(text)

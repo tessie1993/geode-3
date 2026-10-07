@@ -94,18 +94,23 @@ SceneParams Renderer::resolveParams(float dt) {
     const auto& lfoValues = lfo_.tick(dt, frameFeatures_, envRate_.data(), envDepth_.data());
     SceneParams p = lfo_.apply(displayedParams_, lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
-    // The continuous motion system: the one stage every family's parameters
-    // pass through, fed only the feature frame (never a one-hop PCM/drum
-    // impulse), ahead of the safety clamp so nothing it adds can exceed the
-    // flash and motion limits.
+    // Spatial directors own their music-driven travel and framing. Keep a
+    // safety-clamped pre-MotionField snapshot so they do not receive a second,
+    // hidden audio modulation of speed/zoom. Legacy styles retain their path.
     motionField_.step(frameFeatures_, dt);
     const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
-    p = motionField_.apply(p, reducedMotion);
-    p = safety::apply(p, reducedMotion);
-    if (!thermalTierInfo(thermal_.tier()).optionalPasses) {
-        p.flowEnabled = false;
-        p.rippleOverlayEnabled = false;
+    nativeSpatialParams_ = safety::apply(p, reducedMotion);
+    if (requested.motionAmount == 0.0f) nativeSpatialParams_.motionAmount = 0.0f;
+    if (requested.audioDrive == 0.0f) nativeSpatialParams_.audioDrive = 0.0f;
+    if (reducedMotion || nativeSpatialParams_.motionAmount == 0.0f) {
+        nativeSpatialParams_.rotation = 0.0f;
     }
+    legacyMotionParams_ = safety::apply(motionField_.apply(p, reducedMotion), reducedMotion);
+    if (!thermalTierInfo(thermal_.tier()).optionalPasses) {
+        nativeSpatialParams_.flowEnabled = legacyMotionParams_.flowEnabled = false;
+        nativeSpatialParams_.rippleOverlayEnabled = legacyMotionParams_.rippleOverlayEnabled = false;
+    }
+    p = activeScene_ && activeScene_->ownsNativeSpatialMotion() ? nativeSpatialParams_ : legacyMotionParams_;
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
     postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
@@ -161,12 +166,13 @@ void Renderer::bindSecondaryTarget() {
 float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     float progress = 1.0f;
     if (layerScene_) {
+        const SceneParams& lp = layerScene_->ownsNativeSpatialMotion() ? nativeSpatialParams_ : legacyMotionParams_;
         bindSecondaryTarget();
-        wireFlow(*layerScene_, p);
-        layerScene_->setParams(p);
+        wireFlow(*layerScene_, lp);
+        layerScene_->setParams(lp);
         layerScene_->setReducedMotion(reducedMotion_.load(std::memory_order_relaxed));
         deliverPcm(*layerScene_);
-        layerScene_->update(gainAdjusted(frameFeatures_, p), dt);
+        layerScene_->update(gainAdjusted(frameFeatures_, lp), dt);
         layerScene_->draw(timeSeconds_);
     }
     if (outgoingScene_) {
@@ -176,7 +182,11 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             outgoingParams_.reset();
         } else {
             bindSecondaryTarget();
-            const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
+            SceneParams op = outgoingParams_ ? *outgoingParams_ : p;
+            if (outgoingScene_->ownsNativeSpatialMotion() && nativeSpatialParams_.motionAmount == 0.0f) {
+                op.motionAmount = 0.0f;
+                op.rotation = 0.0f;
+            }
             outgoingScene_->setParams(op);
             outgoingScene_->setReducedMotion(reducedMotion_.load(std::memory_order_relaxed));
             deliverPcm(*outgoingScene_);

@@ -20,6 +20,9 @@ enum class ParamScope {
     /** The scene clock. MilkDrop presets pace themselves and read none of it. */
     SCENE_CLOCK,
 
+    /** Compatibility controls retained by old looks, not offered by the native spatial adapter. */
+    LEGACY_IMPULSE,
+
     /** Scales the band/level envelopes a scene reads. MilkDrop takes raw PCM instead. */
     AUDIO_DRIVE,
 
@@ -90,7 +93,9 @@ enum class ParamScope {
     fun appliesTo(sceneId: String): Boolean =
         // MARCH_DETAIL is the one scope a SceneKind cannot answer: the marched styles are a
         // subset of one kind, so the id is the only thing that separates them.
-        if (this == MARCH_DETAIL) {
+        if (this == LEGACY_IMPULSE) {
+            sceneId != SceneIds.PRISMATIC_PASSAGE
+        } else if (this == MARCH_DETAIL) {
             sceneId in SceneCapabilities.MARCHED_SCENES
         } else {
             appliesTo(SceneCapabilities.kindOf(sceneId))
@@ -100,6 +105,7 @@ enum class ParamScope {
         when (this) {
             UNIVERSAL -> true
             SCENE_CLOCK -> kind != SceneKind.MILKDROP
+            LEGACY_IMPULSE -> true
             AUDIO_DRIVE -> kind != SceneKind.MILKDROP
             BASS_BAND -> kind in BASS_READERS
             MID_BAND -> kind in MID_READERS
@@ -153,8 +159,6 @@ enum class ParamScope {
                     ParamKeys.SWAY,
                     ParamKeys.DRIFT_X,
                     ParamKeys.DRIFT_Y,
-                    ParamKeys.BEAT_PULSE,
-                    ParamKeys.BEAT_SHAKE,
                     ParamKeys.DOMAIN_WARP,
                     ParamKeys.RIPPLE,
                     ParamKeys.TWIST,
@@ -163,9 +167,6 @@ enum class ParamScope {
                     ParamKeys.PIXELATE,
                     ParamKeys.POSTERIZE,
                     ParamKeys.MIRROR,
-                    ParamKeys.BEAT_RESPONSE,
-                    ParamKeys.FORM_DRIVE,
-                    ParamKeys.BEAT_FLASH,
                     ParamKeys.PALETTE,
                     ParamKeys.HUE_SHIFT,
                     ParamKeys.HUE_RANGE,
@@ -186,10 +187,18 @@ enum class ParamScope {
                     ParamKeys.FILM_GRAIN,
                     ParamKeys.GLITCH,
                     ParamKeys.FISHEYE,
-                    ParamKeys.STROBE,
                     ParamKeys.FLOW_STRENGTH,
                     ParamKeys.WAVE_SPEED,
                     ParamKeys.DAMPING,
+                )
+                scoped(
+                    LEGACY_IMPULSE,
+                    ParamKeys.BEAT_PULSE,
+                    ParamKeys.BEAT_SHAKE,
+                    ParamKeys.BEAT_RESPONSE,
+                    ParamKeys.FORM_DRIVE,
+                    ParamKeys.BEAT_FLASH,
+                    ParamKeys.STROBE,
                 )
                 scoped(SCENE_CLOCK, ParamKeys.SPEED)
                 scoped(AUDIO_DRIVE, ParamKeys.AUDIO_DRIVE)

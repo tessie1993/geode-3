@@ -1,196 +1,213 @@
 package dev.geode.data
 
 import android.graphics.BitmapFactory
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.io.InputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
-/** Resource admission shared by document, texture-picker and folder imports. */
+/** Shared limits for picker and folder imports. Values bound IO and GPU allocation, not visual quality. */
 internal object MilkAssetAdmission {
     const val MAX_PRESET_BYTES = 2L * 1024 * 1024
     const val MAX_TEXTURE_BYTES = 16L * 1024 * 1024
-    const val MAX_PACK_BYTES = 128L * 1024 * 1024
-    const val MAX_ENTRIES = 1024
-    const val MAX_DIMENSION = 8192L
-    const val MAX_DECODED_BYTES = 128L * 1024 * 1024
+    const val MAX_DIMENSION = 8192
+    const val MAX_DECODED_BYTES = 64L * 1024 * 1024
+    const val MAX_BATCH_BYTES = 256L * 1024 * 1024
+    const val MAX_BATCH_DECODED_BYTES = 512L * 1024 * 1024
+    const val MAX_BATCH_FILES = 512
+    const val MAX_WALK_NODES = 4096
+    const val MAX_WALK_DEPTH = 4
     val textureExtensions = setOf("png", "jpg", "jpeg", "bmp", "tga", "dds", "dib")
 
-    class Budget {
-        var bytes = 0L
-            private set
+    fun fileNameIssue(name: String): String? =
+        if (name.isBlank() || name.length > 240 || name.any { it.isISOControl() }) "invalid or overlong asset name" else null
 
-        fun consume(count: Int) {
-            require(count >= 0 && count.toLong() <= MAX_PACK_BYTES - bytes) { "folder exceeds 128 MB" }
-            bytes += count
+    // Folder imports and direct imports share one writer so a same-name admission cannot race.
+    val importLock = Any()
+
+    class Rejected(
+        override val message: String,
+    ) : IOException(message)
+
+    class Budget(
+        private val maxFiles: Int = MAX_BATCH_FILES,
+        private val maxBytes: Long = MAX_BATCH_BYTES,
+        private val maxDecodedBytes: Long = MAX_BATCH_DECODED_BYTES,
+    ) {
+        private var files = 0
+        private var encodedBytes = 0L
+        private var decodedBytes = 0L
+
+        fun beginEntry() {
+            if (files >= maxFiles) throw Rejected("import file-count limit reached ($maxFiles)")
+            if (encodedBytes >= maxBytes) throw Rejected("import byte budget exceeded")
+            files++
+        }
+
+        fun consumeEncoded(bytes: Int) {
+            if (bytes.toLong() > maxBytes - encodedBytes) {
+                encodedBytes = maxBytes
+                throw Rejected("import byte budget exceeded")
+            }
+            encodedBytes += bytes
+        }
+
+        fun readSize(
+            bufferSize: Int,
+            fileRemaining: Long,
+        ): Int = minOf(bufferSize.toLong(), fileRemaining + 1, maxBytes - encodedBytes + 1).toInt()
+
+        fun admitDecoded(bytes: Long) {
+            if (bytes > maxDecodedBytes - decodedBytes) throw Rejected("import decoded-image budget exceeded")
+            decodedBytes += bytes
         }
     }
 
-    fun stage(
-        input: InputStream,
-        file: File,
+    /** Returns only after validation and atomic publication. Rejection never opens the destination for writing. */
+    @Suppress("TooGenericExceptionCaught")
+    fun store(
+        target: File,
         extension: String,
-        budget: Budget = Budget(),
-    ) {
-        require(extension == "milk" || extension in textureExtensions) { "unsupported asset type" }
-        val limit = if (extension == "milk") MAX_PRESET_BYTES else MAX_TEXTURE_BYTES
-        var size = 0L
-        file.outputStream().use { output ->
-            val buffer = ByteArray(16 * 1024)
-            while (true) {
-                val count = input.read(buffer)
-                if (count < 0) break
-                require(count > 0) { "provider stopped returning data" }
-                require(count.toLong() <= limit - size) { "asset exceeds byte limit" }
-                budget.consume(count)
-                output.write(buffer, 0, count)
-                size += count
+        budget: Budget,
+        replaceExisting: Boolean,
+        open: () -> InputStream?,
+    ): String? =
+        synchronized(importLock) {
+            var staged: File? = null
+            try {
+                budget.beginEntry()
+                if (extension != "milk" && extension !in textureExtensions) throw Rejected("unsupported file type")
+                if (!replaceExisting && target.exists()) throw Rejected("already present")
+                val parent = target.parentFile ?: throw Rejected("invalid destination")
+                if (!parent.isDirectory && !parent.mkdirs()) throw Rejected("destination could not be created")
+                val temporary = File.createTempFile(".asset-import-", ".tmp", parent)
+                staged = temporary
+                val cap = if (extension == "milk") MAX_PRESET_BYTES else MAX_TEXTURE_BYTES
+                val input = open() ?: throw Rejected("could not be read")
+                input.use { source ->
+                    FileOutputStream(temporary).use { output ->
+                        copyBounded(source, output, cap, budget)
+                        output.fd.sync()
+                    }
+                }
+                if (extension == "milk") {
+                    validatePreset(readPresetText(temporary))
+                } else {
+                    budget.admitDecoded(validateTexture(temporary, extension))
+                }
+                // App-private source and destination share a filesystem. If atomic replacement
+                // is unsupported, fail closed instead of deleting an existing valid texture.
+                Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                null
+            } catch (e: Rejected) {
+                e.message
+            } catch (_: IOException) {
+                "could not be read or saved"
+            } catch (_: SecurityException) {
+                "access denied"
+            } catch (error: RuntimeException) {
+                if (error is java.util.concurrent.CancellationException) throw error
+                "provider or image could not be read"
+            } finally {
+                staged?.delete()
             }
         }
-        require(size > 0) { "asset is empty" }
-        if (extension == "milk") validatePreset(file) else validateTexture(file, extension)
+
+    private fun copyBounded(
+        source: InputStream,
+        output: FileOutputStream,
+        cap: Long,
+        budget: Budget,
+    ) {
+        var size = 0L
+        val buffer = ByteArray(32 * 1024)
+        while (true) {
+            val count = source.read(buffer, 0, budget.readSize(buffer.size, cap - size))
+            if (count < 0) break
+            // Some document providers return zero instead of making progress.
+            val read = if (count == 0) {
+                val one = source.read()
+                if (one < 0) break
+                buffer[0] = one.toByte()
+                1
+            } else {
+                count
+            }
+            budget.consumeEncoded(read)
+            size += read
+            if (size > cap) throw Rejected("larger than ${cap / (1024 * 1024)} MB")
+            output.write(buffer, 0, read)
+        }
+        if (size == 0L) throw Rejected("file is empty")
     }
 
-    private fun validatePreset(file: File) {
-        // Historic MilkDrop packs may use an 8-bit Windows encoding. Admission does not
-        // rewrite their bytes or require a modern version header.
-        val text = file.readText(Charsets.ISO_8859_1)
-        require('\u0000' !in text && text.lineSequence().any { it.trim() == "[preset00]" }) {
-            "not a MilkDrop preset (missing preset00 section or binary content)"
+    /** Also used by the relinker: legacy on-disk files are not implicitly trusted. */
+    fun readPresetText(file: File): String {
+        if (file.length() > MAX_PRESET_BYTES) throw Rejected("preset is larger than 2 MB")
+        return file.inputStream().use { input ->
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = input.read(buffer, 0, minOf(buffer.size.toLong(), MAX_PRESET_BYTES + 1 - output.size()).toInt())
+                if (count < 0) break
+                if (count == 0) {
+                    val one = input.read()
+                    if (one < 0) break
+                    output.write(one)
+                } else {
+                    output.write(buffer, 0, count)
+                }
+                if (output.size() > MAX_PRESET_BYTES) throw Rejected("preset is larger than 2 MB")
+            }
+            output.toString(Charsets.UTF_8.name())
         }
+    }
+
+    private fun validatePreset(text: String) {
+        if (text.any { it < ' ' && it != '\r' && it != '\n' && it != '\t' }) throw Rejected("not a text MilkDrop preset")
+        var section = false
+        var assignment = false
+        text.removePrefix("\uFEFF").lineSequence().forEach { raw ->
+            if (raw.length > 64 * 1024) throw Rejected("preset line is too long")
+            val line = raw.trim()
+            when {
+                line.isEmpty() || line.startsWith("//") || line.startsWith(';') -> Unit
+                line.equals("[preset00]", ignoreCase = true) -> section = true
+                '=' in line && line.substringBefore('=').isNotBlank() -> if (section) assignment = true
+                else -> throw Rejected("unrecognized MilkDrop preset syntax")
+            }
+        }
+        if (!section || !assignment) throw Rejected("missing MilkDrop preset section or settings")
     }
 
     private fun validateTexture(
         file: File,
         extension: String,
-    ) {
-        val header = file.inputStream().use { it.readBytesAtMost(148) }
-        when (extension) {
-            "dds" -> {
-                require(header.size >= 128 && header.copyOfRange(0, 4).contentEquals("DDS ".toByteArray())) {
-                    "invalid DDS header"
-                }
-                require(u32(header, 4) == 124L && u32(header, 76) == 32L) { "invalid DDS header size" }
-                val dx10 = header.copyOfRange(84, 88).contentEquals("DX10".toByteArray())
-                require(!dx10 || header.size >= 148) { "missing DDS extended header" }
-                val arraySize = if (dx10) u32(header, 140) else 1L
-                require(arraySize in 1..MAX_DIMENSION) { "invalid DDS array size" }
-                val depth = u32(header, 24).coerceAtLeast(1)
-                val cube = u32(header, 112) and 0x200L != 0L || (dx10 && u32(header, 136) and 4L != 0L)
-                val faces = if (cube) 6L else 1L
-                require(depth <= MAX_DIMENSION && u32(header, 28) <= 14L) { "invalid DDS depth or mip count" }
-                dimensions(u32(header, 16), u32(header, 12), depth * faces * arraySize * 2)
-                require(file.length() > if (dx10) 148 else 128) { "DDS pixel data is missing" }
+    ): Long {
+        val header = file.inputStream().use { input ->
+            val bytes = ByteArray(148)
+            var size = 0
+            while (size < bytes.size) {
+                val count = input.read(bytes, size, bytes.size - size)
+                if (count < 0) break
+                if (count == 0) break
+                size += count
             }
-            "tga" -> {
-                require(header.size >= 18) { "invalid TGA header" }
-                require(u8(header, 1) <= 1 && u8(header, 2) in setOf(1, 2, 3, 9, 10, 11)) { "invalid TGA type" }
-                require(u8(header, 16) in setOf(8, 15, 16, 24, 32)) { "invalid TGA pixel depth" }
-                dimensions(u16(header, 12), u16(header, 14))
-                validateTgaData(file, header)
-            }
-            "dib" -> {
-                if (header.size >= 2 && header[0] == 'B'.code.toByte() && header[1] == 'M'.code.toByte()) {
-                    validateBitmap(file)
-                } else {
-                    validateDib(file, header)
-                }
-            }
-            else -> validateBitmap(file)
+            bytes.copyOf(size)
         }
-    }
-
-    private fun validateBitmap(file: File) {
-        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(file.absolutePath, options)
-        dimensions(options.outWidth.toLong(), options.outHeight.toLong())
-    }
-
-    /** Raw Windows DIB has no BMP file header and is not decoded by BitmapFactory. */
-    private fun validateDib(
-        file: File,
-        header: ByteArray,
-    ) {
-        require(header.size >= 12) { "invalid DIB header" }
-        val headerBytes = u32(header, 0)
-        require(headerBytes in setOf(12L, 40L, 52L, 56L, 108L, 124L)) { "unsupported DIB header" }
-        require(header.size >= headerBytes && file.length() > headerBytes) { "truncated DIB" }
-        if (headerBytes == 12L) {
-            require(u16(header, 8) == 1L && u16(header, 10) in setOf(1L, 4L, 8L, 24L)) { "invalid DIB pixel format" }
-            dimensions(u16(header, 4), u16(header, 6))
-        } else {
-            val compression = u32(header, 16)
-            val bits = u16(header, 14)
-            require(u16(header, 12) == 1L && compression in 0L..6L) { "invalid DIB planes or compression" }
-            require(bits in setOf(1L, 4L, 8L, 16L, 24L, 32L) || (bits == 0L && compression in 4L..5L)) {
-                "invalid DIB pixel depth"
-            }
-            val rawHeight = u32(header, 8)
-            val height = if (rawHeight >= 0x80000000L) 0x100000000L - rawHeight else rawHeight
-            dimensions(u32(header, 4), height)
-        }
-    }
-
-    private fun validateTgaData(
-        file: File,
-        header: ByteArray,
-    ) {
-        val type = u8(header, 2)
-        val colorMap = u8(header, 1)
-        require(type !in setOf(1, 9) || colorMap == 1) { "TGA color map is missing" }
-        val paletteBytes = if (colorMap == 1) u16(header, 5) * ((u8(header, 7) + 7) / 8) else 0L
-        val pixelBytes = (u8(header, 16) + 7) / 8
-        val pixels = u16(header, 12) * u16(header, 14)
-        java.io.RandomAccessFile(file, "r").use { input ->
-            input.seek(18L + u8(header, 0) + paletteBytes)
-            if (type < 9) {
-                require(file.length() - input.filePointer >= pixels * pixelBytes) { "truncated TGA pixels" }
-            } else {
-                var remaining = pixels
-                while (remaining > 0) {
-                    val packet = input.readUnsignedByte()
-                    val count = (packet and 0x7f) + 1L
-                    require(count <= remaining) { "TGA packet exceeds image dimensions" }
-                    val bytes = (if (packet and 0x80 != 0) 1L else count) * pixelBytes
-                    require(file.length() - input.filePointer >= bytes) { "truncated TGA packet" }
-                    input.seek(input.filePointer + bytes)
-                    remaining -= count
-                }
+        return when (extension) {
+            "dds" -> TextureHeaderAdmission.dds(header, file.length())
+            "tga" -> TextureHeaderAdmission.tga(header, file.length()).also { TextureHeaderAdmission.validateTgaPixels(file, header) }
+            "dib" -> TextureHeaderAdmission.bitmap(header, file.length(), dib = true)
+            "bmp" -> TextureHeaderAdmission.bitmap(header, file.length(), dib = false)
+            else -> {
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(file.absolutePath, options)
+                TextureHeaderAdmission.decodedBytes(options.outWidth.toLong(), options.outHeight.toLong())
             }
         }
     }
-
-    private fun dimensions(
-        width: Long,
-        height: Long,
-        layers: Long = 1,
-    ) {
-        require(width in 1..MAX_DIMENSION && height in 1..MAX_DIMENSION) { "invalid or oversized image dimensions" }
-        require(width * height * 4 <= MAX_DECODED_BYTES / layers) { "decoded texture exceeds 128 MB" }
-    }
-
-    private fun InputStream.readBytesAtMost(count: Int): ByteArray {
-        val buffer = ByteArray(count)
-        var offset = 0
-        while (offset < count) {
-            val read = read(buffer, offset, count - offset)
-            if (read <= 0) break
-            offset += read
-        }
-        return buffer.copyOf(offset)
-    }
-
-    private fun u8(
-        bytes: ByteArray,
-        offset: Int,
-    ): Int = bytes[offset].toInt() and 0xff
-
-    private fun u16(
-        bytes: ByteArray,
-        offset: Int,
-    ): Long = (u8(bytes, offset) + (u8(bytes, offset + 1) shl 8)).toLong()
-
-    private fun u32(
-        bytes: ByteArray,
-        offset: Int,
-    ): Long =
-        (0..3).fold(0L) { result, index -> result or (u8(bytes, offset + index).toLong() shl (index * 8)) }
 }

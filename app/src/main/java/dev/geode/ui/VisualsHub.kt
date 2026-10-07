@@ -128,9 +128,12 @@ fun VisualsHub(
                         )
                         GlowTitle("Visuals")
                     }
-                    IconButton(onClick = {
-                        if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording()
-                    }) {
+                    IconButton(
+                        enabled = takes.recording || !takes.pendingSave && !takes.saving,
+                        onClick = {
+                            if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording()
+                        },
+                    ) {
                         Icon(
                             if (takes.recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
                             if (takes.recording) "Stop recording this take" else "Record a take",
@@ -152,6 +155,19 @@ fun VisualsHub(
                         )
                     }
                     CrystalButton(compact = true, filled = false, onClick = onOpenNowPlaying) { Text("View live") }
+                }
+                takes.note?.let { note ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(note, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        if (takes.pendingSave) {
+                            TextButton(enabled = !takes.saving, onClick = studioViewModel::retryTakeSave) {
+                                Text(if (takes.saving) "Saving…" else "Retry save")
+                            }
+                        }
+                    }
                 }
                 CrystalTabs(titles = tabs, selected = tab, onSelect = { tab = it })
                 when (tab) {
@@ -663,6 +679,7 @@ private fun MilkDropTab(
     }
     val loaded by viewModel.activeMilkPath.collectAsStateWithLifecycle()
     var packReport by remember { mutableStateOf<dev.geode.data.MilkPackImporter.Report?>(null) }
+    var milkImportFailed by remember { mutableStateOf(false) }
     val importedTextures by visualsViewModel.textures.collectAsStateWithLifecycle()
     var linkRefresh by remember { mutableStateOf(0) }
     // What the linker decided for the preset on screen, kept live so a texture import or a
@@ -695,6 +712,7 @@ private fun MilkDropTab(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 viewModel.importMilkPresetAsync(uri) { path ->
+                    milkImportFailed = path == null
                     if (path != null) {
                         selectMilk(viewModel, path)
                         refresh++
@@ -712,12 +730,19 @@ private fun MilkDropTab(
             CrystalButton(filled = false, onClick = { milkFolderPicker.launch(null) }) { Text("Import folder…") }
             CrystalButton(filled = false, onClick = onOpenTextures) { Text("Textures…") }
         }
+        if (milkImportFailed) {
+            Text(stringResource(R.string.milk_import_failed), color = MaterialTheme.colorScheme.error)
+        }
         packReport?.let { r ->
             Text(
                 buildString {
                     append("Imported ${r.presets} presets and ${r.textures} textures")
-                    if (r.skipped > 0) append(", ${r.skipped} skipped (already present or unreadable)")
+                    if (r.skipped > 0) append(", ${r.skipped} skipped")
                     append('.')
+                    r.issue?.let { append(" $it") }
+                    r.results.filter { it.skipReason != null }.take(5).forEach {
+                        append("\n${it.name}: ${it.skipReason}")
+                    }
                     if (r.presetsMissingTextures > 0) {
                         append(
                             " ${r.presetsMissingTextures} wanted textures you don't have and were " +
@@ -727,7 +752,7 @@ private fun MilkDropTab(
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color =
-                    if (r.presetsMissingTextures > 0) {
+                    if (r.presetsMissingTextures > 0 || r.skipped > 0 || r.issue != null) {
                         MaterialTheme.colorScheme.error
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -1203,9 +1228,9 @@ private fun TakesTab(viewModel: StudioViewModel) {
                     "Recording — ${takes.recordedEvents} keyframes, ${formatTakeTime(takes.recordedMs)}. " +
                         "Go and perform; press the stop button in the header when you are done."
                 } else {
-                    "A take stores what the visuals were doing, moment by moment — every slider, " +
-                        "colour and style change, as you made them. It replays over the live canvas " +
-                        "and can be re-rendered at any quality later. Press ● in the header to start."
+                    "A control take stores slider, colour and style changes. Replaying or exporting " +
+                        "applies those controls to new generative visuals; it does not record the original " +
+                        "frames or audio. Recording stops when the audio source changes. Press ● to start."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1343,14 +1368,25 @@ private fun TexturesHubTab(
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val textures by visualsViewModel.textures.collectAsStateWithLifecycle()
     var deletingTexture by remember { mutableStateOf<String?>(null) }
+    var importOutcome by remember { mutableStateOf<dev.geode.data.TextureImportOutcome?>(null) }
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             if (uris.isNotEmpty()) {
-                visualsViewModel.importTextures(uris) { visualizerView.visualizerRenderer.reloadCurrentMilkPreset() }
+                visualsViewModel.importTextures(uris) { outcome ->
+                    importOutcome = outcome
+                    if (outcome.results.any { it.imported }) visualizerView.visualizerRenderer.reloadCurrentMilkPreset()
+                }
             }
         }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         CrystalButton(onClick = { picker.launch(arrayOf("image/*")) }) { Text("Import images") }
+        importOutcome?.let { outcome ->
+            Text(stringResource(R.string.texture_import_summary, outcome.results.count { it.imported }))
+            outcome.issue?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            outcome.results.filterNot { it.imported }.take(5).forEach { result ->
+                Text("${result.name}: ${result.skipReason}", color = MaterialTheme.colorScheme.error)
+            }
+        }
         textures.forEach { tex ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(tex.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)

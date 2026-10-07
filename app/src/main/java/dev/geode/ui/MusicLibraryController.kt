@@ -429,7 +429,8 @@ internal class MusicLibraryController(
                         musicPlaylists.saveUnique(
                             MusicPlaylist(parsed.name.ifBlank { fileName.ifBlank { "Playlist" } }, resolution.uris),
                         ) ?: return@withContext PlaylistImportResult.Failed("could not save the playlist")
-                    withContext(Dispatchers.Main) { _library.update { it.copy(playlists = musicPlaylists.list()) } }
+                    val listed = musicPlaylists.list()
+                    withContext(Dispatchers.Main) { _library.update { it.copy(playlists = listed) } }
                     PlaylistImportResult.Imported(
                         name = saved.name,
                         addedCount = resolution.uris.size,

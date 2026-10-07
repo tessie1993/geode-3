@@ -197,8 +197,12 @@ struct SceneParams {
     static constexpr int kFieldCount = 140;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
-    // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.
+    // Admission is shared by named and bulk setters. Invalid input leaves the
+    // previous value/frame intact; negative override/LUT sentinels stay valid.
     bool set(std::string_view name, float value);
+    bool get(std::string_view name, float& value) const;
+    bool valid() const;
+    bool setFrame(const float* values, int count);
 };
 
 SceneParams lerpParams(const SceneParams& from, const SceneParams& to, float k);
