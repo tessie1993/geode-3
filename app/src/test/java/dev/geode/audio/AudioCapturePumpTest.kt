@@ -290,7 +290,7 @@ class AudioCapturePumpTest {
             },
         )
         assertTrue(record.released.await(AWAIT_SECONDS, TimeUnit.SECONDS))
-        assertFalse(pump.active)
+        assertTrue(waitUntil { !pump.active })
         assertEquals(1, attempts)
         assertEquals(1, native.releases)
         assertEquals(1, record.releases)
