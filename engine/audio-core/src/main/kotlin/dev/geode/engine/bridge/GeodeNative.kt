@@ -365,7 +365,8 @@ object GeodeNative {
     /**
      * Blocks up to [timeoutNanos] for up to [maxFrames] mono frames and writes them to the front of [dst].
      * Returns the frames read; 0 when none arrived in time or while a disconnected stream is being
-     * reopened (that happens inside this call), negative when the stream is gone for good.
+     * reopened (the reopening runs inside these calls, on the calling thread), negative when the stream
+     * is gone for good.
      */
     external fun micRead(
         handle: Long,

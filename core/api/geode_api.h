@@ -223,8 +223,9 @@ GEODE_API geode_mic* geode_mic_create(int prefer_unprocessed);
 GEODE_API int        geode_mic_start(geode_mic*);
 /* Up to max_frames mono float frames, waiting up to timeout_nanos (0 = do not wait). Returns the frames read:
  * 0 when none arrived in time or while the stream is being reopened after a disconnect, negative (an AAudio
- * result) when the stream is gone for good. A reopen happens inside this call, on the calling thread; after
- * it geode_mic_generation changes and geode_mic_sample_rate may differ. */
+ * result) when the stream is gone for good. A disconnect is handled inside read, on the calling thread: the
+ * failing call closes the stream and returns 0, the calls after it reopen and restart it with backoff, and
+ * once it delivers again geode_mic_generation has changed and geode_mic_sample_rate may differ. */
 GEODE_API int        geode_mic_read(geode_mic*, float* mono, int max_frames, int64_t timeout_nanos);
 GEODE_API void       geode_mic_stop(geode_mic*);
 GEODE_API void       geode_mic_destroy(geode_mic*);
