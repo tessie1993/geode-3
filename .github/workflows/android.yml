@@ -121,7 +121,7 @@ jobs:
           g++ -std=c++20 -Wall -Wextra -Werror -Icore \
             core/tests/FramePcmTest.cpp -o "$RUNNER_TEMP/frame-pcm-test"
           "$RUNNER_TEMP/frame-pcm-test"
-          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
             core/tests/MilkdropPcmTest.cpp -o "$RUNNER_TEMP/milkdrop-pcm-test"
           "$RUNNER_TEMP/milkdrop-pcm-test"
       - name: Bounded spatial cameras and independent sound reactions
@@ -146,7 +146,7 @@ jobs:
             core/tests/FluidAllocationPlanTest.cpp \
             -o "$RUNNER_TEMP/fluid-allocation-plan-test"
           "$RUNNER_TEMP/fluid-allocation-plan-test"
-          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
             core/tests/FluidAudioDriveTest.cpp core/viz/fluid/FluidMath.cpp \
             -o "$RUNNER_TEMP/fluid-audio-drive-test"
           "$RUNNER_TEMP/fluid-audio-drive-test"
