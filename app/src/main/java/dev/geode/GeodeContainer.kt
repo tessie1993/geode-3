@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.export.RenderScratch
 import dev.geode.ui.SharedPrefsUserDataRepository
 import dev.geode.ui.UserDataRepository
 import dev.geode.util.bestEffort
@@ -29,26 +30,11 @@ class GeodeContainer(
         sweepOrphanedPendingExports(context.applicationContext)
     }
 
-    /**
-     * Deletes render scratch files left behind by a render that never got to clean up after
-     * itself — a crash, a foreground-service timeout, a low-memory kill, a force-stop.
-     *
-     * Every render deletes its own scratch on both the success and the failure path, so anything
-     * still here belongs to a previous process. A whole-track AAC sidecar runs to tens of
-     * megabytes and a loop reel to hundreds, and nothing else ever reclaims them, so without this
-     * they accumulate for the life of the install.
-     *
-     * Safe to sweep wholesale because this runs while the container is being built, which
-     * happens before anything can start a render in this process.
-     */
+    /** Reclaims previous-process scratch without selecting this process's export directory. */
     private fun sweepStaleRenderScratch(cacheDir: File) {
         appScope.launch(Dispatchers.IO) {
             bestEffort(TAG, "sweep stale render scratch") {
-                cacheDir
-                    .listFiles()
-                    .orEmpty()
-                    .filter { file -> file.isFile && isRenderScratch(file.name) }
-                    .forEach { file -> file.delete() }
+                RenderScratch.sweepPreviousRuns(cacheDir)
             }
         }
     }
@@ -69,9 +55,10 @@ class GeodeContainer(
      */
     private fun sweepOrphanedPendingExports(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        // Capture before dispatch: a delayed sweep must never age a current-run row into eligibility.
+        val cutoffSeconds = (System.currentTimeMillis() - PENDING_EXPORT_GRACE_MS) / 1000
         appScope.launch(Dispatchers.IO) {
             bestEffort(TAG, "sweep orphaned pending exports") {
-                val cutoffSeconds = (System.currentTimeMillis() - PENDING_EXPORT_GRACE_MS) / 1000
                 deletePendingRowsOlderThan(context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, cutoffSeconds)
                 deletePendingRowsOlderThan(context, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cutoffSeconds)
             }
@@ -108,13 +95,8 @@ class GeodeContainer(
     private companion object {
         const val TAG = "GeodeContainer"
 
-        /** A render still `IS_PENDING` this long after it was inserted is treated as orphaned. */
+        /** Only pending rows older than startup minus this grace period are eligible. */
         const val PENDING_EXPORT_GRACE_MS = 5 * 60 * 1000L
-
-        /** Kept in step with AudioTranscoder, LoopRender and StudioExporter. */
-        val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-")
-
-        fun isRenderScratch(name: String): Boolean = RENDER_SCRATCH_PREFIXES.any { name.startsWith(it) }
     }
 }
 

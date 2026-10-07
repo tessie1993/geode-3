@@ -8,6 +8,34 @@ import org.junit.Test
 
 class MidSideWindowTest {
     @Test
+    fun `restart discards retained samples until a full fresh window arrives`() {
+        val ring = SampleRing(16, 2, 8)
+        ring.write(FloatArray(8) { 1f }, 4, 2)
+        val restarted = MidSideWindow(ring, 4)
+        restarted.discardExisting()
+        assertFalse(restarted.refresh())
+        ring.write(FloatArray(6), 3, 2)
+        assertFalse(restarted.refresh())
+        ring.write(FloatArray(2), 1, 2)
+        assertTrue(restarted.refresh())
+        assertArrayEquals(FloatArray(4), restarted.mid, 0f)
+        assertFalse(restarted.refresh())
+    }
+
+    @Test
+    fun `discard boundary accepts a complete new source epoch`() {
+        val ring = SampleRing(16, 2, 8)
+        ring.write(FloatArray(16) { 1f }, 8, 2)
+        val window = MidSideWindow(ring, 4)
+        window.discardExisting()
+        ring.beginEpoch()
+        ring.write(floatArrayOf(1f, -1f, 1f, -1f, 1f, -1f, 1f, -1f), 4, 2)
+        assertTrue(window.refresh())
+        assertArrayEquals(FloatArray(4), window.mid, 0f)
+        assertArrayEquals(FloatArray(4) { 1f }, window.side, 0f)
+    }
+
+    @Test
     fun `a completed window is delivered only once to each consumer`() {
         val ring = SampleRing(16, 2, 8)
         val first = MidSideWindow(ring, 4)

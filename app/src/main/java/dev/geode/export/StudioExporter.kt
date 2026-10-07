@@ -90,7 +90,7 @@ class StudioExporter(
         destination: Uri? = null,
         onProgress: (Float) -> Unit,
     ): Result {
-        val scratch = File(context.cacheDir, "studio-${UUID.randomUUID()}.mp4")
+        val scratch = File(RenderScratch.directory(context.cacheDir), "studio-${UUID.randomUUID()}.mp4")
         try {
             val outcome =
                 withContext(Dispatchers.Main) {

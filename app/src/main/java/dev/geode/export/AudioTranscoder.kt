@@ -91,7 +91,7 @@ class AudioTranscoder(
             encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC).also { encoderRef = it }
             encoder.configure(encFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
             encoder.start()
-            outFile = File.createTempFile("geode_aac_", ".bin", context.cacheDir).also { outFileRef = it }
+            outFile = File.createTempFile("geode_aac_", ".bin", RenderScratch.directory(context.cacheDir)).also { outFileRef = it }
             out = BufferedOutputStream(FileOutputStream(outFile))
         } catch (t: Throwable) {
             bestEffort(TAG, "encoderRef?.release()") { encoderRef?.release() }
@@ -264,7 +264,7 @@ class AudioTranscoder(
             decoder.configure(srcFormat, null, null, 0)
             decoder.start()
 
-            outFile = File.createTempFile("geode_aac_", ".bin", context.cacheDir).also { outFileRef = it }
+            outFile = File.createTempFile("geode_aac_", ".bin", RenderScratch.directory(context.cacheDir)).also { outFileRef = it }
             out = BufferedOutputStream(FileOutputStream(outFile))
         } catch (t: Throwable) {
             bestEffort(TAG, "decoderRef?.release()") { decoderRef?.release() }

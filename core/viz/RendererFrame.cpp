@@ -164,6 +164,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         bindSecondaryTarget();
         wireFlow(*layerScene_, p);
         layerScene_->setParams(p);
+        layerScene_->setReducedMotion(reducedMotion_.load(std::memory_order_relaxed));
         deliverPcm(*layerScene_);
         layerScene_->update(gainAdjusted(frameFeatures_, p), dt);
         layerScene_->draw(timeSeconds_);
@@ -177,6 +178,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             bindSecondaryTarget();
             const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
             outgoingScene_->setParams(op);
+            outgoingScene_->setReducedMotion(reducedMotion_.load(std::memory_order_relaxed));
             deliverPcm(*outgoingScene_);
             outgoingScene_->update(gainAdjusted(frameFeatures_, op), dt);
             outgoingScene_->draw(timeSeconds_);
@@ -196,6 +198,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     }
     wireFlow(scene, p);
     scene.setParams(p);
+    scene.setReducedMotion(reducedMotion_.load(std::memory_order_relaxed));
     deliverPcm(scene);
     scene.update(gainAdjusted(frameFeatures_, p), dt);
     scene.draw(timeSeconds_);

@@ -2,10 +2,11 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
-import androidx.documentfile.provider.DocumentFile
 import dev.geode.RingLog
 import dev.geode.data.AtomicWrite
+import dev.geode.data.MilkAssetAdmission
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinks
@@ -67,10 +68,18 @@ internal class MilkImportController(
             val dir = importDir().apply { mkdirs() }
             val display = displayNameOf(uri).orEmpty().ifBlank { "preset" }
             val file = File(dir, PresetStore.milkFileName(display))
+            val staged = File.createTempFile("preset-admission-", ".stage", application.cacheDir)
             val written =
-                application.contentResolver.openInputStream(uri)?.use { input ->
-                    AtomicWrite.stream(file) { out -> input.copyTo(out) }
-                } ?: false
+                try {
+                    application.contentResolver.openInputStream(uri)?.use { input ->
+                        MilkAssetAdmission.stage(input, staged, "milk")
+                        synchronized(MilkAssetAdmission) {
+                            AtomicWrite.stream(file) { out -> staged.inputStream().use { it.copyTo(out) } }
+                        }
+                    } ?: false
+                } finally {
+                    staged.delete()
+                }
             if (written) textureLinks.relink(file)
             if (written) file.absolutePath else null
         } catch (t: Throwable) {
@@ -84,34 +93,52 @@ internal class MilkImportController(
     ) {
         scope.launch(Dispatchers.IO) {
             val entries = mutableListOf<MilkPackImporter.Entry>()
-            runCatching {
-                val root = DocumentFile.fromTreeUri(application, treeUri)
-                if (root != null) collectMilkEntries(root, entries, depth = 0)
-            }
-            val imported = MilkPackImporter.import(entries, importDir())
-            // The importer's missing count is measured BEFORE linking; what the person needs to
-            // hear is the state after it - how many presets still had to take a stand-in.
-            val report = imported.copy(presetsMissingTextures = textureLinks.relinkAll())
+            val collected =
+                runCatching {
+                    val root = DocumentsContract.buildDocumentUriUsingTree(treeUri, DocumentsContract.getTreeDocumentId(treeUri))
+                    collectMilkEntries(root, entries, depth = 0, visited = intArrayOf(0))
+                }
+            val imported =
+                if (collected.isSuccess) {
+                    MilkPackImporter.import(entries, importDir())
+                } else {
+                    MilkPackImporter.Report(
+                        0,
+                        0,
+                        entries.size.coerceAtLeast(1),
+                        0,
+                        listOf(MilkPackImporter.Outcome("folder", false, collected.exceptionOrNull()?.message)),
+                    )
+                }
+            val report =
+                if (imported.total > 0) imported.copy(presetsMissingTextures = textureLinks.relinkAll()) else imported
             withContext(Dispatchers.Main) { onDone(report) }
         }
     }
 
     private fun collectMilkEntries(
-        dir: DocumentFile,
+        dir: Uri,
         out: MutableList<MilkPackImporter.Entry>,
         depth: Int,
+        visited: IntArray,
     ) {
-        if (depth > MILK_WALK_DEPTH) return
-        for (child in dir.listFiles()) {
-            when {
-                child.isDirectory -> collectMilkEntries(child, out, depth + 1)
-                child.isFile -> {
-                    val name = child.name ?: continue
-                    val uri = child.uri
-                    out +=
-                        MilkPackImporter.Entry(name) {
-                            runCatching { application.contentResolver.openInputStream(uri) }.getOrNull()
-                        }
+        require(depth <= MILK_WALK_DEPTH) { "folder nesting limit exceeded" }
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(dir, DocumentsContract.getDocumentId(dir))
+        val projection =
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+            )
+        requireNotNull(application.contentResolver.query(children, projection, null, null, null)).use { cursor ->
+            while (cursor.moveToNext()) {
+                require(++visited[0] <= MilkAssetAdmission.MAX_ENTRIES) { "folder entry limit exceeded" }
+                val uri = DocumentsContract.buildDocumentUriUsingTree(dir, cursor.getString(0))
+                if (cursor.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    collectMilkEntries(uri, out, depth + 1, visited)
+                } else {
+                    val name = cursor.getString(1) ?: continue
+                    out += MilkPackImporter.Entry(name) { application.contentResolver.openInputStream(uri) }
                 }
             }
         }

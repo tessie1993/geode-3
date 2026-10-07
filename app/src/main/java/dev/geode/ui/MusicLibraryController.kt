@@ -411,7 +411,7 @@ internal class MusicLibraryController(
             val text =
                 runCatching {
                     application.contentResolver.openInputStream(uri)?.use { stream ->
-                        stream.readBytes().toString(Charsets.UTF_8)
+                        PlaylistFormats.readText(stream)
                     }
                 }.getOrNull()
             if (text == null) {
@@ -425,11 +425,13 @@ internal class MusicLibraryController(
                             .filter { it.fileName.isNotBlank() }
                             .groupBy({ it.fileName.lowercase() }, { it.uri })
                     val resolution = PlaylistFormats.resolve(parsed.entries, urisByFileName)
-                    val name = uniquePlaylistName(parsed.name.ifBlank { fileName.ifBlank { "Playlist" } })
-                    musicPlaylists.save(MusicPlaylist(name, resolution.uris))
+                    val saved =
+                        musicPlaylists.saveUnique(
+                            MusicPlaylist(parsed.name.ifBlank { fileName.ifBlank { "Playlist" } }, resolution.uris),
+                        ) ?: return@withContext PlaylistImportResult.Failed("could not save the playlist")
                     withContext(Dispatchers.Main) { _library.update { it.copy(playlists = musicPlaylists.list()) } }
                     PlaylistImportResult.Imported(
-                        name = name,
+                        name = saved.name,
                         addedCount = resolution.uris.size,
                         unresolvedCount = resolution.missing.size,
                         ambiguousCount = resolution.ambiguous.size,
@@ -437,15 +439,6 @@ internal class MusicLibraryController(
                 }
             }
         }
-
-    /** Never overwrites an existing playlist quietly — appends "(2)", "(3)", ... until the name is free. */
-    private fun uniquePlaylistName(base: String): String {
-        val taken = musicPlaylists.list().map { it.name }.toSet()
-        if (base !in taken) return base
-        var suffix = 2
-        while ("$base ($suffix)" in taken) suffix++
-        return "$base ($suffix)"
-    }
 }
 
 private const val TAG = "MusicLibraryController"

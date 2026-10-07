@@ -13,30 +13,13 @@ out vec4 fragColor;
 //#include lib_touch
 //#include lib_dmt
 
-// Rod Tunnel: a spiral tunnel of bead-chain rods, flown down toward the
-// chrysanthemum at the end of it.
-//
-// The wall is a cylinder that repeats in angle (strands) and depth (cells),
-// twists with depth, and holds one rod per cell. What this version adds, in
-// the order the eye meets it:
-//
-//   - THE TUNNEL BENDS. It is warped onto lib_dmt's flight path, so it curves
-//     up, down, left and right ahead of the camera, which rides the same path
-//     looking along it. A spike leans the path toward the new heading
-//     (uMoveDir), so the turns are steered by the music and glide in.
-//   - THE RODS ARE ALIVE. Each cell has its own life: rods bud out of the
-//     wall, hold, and dissolve, on a clock offset by the cell's hash, so at
-//     any moment some strands are thick, some are budding and some have
-//     gaps. Nothing appears in one frame - dmtLife eases both ends.
-//   - THE RODS MORPH. The bead chain is a capsule whose radius is modulated
-//     by a sine; uFormPhase walks that from a smooth rod through tight beads
-//     to a string of near-separate pearls and back, gliding, never stepping.
-//   - THE MATERIAL is lib_dmt's: banded by the cell, dispersed rim, thin-film
-//     sheen, a reflected softbox. The old two-light diffuse block is gone.
-//   - THE END of the tunnel is the mandala rather than a spot: the miss
-//     branch draws dmtChrysanthemum on the camera-relative direction, so the
-//     filigree sits on the axis you are flying toward and turns as you bank.
-//
+// Rod Tunnel: real raymarched bead-chain geometry around a curved corridor.
+// The C++ CameraDirector supplies integrated music-responsive travel and fresh,
+// smoothed lateral/bank choices. The camera follows the same path as the walls.
+// Camera state survives shader recompilation and GL resource recreation.
+uniform float uCameraDistance;
+uniform vec3 uCameraOffsetRoll;
+
 // ---- why the estimate is safe ----------------------------------------------
 //
 // Three non-rigid stages, each with a stated bound, all divided out at the
@@ -121,24 +104,18 @@ void main() {
     float hit = uSpike;
 
     gTwist = 0.25 + 0.55 * midA;
-    // Rod to pearls and back: a triangle of uFormPhase, so the morph is deep
-    // in the middle of the ring and smooth at both ends, and glides because
-    // uFormPhase does.
-    gBeadDepth = 1.0 - abs(2.0 * fract(uFormPhase) - 1.0);
+    // Use the existing Morph control (including its native music modulation).
+    // The legacy uFormPhase is permanently zero and previously hid the beads.
+    gBeadDepth = clamp(uMorph, 0.0, 1.0);
 
-    // The camera's distance down the tunnel, INTEGRATED rather than `uTime * rate`.
-    // Multiplying a running clock by a loudness-dependent rate does not speed the
-    // camera up, it teleports it: at t=60s a rate moving 1.4 -> 3.6 jumps the
-    // viewpoint 132 units down the tube in one frame. uFlowPhase only ever advances.
-    float fly = uFlowPhase * 9.0 + uTime * 1.4;
-    // A slow roll, so the horizon of the tube turns as it banks.
-    float roll = uTime * 0.08 + 0.25 * sin(uTime * 0.031);
+    float fly = uCameraDistance;
+    float roll = uCameraOffsetRoll.z;
     vec3 ro;
     vec3 rd;
     dmtFlightRay(uv, ROD_FOCAL, fly, roll, ro, rd);
-    // Sit a little off the axis, in the tube's own frame, so the wall is not
-    // seen dead centre.
-    ro.xy += vec2(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23));
+    // Lateral offsets remain in the corridor's XY cross-section: unlike an
+    // arbitrary world orbit, these bounded offsets cannot cross its walls.
+    ro.xy += uCameraOffsetRoll.xy;
 
     float t = 0.02;
     float hitT = -1.0;

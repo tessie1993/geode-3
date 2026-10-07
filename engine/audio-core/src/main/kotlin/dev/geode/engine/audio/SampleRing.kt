@@ -41,6 +41,10 @@ class SampleRing(
 
     val oldestAvailable: Long get() = maxOf(0L, written + maxWriteFrames - capacityFrames)
 
+    /** A short metadata-only boundary; never holds the producer during analysis. */
+    fun currentPosition(): Position =
+        synchronized(writerLock) { Position(epochValue, written, sourceChannels) }
+
     fun beginEpoch() {
         synchronized(writerLock) {
             revision++

@@ -32,25 +32,41 @@ class AnalysisEngine(
             hopRateHz = HOP_RATE_HZ,
         )
 
+    private val publication = AnalysisPublicationGate()
+
     @Volatile
     var sampleRateHz: Int = 44100
+        set(value) {
+            require(value > 0) { "sampleRateHz must be positive" }
+            publication.invalidate {
+                if (field != value) resetPending.set(true)
+                field = value
+                _features.value = AudioFeatures.empty(bandCount)
+            }
+        }
 
     @Volatile
     var attack: Float = DEFAULT_ATTACK
+        set(value) {
+            publication.invalidate { field = value }
+        }
 
     @Volatile
     var decay: Float = DEFAULT_DECAY
+        set(value) {
+            publication.invalidate { field = value }
+        }
 
     @Volatile
     var beatSensitivity: Float = BeatTuning.SENSITIVITY_DEFAULT
         set(value) {
-            field = BeatTuning.clampSensitivity(value)
+            publication.invalidate { field = BeatTuning.clampSensitivity(value) }
         }
 
     @Volatile
     var beatMinIntervalMs: Float = BeatTuning.INTERVAL_MS_DEFAULT
         set(value) {
-            field = BeatTuning.clampIntervalMs(value)
+            publication.invalidate { field = BeatTuning.clampIntervalMs(value) }
         }
 
     private val _features = MutableStateFlow(AudioFeatures.empty(bandCount))
@@ -59,8 +75,10 @@ class AnalysisEngine(
     private val resetPending = AtomicBoolean(false)
 
     fun reset() {
-        resetPending.set(true)
-        _features.value = AudioFeatures.empty(bandCount)
+        publication.invalidate {
+            resetPending.set(true)
+            _features.value = AudioFeatures.empty(bandCount)
+        }
     }
 
     /**
@@ -111,8 +129,14 @@ class AnalysisEngine(
         private val arrival = PulseHold()
         private var sourceEpoch = ring.epoch
         private var sourceRate = sampleRateHz
+
         private var lastInputNs = System.nanoTime()
         private var quiet = true
+
+        init {
+            window.discardExisting()
+            reset()
+        }
 
         fun reset() {
             analyzer.reset()
@@ -122,10 +146,13 @@ class AnalysisEngine(
             quiet = true
         }
 
-        fun tick(): Boolean {
+        fun discardInput() = window.discardExisting()
+
+        fun tick(configuration: Configuration): Boolean {
+            if (resetPending.get()) return false
             val now = System.nanoTime()
             val epoch = ring.epoch
-            val rate = sampleRateHz
+            val rate = configuration.rate
             if (sourceEpoch != epoch || sourceRate != rate) {
                 reset()
                 sourceEpoch = epoch
@@ -143,14 +170,14 @@ class AnalysisEngine(
             analyzer.analyze(window.mid, window.side, DT_SECONDS)
 
             // A seek/source switch can happen while JNI analyzes the old window.
-            if (ring.epoch != position.epoch || sampleRateHz != rate || resetPending.get()) {
+            if (ring.epoch != position.epoch || !publication.isCurrent(configuration.generation)) {
                 reset()
                 return false
             }
             lastInputNs = now
             quiet = false
 
-            _features.value =
+            val next =
                 AudioFeatures(
                     bands = analyzer.bands.copyOf(),
                     waveform = analyzer.waveform.copyOf(),
@@ -189,7 +216,9 @@ class AnalysisEngine(
                     harmonicity = analyzer.harmonicity,
                     warmup = analyzer.warmup,
                 )
-            return true
+            return publication.publish(configuration.generation) {
+                if (ring.epoch == position.epoch && !resetPending.get()) _features.value = next
+            }
         }
     }
 
@@ -197,12 +226,29 @@ class AnalysisEngine(
 
     // Settings are published by UI/audio threads, but only this worker touches
     // ReactiveAnalyzer: its native handle and tuning are not thread safe.
-    private fun applyConfiguration() {
-        val rate = sampleRateHz
-        val attackSeconds = BeatTuning.envelopeSeconds(attack)
-        val releaseSeconds = BeatTuning.envelopeSeconds(decay)
-        val sensitivity = beatSensitivity
-        val intervalMs = beatMinIntervalMs
+    private data class Configuration(
+        val generation: Long,
+        val rate: Int,
+        val attackSeconds: Float,
+        val releaseSeconds: Float,
+        val sensitivity: Float,
+        val intervalMs: Float,
+    )
+
+    private fun configuration(): Configuration =
+        publication.snapshot { generation ->
+            Configuration(
+                generation,
+                sampleRateHz,
+                BeatTuning.envelopeSeconds(attack),
+                BeatTuning.envelopeSeconds(decay),
+                beatSensitivity,
+                beatMinIntervalMs,
+            )
+        }
+
+    private fun applyConfiguration(configuration: Configuration) {
+        val (_, rate, attackSeconds, releaseSeconds, sensitivity, intervalMs) = configuration
         if (analyzer.sampleRateHz != rate) analyzer.sampleRateHz = rate
         if (analyzer.attackSeconds != attackSeconds) analyzer.attackSeconds = attackSeconds
         if (analyzer.releaseSeconds != releaseSeconds) analyzer.releaseSeconds = releaseSeconds
@@ -214,9 +260,13 @@ class AnalysisEngine(
         val pass = Pass()
         var deadlineNs = System.nanoTime()
         while (currentCoroutineContext().isActive) {
-            applyConfiguration()
-            if (resetPending.getAndSet(false)) pass.reset()
-            pass.tick()
+            if (resetPending.getAndSet(false)) {
+                pass.discardInput()
+                pass.reset()
+            }
+            val configuration = configuration()
+            applyConfiguration(configuration)
+            pass.tick(configuration)
             deadlineNs += TICK_NS
             val now = System.nanoTime()
             if (deadlineNs < now) deadlineNs = now
@@ -227,15 +277,20 @@ class AnalysisEngine(
 
     fun start(scope: CoroutineScope) = worker.start(scope)
 
-    fun stop() = worker.stop()
+    fun stop() {
+        reset()
+        worker.stop()
+    }
 
     /** Schedules safe native teardown without blocking the caller on an in-flight FFT. */
     fun close() {
+        reset()
         worker.close()
     }
 
     /** Waits for the same teardown scheduled by [close], including native destruction. */
     suspend fun closeAndJoin() {
+        reset()
         worker.close().await()
     }
 
@@ -309,5 +364,29 @@ internal class AnalysisWorker(
                         resourceLock.withLock { release() }
                     }.also { closing = it }
             }
+        }
+}
+
+/** Serializes configuration invalidation with publication, never with JNI analysis. */
+internal class AnalysisPublicationGate {
+    private val lock = Any()
+    private var generation = 0L
+
+    fun invalidate(change: () -> Unit) {
+        synchronized(lock) {
+            change()
+            generation++
+        }
+    }
+
+    fun <T> snapshot(read: (Long) -> T): T = synchronized(lock) { read(generation) }
+
+    fun isCurrent(expected: Long): Boolean = synchronized(lock) { generation == expected }
+
+    fun publish(expected: Long, action: () -> Unit): Boolean =
+        synchronized(lock) {
+            if (generation != expected) return false
+            action()
+            true
         }
 }

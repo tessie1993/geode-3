@@ -22,6 +22,8 @@ public:
     virtual SceneFamily family() const = 0;
     virtual void init() = 0;
     virtual void setParams(const SceneParams& params) = 0;
+    // Spatial cameras may suppress automatic movement beyond the shared speed limit.
+    virtual void setReducedMotion(bool enabled) { (void) enabled; }
     virtual void resize(int width, int height) = 0;
     virtual void update(const GeodeFeatureFrame& features, float dt) = 0;
     virtual void draw(float timeSeconds) = 0;

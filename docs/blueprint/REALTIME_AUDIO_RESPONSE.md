@@ -2,6 +2,21 @@
 
 Reviewed 2026-10-07. This is a source audit and implementation plan, not a device-performance certificate. No local build, test or lint was executed. The existing C++ styles and MilkDrop stay. New tunnels, 3D objects and camera movement belong in the native C++ engine. Live motion must have fresh generative variation and react to the music and touch; repeatable fixtures are for testing only.
 
+## Current implementation status
+
+The integration branch now includes consume-once native PCM, independent surface consumers,
+coherent analysis snapshots, source-epoch rejection and a 250 ms input-idle clear. Native
+analysis combines mid/side power for stereo energy; logarithmic filters use frequency-cell
+overlap rather than shifting low bands to unrelated bins. Native motion starts with fresh
+session variation and consumes held section flags once. The original fixed-seed reset and
+stale-window replay paths have been removed.
+
+Decoded-WAV tests and native/Kotlin regressions are in GitHub Actions. These changes still
+need their exact-head CI results and physical-device validation. They do **not** yet implement
+sample-spaced analysis hops, heard-output presentation alignment, stereo PCM submission to
+projectM, or capture of the complete realized 3D camera performance. The audit below records
+the baseline evidence and remains useful for those remaining changes.
+
 ## What Geode actually does
 
 The app already has real music analysis and continuous visual response. The important work is making the whole path fresh, correctly timed and consistently applied. It would be inaccurate to call all existing visuals fake or nonreactive.

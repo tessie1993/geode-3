@@ -125,12 +125,22 @@ jobs:
             core/tests/StereoAnalysisTest.cpp core/analysis/*.cpp \
             "$RUNNER_TEMP/kiss_fft.o" "$RUNNER_TEMP/kiss_fftr.o" -lm -o "$RUNNER_TEMP/stereo-analysis-test"
           "$RUNNER_TEMP/stereo-analysis-test"
+      - name: Native log-band frequency mapping
+        run: |
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore \
+            core/tests/LogBandsTest.cpp core/analysis/LogBands.cpp -o "$RUNNER_TEMP/log-bands-test"
+          "$RUNNER_TEMP/log-bands-test"
       - name: Native motion across angle wraps
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -Icore -Icore/tests/include \
             core/tests/MotionFieldTest.cpp core/viz/MotionField.cpp \
             -o "$RUNNER_TEMP/motion-test"
           "$RUNNER_TEMP/motion-test"
+      - name: Native organic camera response
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -Icore \
+            core/tests/CameraDirectorTest.cpp -o "$RUNNER_TEMP/camera-director-test"
+          "$RUNNER_TEMP/camera-director-test"
       - name: Release validation regressions
         run: python3 -m unittest discover -s tools/release/tests -v
       - name: Native dependency packaging regression

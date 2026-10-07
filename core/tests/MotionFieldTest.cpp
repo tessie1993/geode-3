@@ -85,6 +85,34 @@ void sectionChangesEaseTheRotationRate() {
         previousRate = rate;
     }
 }
+
+void heldSectionIsOneEventAndLiveResetsDoNotReplayTargets() {
+    MotionField held(42u), pulse(42u), other(43u);
+    auto frame = steadyMusic();
+    const float dt = 1.0f / 60.0f;
+    for (int i = 0; i < 120; ++i) {
+        frame.sectionBoundary = 1.0f;
+        held.step(frame, dt);
+        other.step(frame, dt);
+        frame.sectionBoundary = i == 0 ? 1.0f : 0.0f;
+        pulse.step(frame, dt);
+        expectNear(held.state().driftRate, pulse.state().driftRate, 1e-6f,
+                   "a held section flag must not redraw targets");
+        expectNear(held.state().orbitX, pulse.state().orbitX, 1e-6f,
+                   "held and pulsed section events must follow the same orbit");
+    }
+    if (std::abs(held.state().orbitX - other.state().orbitX) < 1e-4f &&
+        std::abs(held.state().orbitY - other.state().orbitY) < 1e-4f) {
+        throw std::runtime_error("different session streams must vary target choices");
+    }
+    const float firstX = held.state().orbitX;
+    held.reset();
+    frame.sectionBoundary = 1.0f;
+    for (int i = 0; i < 120; ++i) held.step(frame, dt);
+    if (std::abs(firstX - held.state().orbitX) < 1e-4f) {
+        throw std::runtime_error("reset must not rewind the random stream");
+    }
+}
 }  // namespace
 
 int main() {
@@ -92,6 +120,7 @@ int main() {
         for (int fps : {30, 60, 120}) rotationStaysConstantThroughAngleWraps(fps);
         driftDialAndReducedMotionScaleTheRate();
         sectionChangesEaseTheRotationRate();
+        heldSectionIsOneEventAndLiveResetsDoNotReplayTargets();
         std::cout << "MotionField tests passed\n";
         return 0;
     } catch (const std::exception& error) {

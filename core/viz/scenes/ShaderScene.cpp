@@ -100,6 +100,9 @@ void ShaderScene::update(const GeodeFeatureFrame& features, float dt) {
     beatPhase_ = features.beatPhase;
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(features, dt);
+    if (id_ == "rod_tunnel") {
+        cameraDirector_.step(dt, reducedMotion_ ? 0.0f : p.speed, energy_, bass_, p.motionAmount, p.motionOrbit, p.motionDrift);
+    }
     for (int i = 0; i < kAudioTexWidth; ++i) {
         const int band = i * GEODE_BAND_COUNT / kAudioTexWidth;
         texData_[static_cast<size_t>(i)] = std::clamp(features.bands[band] * drive, 0.0f, kAudioClamp);
@@ -146,6 +149,11 @@ void ShaderScene::draw(float timeSeconds) {
     set1f("uPalLutRow", paletteRowCoordinate(std::max(p.paletteLut, 0)));
     set1f("uSteps", marchSteps(p.marchDetail));
     uploadMotion();
+    if (id_ == "rod_tunnel") {
+        const auto& camera = cameraDirector_.frame();
+        set1f("uCameraDistance", static_cast<float>(camera.distance));
+        glUniform3f(uniforms_.loc("uCameraOffsetRoll"), camera.x, camera.y, camera.roll);
+    }
     uploadTouch();
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);

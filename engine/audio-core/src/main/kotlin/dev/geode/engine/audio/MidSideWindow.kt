@@ -18,9 +18,24 @@ class MidSideWindow(
     var position: SampleRing.Position? = null
         private set
 
+    private var discardBoundary: SampleRing.Position? = null
+
+    /** Require a complete fresh window after a restart or analysis reconfiguration. */
+    fun discardExisting() {
+        discardBoundary = ring.currentPosition()
+        position = null
+        mid.fill(0f)
+        side.fill(0f)
+    }
+
     fun refresh(): Boolean {
         val next = ring.snapshotPosition(planar) ?: return false
         if (next == position) return false
+        val boundary = discardBoundary
+        if (boundary != null && next.epoch == boundary.epoch && next.frames - boundary.frames < mid.size) {
+            return false
+        }
+        discardBoundary = null
         val left = planar[0]
         val right = planar[1]
         val sources = next.sourceChannels

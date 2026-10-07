@@ -26,6 +26,7 @@ import dev.geode.editor.ParamId
 import dev.geode.editor.SubtitleCue
 import dev.geode.editor.Subtitles
 import dev.geode.render.TransitionCatalog
+import java.io.Closeable
 
 /**
  * The editor project as one Media3 [Composition]: every media lane end to end (gaps closed) and
@@ -40,7 +41,13 @@ object ProjectComposition {
         data class Ready(
             val composition: Composition,
             val durationMs: Long,
-        ) : Outcome
+            private val transitionFrames: List<TransitionFrameStore> = emptyList(),
+        ) : Outcome, Closeable {
+            /** Also closes handoffs whose consumer program was never created before cancellation. */
+            override fun close() {
+                transitionFrames.forEach(TransitionFrameStore::close)
+            }
+        }
 
         data object NoVideo : Outcome
     }
@@ -91,32 +98,41 @@ object ProjectComposition {
         // clip so a looped render doesn't repeat (or stutter on) a partial final frame.
         val trimTailMs = if (defaults.loopSafe) (rawDurationMs * 1000L % frameUs) / 1000L else 0L
 
-        val videoSequences =
-            mediaLanes.mapNotNull { lane ->
-                videoSequenceFor(
-                    context = context,
-                    lane = lane,
-                    cues = cues,
-                    sheet = project.keyframes,
-                    fps = defaults.fps,
-                    trimTailMs = if (lane.id == primaryLane.id) trimTailMs else 0L,
-                    skippedKinds = skippedKinds,
-                )
-            }
-        if (videoSequences.isEmpty()) return Outcome.NoVideo to Report(skippedKinds)
+        val transitionFrames = mutableListOf<TransitionFrameStore>()
+        var transferred = false
+        try {
+            val videoSequences =
+                mediaLanes.mapNotNull { lane ->
+                    videoSequenceFor(
+                        context = context,
+                        lane = lane,
+                        cues = cues,
+                        sheet = project.keyframes,
+                        fps = defaults.fps,
+                        trimTailMs = if (lane.id == primaryLane.id) trimTailMs else 0L,
+                        skippedKinds = skippedKinds,
+                        transitionFrames = transitionFrames,
+                    )
+                }
+            if (videoSequences.isEmpty()) return Outcome.NoVideo to Report(skippedKinds)
 
-        val audioSequences =
-            project.timeline.lanes
-                .filter { it.kind == LaneKind.Audio && !it.muted && it.clips.any(Clip::enabled) }
-                .mapNotNull(::audioSequence)
+            val audioSequences =
+                project.timeline.lanes
+                    .filter { it.kind == LaneKind.Audio && !it.muted && it.clips.any(Clip::enabled) }
+                    .mapNotNull(::audioSequence)
 
-        val durationMs = rawDurationMs - trimTailMs
-        val composition =
-            Composition
-                .Builder(videoSequences + audioSequences)
-                .setEffects(Effects(emptyList(), listOf(ratioEffect(defaults))))
-                .build()
-        return Outcome.Ready(composition, durationMs) to Report(skippedKinds)
+            val durationMs = rawDurationMs - trimTailMs
+            val composition =
+                Composition
+                    .Builder(videoSequences + audioSequences)
+                    .setEffects(Effects(emptyList(), listOf(ratioEffect(defaults))))
+                    .build()
+            val ready = Outcome.Ready(composition, durationMs, transitionFrames.toList())
+            transferred = true
+            return ready to Report(skippedKinds)
+        } finally {
+            if (!transferred) transitionFrames.forEach(TransitionFrameStore::close)
+        }
     }
 
     /** The output aspect ratio from the persisted export defaults, cropping to fill rather than letterboxing. */
@@ -138,6 +154,7 @@ object ProjectComposition {
         fps: Int,
         trimTailMs: Long,
         skippedKinds: MutableSet<String>,
+        transitionFrames: MutableList<TransitionFrameStore>,
     ): EditedMediaItemSequence? {
         val enabled = lane.clips.filter(Clip::enabled).sortedBy(Clip::startMs)
         enabled.filterNot(::isPlayable).forEach { skippedKinds += requireNotNull(it.content::class.simpleName) }
@@ -145,7 +162,10 @@ object ProjectComposition {
         // clip that actually ends the rendered sequence, not on one that gets skipped anyway.
         val clips = trimLastClip(enabled.filter(::isPlayable), trimTailMs)
         if (clips.isEmpty()) return null
-        val stores = clips.map { if (it.transition != null) TransitionFrameStore() else null }
+        val stores =
+            clips.map { clip ->
+                if (clip.transition != null) TransitionFrameStore().also(transitionFrames::add) else null
+            }
         val video = EditedMediaItemSequence.Builder()
         clips.forEachIndexed { index, clip ->
             val incoming =
@@ -265,7 +285,11 @@ object ProjectComposition {
         transition: ClipTransition,
         store: TransitionFrameStore,
     ): Effect? {
-        val def = TransitionCatalog.definition(context, transition.id) ?: return null
+        val def = TransitionCatalog.definition(context, transition.id)
+        if (def == null) {
+            store.close()
+            return null
+        }
         val durationMs = transition.boundedDurationMs.coerceAtMost(clip.durationMs)
         return GlTransitionEffect(def, durationMs * 1000L, store)
     }

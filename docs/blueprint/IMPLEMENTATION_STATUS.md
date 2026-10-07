@@ -2,6 +2,19 @@
 
 Updated 7 October 2026. Baseline inspected: `9848b28`.
 
+## Current implementation batch
+
+Local baseline `2d1f3f2`; contracts and reviewed scope are recorded in
+[BATCH_CONTRACTS.md](BATCH_CONTRACTS.md). The batch adds native Rod Tunnel camera
+movement, audio restart/configuration protection, bounded transactional imports,
+transition resource ownership, foreground export admission and process-owned
+scratch cleanup. It preserves every native style and MilkDrop.
+
+Source review is complete for those packages; all newly authored regression tests
+are pending Actions execution. Earlier run results below are historical evidence,
+not verification of this batch. Production auth/billing and full Studio/live capture
+remain incomplete; no Play-ready release is claimed.
+
 ## Changes implemented in this branch
 
 | Area | Change | Evidence / limit |

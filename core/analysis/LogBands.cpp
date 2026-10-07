@@ -40,15 +40,23 @@ void LogBands::energyDb(const float* magnitudes, float* out) const {
 }
 
 void LogBands::energy(const float* magnitudes, float* out) const {
+    const float binHz = static_cast<float>(sampleRateHz_) / fftSize_;
     for (int b = 0; b < bandCount_; b++) {
         double power = 0.0;
+        double weightSum = 0.0;
         const int from = firstBin_[b];
         const int to = lastBin_[b];
         for (int k = from; k <= to; k++) {
             const float m = magnitudes[k] * magnitudeScale_;
-            power += static_cast<double>(m) * m * tiltWeight_[k];
+            // An FFT bin covers a frequency interval. Narrow low-frequency
+            // log bands share its power instead of being shifted to later bins.
+            const float overlap = std::max(0.0f,
+                std::min(upperEdgeHz_[b], (k + 0.5f) * binHz) -
+                std::max(lowerEdgeHz_[b], (k - 0.5f) * binHz));
+            power += static_cast<double>(m) * m * tiltWeight_[k] * overlap;
+            weightSum += overlap;
         }
-        out[b] = static_cast<float>(power / (to - from + 1));
+        out[b] = weightSum > 0.0 ? static_cast<float>(power / weightSum) : 0.0f;
     }
 }
 
@@ -60,19 +68,16 @@ void LogBands::rebuild() {
 
     const double logBottom = std::log(static_cast<double>(bottom));
     const double logTop = std::log(static_cast<double>(top));
-    int cursor = 1;
     for (int b = 0; b < bandCount_; b++) {
         const float lo = static_cast<float>(std::exp(logBottom + (logTop - logBottom) * b / bandCount_));
         const float hi = static_cast<float>(std::exp(logBottom + (logTop - logBottom) * (b + 1) / bandCount_));
         lowerEdgeHz_[b] = lo;
         upperEdgeHz_[b] = hi;
 
-        const int wantFirst = std::max(cursor, static_cast<int>(lo / binHz));
-        const int first = std::min(wantFirst, binCount_ - 1);
-        const int last = std::min(std::max(first, static_cast<int>(hi / binHz)), binCount_ - 1);
+        const int first = std::clamp(static_cast<int>(std::floor(lo / binHz + 0.5f)), 1, binCount_ - 1);
+        const int last = std::clamp(static_cast<int>(std::ceil(hi / binHz - 0.5f)), first, binCount_ - 1);
         firstBin_[b] = first;
         lastBin_[b] = last;
-        cursor = std::min(last + 1, binCount_ - 1);
     }
 
     const float exponent = tiltDbPerOctave_ / kPinkTiltDbPerOctave;

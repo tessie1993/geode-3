@@ -4,22 +4,17 @@
 
 namespace geode::viz {
 
-// Wave three's continuous replacement for FormDrive. Nothing here is a
-// trigger: every output is either a running-average ratio with attack/release
-// smoothing, a phase-locked oscillator gated by confidence, or a slow
-// re-target that eases over seconds. Nothing reads kick/snare/hat/drop,
-// transient, onset, flux, beat, downbeat or any one-hop flag - see
-// GeodeFeatureFrame in core/api/geode_api.h for what those are and why they
-// are excluded.
+// Continuous music response: smoothed relative levels, confidence-weighted
+// musical phase and eased orbit targets. A section edge can choose a new target;
+// held feature flags never redraw that target on every display frame.
 //
 // Two independent instances of this class exist in the running app: one owned
 // by Renderer (Renderer::resolveParams), whose apply() reshapes the
 // SceneParams every family reads; and one owned by each ShaderScene, whose
 // state() feeds the raw uniform contract in lib_scene_motion.glsl. Both are
-// pure functions of the same GeodeFeatureFrame/dt sequence, so both settle to
-// nearly the same values without being bit-identical to each other; each is
-// deterministic given its own input sequence, which is what keeps an
-// exported frame reproducible.
+// driven by the same feature sequence, with fresh target variation per instance.
+// Exporting the realized live motion requires recording its state; replaying a
+// feature timeline alone is not a recording of the original performance.
 class MotionField {
 public:
     // The continuous state ShaderScene (and, from R07, the CPU-side families)
@@ -45,6 +40,8 @@ public:
     };
 
     MotionField();
+    // Controlled fixtures only. Live callers use the entropy-seeded constructor.
+    explicit MotionField(unsigned int fixtureSeed);
 
     void reset();
     // Advances every running average, oscillator and integrator by one frame.
@@ -134,6 +131,7 @@ private:
     float orbitCurX_ = 0.0f;
     float orbitCurY_ = 0.0f;
     float orbitRetargetLockout_ = 0.0f;
+    bool sectionWasActive_ = false;
 
     float driftAngle_ = 0.0f;
     float driftSign_ = 1.0f;
@@ -145,9 +143,8 @@ private:
 
     State state_;
 
-    // Deterministic per instance, so the same feature-frame sequence always
-    // draws the same orbit targets and an exported frame is reproducible.
-    unsigned int seedState_ = 0x51ed270bu;
+    // Resetting a scene does not rewind its live random stream.
+    unsigned int seedState_;
 };
 
 }  // namespace geode::viz

@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "viz/CameraDirector.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
@@ -26,6 +27,7 @@ public:
     SceneFamily family() const override { return SceneFamily::Shader; }
     void init() override;
     void setParams(const SceneParams& params) override { params_ = params; }
+    void setReducedMotion(bool enabled) override { reducedMotion_ = enabled; }
     void resize(int width, int height) override;
     void update(const GeodeFeatureFrame& features, float dt) override;
     void draw(float timeSeconds) override;
@@ -116,6 +118,8 @@ private:
     // Wave three: the continuous replacement for the old spike-latched state
     // (uSpike/uMoveDir/uSpawnSeed/uSpawnAge/uFormPhase). See MotionField.hpp.
     MotionField motionField_;
+    CameraDirector cameraDirector_;
+    bool reducedMotion_ = false;
     SceneParams params_;
     float rotationAngle_ = 0.0f;
     float zoomPhase_ = 0.0f;
