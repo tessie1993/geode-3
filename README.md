@@ -42,6 +42,10 @@ ABIs arm64-v8a and x86_64. The full version history is in
   device has no HEVC encoder.
 - **Live wallpaper** — the visualizer as a home-screen wallpaper, with an idle
   drive so it keeps moving without audio.
+- **Microphone** — live visuals from the mic through a low-latency AAudio
+  input stream on Android 9 and later (AudioRecord on Android 8 or when AAudio
+  will not open); plugging a headset or Bluetooth mic in or out reopens the
+  stream by itself.
 - **Other apps' audio** — Android 10+ playback capture feeds the same PCM ring
   buffer the player's tap and the microphone share, so every scene, the
   exporter and the wallpaper work unchanged on foreign audio.
@@ -81,6 +85,7 @@ dynamically linked):
 | `core/api` | `geode_api.h`, the `extern "C"` ABI — the only thing JNI calls |
 | `core/analysis` | FFT (kissfft), bands, onsets, tempo, beats, bars, key, structure, stereo field; the feature frame |
 | `core/viz` | GL capability probing, program cache, the frame graph (scene → trails → composite), the superformula driver (`FormDrive`) that modulates every family's parameters with the music, transitions, safety clamps, every scene family |
+| `core/audio/capture` | The AAudio microphone input stream (blocking reads, reopen on disconnect) and its sample-format helpers |
 | `core/audio/dsp` | Biquad equalizer, gain, crossfeed, lookahead limiter |
 | `core/library` | TagLib tag reading over a file descriptor |
 | `app/src/main/cpp` | The JNI files: no logic, only marshalling into `core/api` |
