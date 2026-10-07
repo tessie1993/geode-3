@@ -494,6 +494,7 @@ fun SettingsScreen(
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
             CrystalOverline(stringResource(R.string.app_name))
             GlowTitle(stringResource(R.string.nav_settings))
+            PremiumPreviewEntry()
         }
         AppSettingsTab(
             viewModel,
