@@ -707,7 +707,7 @@ class SmokeRun:
         self.playback()
         self.tabs("Visuals", VISUALS_TABS)
         root = self.visit("Studio")
-        self.assert_labels(root, "Open a video…", "Nothing rendered yet")
+        self.assert_labels(root, "Open a video…", "NOTHING RENDERED YET")
         self.preferences()
         self.diagnostic_reports("default-navigation")
         self.profiles()
