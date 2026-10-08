@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,6 +58,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -65,9 +70,15 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MusicPlaylist
+import dev.geode.ui.lake.LakeSearchField
+import dev.geode.ui.lake.LakeScreenHeader
+import dev.geode.ui.lake.lakeArtworkFrame
+import dev.geode.ui.lake.lakeFrostedPanel
 import dev.geode.ui.theme.LocalReducedMotion
+import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.isLivingLake
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -76,6 +87,7 @@ private const val PLAYLISTS_TAB = 4
 
 @Composable
 fun LibraryScreen(onOpenSearch: () -> Unit) {
+    val livingLake = LocalThemePack.current.isLivingLake
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val playerViewModel: PlayerViewModel = geodeViewModel()
     val context = LocalContext.current
@@ -103,12 +115,21 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
     val shown = state.tracks
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                CrystalOverline(stringResource(R.string.app_name))
-                GlowTitle(stringResource(R.string.nav_library))
+        if (livingLake) {
+            LakeScreenHeader(
+                title = stringResource(R.string.nav_library),
+                subtitle = stringResource(R.string.ui2_screen_library_subtitle),
+            ) {
+                IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
             }
-            IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
+        } else {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    CrystalOverline(stringResource(R.string.app_name))
+                    GlowTitle(stringResource(R.string.nav_library))
+                }
+                IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
+            }
         }
         if (!granted) {
             val activity = LocalActivity.current
@@ -141,23 +162,45 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
             }
             return
         }
-        CrystalTabs(titles = tabs, selected = tab, onSelect = { tab = it })
+        CrystalTabs(
+            titles = tabs,
+            selected = tab,
+            onSelect = { tab = it },
+            modifier = if (livingLake) Modifier.padding(horizontal = 16.dp, vertical = 4.dp) else Modifier,
+        )
         // Search and sort belong to the track-shaped tabs. Playlists are ordered by hand, and
         // re-sorting someone's running order out from under them would be a bug, not a feature.
         if (tab != PLAYLISTS_TAB) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = libraryViewModel::setQuery,
-                singleLine = true,
-                label = { Text(stringResource(R.string.library_search_hint)) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).jellyMatteSheet(corner = 12.dp),
-            )
-            CrystalSegmented(
-                options = LibrarySort.entries.map { stringResource(it.labelRes) },
-                selected = LibrarySort.entries.indexOf(state.sort),
-                onSelect = { libraryViewModel.setSort(LibrarySort.entries[it]) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            )
+            if (livingLake) {
+                LakeSearchField(
+                    value = state.query,
+                    onValueChange = libraryViewModel::setQuery,
+                    hint = stringResource(R.string.library_search_hint),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                )
+            } else {
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = libraryViewModel::setQuery,
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.library_search_hint)) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).jellyMatteSheet(corner = 12.dp),
+                )
+            }
+            if (livingLake) {
+                LibrarySortMenu(
+                    current = state.sort,
+                    onSelect = libraryViewModel::setSort,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            } else {
+                CrystalSegmented(
+                    options = LibrarySort.entries.map { stringResource(it.labelRes) },
+                    selected = LibrarySort.entries.indexOf(state.sort),
+                    onSelect = { libraryViewModel.setSort(LibrarySort.entries[it]) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
         }
         when (tab) {
             0 -> TrackList(shown, playerViewModel, state.isSearching)
@@ -165,6 +208,37 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
             2 -> GroupList(shown.groupBy { it.artist }, playerViewModel)
             3 -> FoldersTab(shown.groupBy { it.folder }, playerViewModel)
             PLAYLISTS_TAB -> PlaylistsTab(libraryViewModel)
+        }
+    }
+}
+
+@Composable
+private fun LibrarySortMenu(
+    current: LibrarySort,
+    onSelect: (LibrarySort) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier) {
+        CrystalButton(onClick = { expanded = true }, filled = false, compact = true, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                stringResource(R.string.ui2_screen_sort_by, stringResource(current.labelRes)),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            LibrarySort.entries.forEach { sort ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(sort.labelRes)) },
+                    modifier = Modifier.semantics { selected = current == sort },
+                    onClick = {
+                        onSelect(sort)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }
@@ -194,6 +268,7 @@ private fun TrackRow(
     subtitleOverride: String? = null,
     queue: List<QueueTrack> = emptyList(),
 ) {
+    val livingLake = LocalThemePack.current.isLivingLake
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
     val stored = overrides[t.uri]
@@ -213,21 +288,30 @@ private fun TrackRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 3.dp)
-            .jellyMatteSheet()
-            .clickable {
+            .padding(horizontal = if (livingLake) 16.dp else 12.dp, vertical = if (livingLake) 5.dp else 3.dp)
+            .then(if (livingLake) Modifier.lakeFrostedPanel(corner = 20.dp) else Modifier.jellyMatteSheet())
+            .clickable(role = Role.Button) {
                 if (queue.isEmpty()) viewModel.playTrack(t.uri) else viewModel.playFrom(queue, t.uri)
-            }.padding(horizontal = 8.dp, vertical = 8.dp),
+            }.padding(horizontal = if (livingLake) 12.dp else 8.dp, vertical = if (livingLake) 12.dp else 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TrackArtwork(t.uri, Modifier.size(44.dp), corner = 8.dp)
+        TrackArtwork(
+            t.uri,
+            Modifier.size(if (livingLake) 56.dp else 44.dp).then(if (livingLake) Modifier.lakeArtworkFrame() else Modifier),
+            corner = if (livingLake) 14.dp else 8.dp,
+        )
         Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (livingLake) 3.dp else 0.dp)) {
+            Text(
+                title,
+                style = if (livingLake) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold) else MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (subtitle.isNotBlank()) {
                 Text(
                     subtitle,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = if (livingLake) MaterialTheme.typography.bodySmall else MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -237,7 +321,7 @@ private fun TrackRow(
         if (duration.isNotBlank()) {
             Text(
                 duration,
-                style = MaterialTheme.typography.labelSmall,
+                style = if (livingLake) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 8.dp),
             )
@@ -400,7 +484,7 @@ private fun GroupList(
 private fun PlaylistsTab(viewModel: LibraryViewModel) {
     val library by viewModel.library.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    var expanded by remember { mutableStateOf<String?>(null) }
+    var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     var renaming by remember { mutableStateOf<String?>(null) }
     var renameText by remember { mutableStateOf("") }
     var creating by remember { mutableStateOf(false) }

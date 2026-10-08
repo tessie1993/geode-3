@@ -43,23 +43,28 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.geode.R
+import dev.geode.ui.lake.LakeMaterials
+import dev.geode.ui.lake.drawLakeSeekThumb
+import dev.geode.ui.lake.lakeArtworkFrame
+import dev.geode.ui.lake.lakeFrostedPanel
 import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
-import dev.geode.ui.theme.isJellyGlass
+import dev.geode.ui.theme.isLivingLake
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
@@ -73,8 +78,7 @@ fun WaveformSeekBar(
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tidal = LocalThemePack.current.isJellyGlass
-    val bead = if (tidal) rememberTidalBitmap(R.drawable.spatial_glass_pebble) else null
+    val livingLake = LocalThemePack.current.isLivingLake
     var dragFraction by remember { mutableFloatStateOf(-1f) }
     val played =
         if (dragFraction >= 0f) {
@@ -136,7 +140,7 @@ fun WaveformSeekBar(
             val barWidth = (slot * 0.62f).coerceAtLeast(1f)
             val playedX = size.width * played
             for (i in 0 until n) {
-                val amplitude = if (tidal) 0.48f else 1f
+                val amplitude = if (livingLake) 0.48f else 1f
                 val h = (size.height * amplitude * (0.08f + 0.92f * waveform[i])).coerceAtLeast(2f)
                 val x = i * slot + (slot - barWidth) / 2f
                 drawRoundRect(
@@ -148,13 +152,8 @@ fun WaveformSeekBar(
             }
         }
         val x = (size.width * played).coerceIn(1f, maxOf(1f, size.width - 1f))
-        if (bead != null) {
-            val diameter = 28.dp.toPx().toInt()
-            drawImage(
-                bead,
-                dstOffset = IntOffset((x - diameter / 2f).toInt(), ((size.height - diameter) / 2f).toInt()),
-                dstSize = IntSize(diameter, diameter),
-            )
+        if (livingLake) {
+            drawLakeSeekThumb(Offset(x, size.height / 2f), pressed = dragFraction >= 0f, accent = primary)
         } else {
             drawRoundRect(
                 playhead,
@@ -283,6 +282,7 @@ fun QueuePanel(
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = geodeViewModel(),
 ) {
+    val livingLake = LocalThemePack.current.isLivingLake
     if (queue.tracks.isEmpty()) {
         Column(modifier.padding(24.dp)) {
             CrystalOverline(stringResource(R.string.queue))
@@ -314,7 +314,16 @@ fun QueuePanel(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CrystalOverline(stringResource(R.string.queue), Modifier.weight(1f))
+            if (livingLake) {
+                Text(
+                    stringResource(R.string.queue).uppercase(),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                CrystalOverline(stringResource(R.string.queue), Modifier.weight(1f))
+            }
             CrystalButton(
                 compact = true,
                 filled = false,
@@ -326,24 +335,40 @@ fun QueuePanel(
             state = listState,
             contentPadding =
                 androidx.compose.foundation.layout
-                    .PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    .PaddingValues(horizontal = if (livingLake) 16.dp else 12.dp, vertical = 8.dp),
         ) {
             itemsIndexed(queue.tracks, key = { i, _ -> keys[i] }) { index, track ->
                 val playing = index == queue.index
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clickable {
+                        .then(
+                            if (livingLake) {
+                                Modifier
+                                    .padding(vertical = 4.dp)
+                                    .lakeFrostedPanel(corner = 20.dp)
+                                    .semantics { selected = playing }
+                            } else {
+                                Modifier
+                            },
+                        ).clickable(role = Role.Button) {
                             follows.value = true
                             onPlayIndex(index)
-                        }.padding(vertical = 6.dp, horizontal = 4.dp),
+                        }.padding(vertical = if (livingLake) 10.dp else 6.dp, horizontal = if (livingLake) 12.dp else 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TrackArtwork(track.uri, Modifier.size(40.dp), corner = 8.dp)
+                    TrackArtwork(
+                        track.uri,
+                        Modifier
+                            .size(if (livingLake) LakeMaterials.MinimumTouchTarget else 40.dp)
+                            .then(if (livingLake) Modifier.lakeArtworkFrame() else Modifier),
+                        corner = if (livingLake) LakeMaterials.ArtworkCorner else 8.dp,
+                    )
                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                         Text(
                             track.title,
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (livingLake) FontWeight.SemiBold else null,
                             color = if (playing) accentTextColor() else MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -354,7 +379,7 @@ fun QueuePanel(
                                 "★".takeIf { track.uri in favourites },
                             ).joinToString("  ")
                                 .ifBlank { stringResource(R.string.subtitle_unknown_artist) },
-                            style = MaterialTheme.typography.labelSmall,
+                            style = if (livingLake) MaterialTheme.typography.bodySmall else MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,

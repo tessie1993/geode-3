@@ -16,18 +16,18 @@ TOTAL_BUDGET = 30 * MIB
 SCREENSHOT_BUDGET = 24 * MIB
 VIDEO_BUDGET = 5 * MIB
 MANIFEST_RESERVE = 64 * 1024
-THEME_SLUGS = ("tidal-glass", "lapis-lazuli", "sugilite", "amethyst", "clear-quartz",
-               "azurite", "firestone", "kyanite", "malachite", "mookaite", "onyx")
+THEME_SLUGS = ("living-lake",)
 COMPONENT_SCREENSHOTS = tuple(
     (f"component-kit-{theme}", (f"*-component-kit-{theme}.png",)) for theme in THEME_SLUGS
 )
 PRIMARY_SCREENSHOTS = (
+    ("navigation-orbit", ("*-navigation-selected-orbit-player.png", "*-default-orbit-player.png")),
     ("default-player", ("*-fixture-playing-hero.png", "*-default-player.png")),
     ("playing-player", ("*-fixture-playing-transport.png", "*-fixture-paused.png")),
     ("library-tracks", ("*-library-tracks.png",)),
     ("visuals-styles", ("*-visuals-styles.png",)),
     ("studio", ("*-default-studio.png",)),
-    ("settings", ("*-theme-tidal-restored.png", "*-settings-look.png", "*-playing-settings.png", "*-default-settings.png")),
+    ("settings", ("*-settings-home.png", "*-settings-look.png", "*-playing-settings.png", "*-default-settings.png")),
     ("live-visualizer", ("*-live-visualizer.png",)),
 ) + tuple(
     (f"library-{tab}", (f"*-library-{tab}.png",))
@@ -44,6 +44,9 @@ ADAPTIVE_SCREENSHOTS = tuple(
     for destination in ("player", "library", "visuals", "studio", "settings")
 )
 EXTRA_SCREENSHOTS = (
+    ("living-lake-theme", ("*-theme-lake-default.png",)),
+    ("navigation-back", ("*-navigation-back-library.png",)),
+    ("navigation-close", ("*-navigation-cancelled-player.png",)),
     ("visuals-customize-toolbar-a", ("*-visuals-customize-toolbar-a.png",)),
     ("visuals-customize-toolbar-b", ("*-visuals-customize-toolbar-b.png",)),
 ) + ADAPTIVE_SCREENSHOTS + tuple(
@@ -86,11 +89,11 @@ def prepare(source, output, *, screens_only=False):
         "source_directory": str(source),
         "screens_only": screens_only,
         "selection": "latest completed PNG/XML pair for each preferred named capture; loaded Player hero required",
-        "priority": ("last UI tree; component previews; main screens and Library/Visuals tabs; "
-                     "Customize toolbars and adaptive sizes; theme previews and Settings sections"
+        "priority": ("last UI tree; component previews; orbit, main screens and Library/Visuals tabs; "
+                     "Customize toolbars and adaptive sizes; Living Lake theme and Settings groups"
                      if screens_only else
-                     "last UI tree; component previews and motion; main screens and Library/Visuals tabs; "
-                     "main motion; Customize toolbars and adaptive sizes; theme previews and Settings sections"),
+                     "last UI tree; component previews and motion; orbit, main screens and Library/Visuals tabs; "
+                     "main motion; Customize toolbars and adaptive sizes; Living Lake theme and Settings groups"),
         "requested_screenshot_roles": [role for role, _ in SCREENSHOTS],
         "budgets_bytes": {"total": TOTAL_BUDGET, "screenshots_and_xml": SCREENSHOT_BUDGET,
                           "video_per_file": VIDEO_BUDGET, "manifest_reserve": MANIFEST_RESERVE},

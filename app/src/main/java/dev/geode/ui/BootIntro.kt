@@ -6,11 +6,13 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,9 +29,17 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.geode.R
+import dev.geode.ui.lake.lakeFrostedPanel
 import dev.geode.ui.theme.LocalReducedMotion
+import dev.geode.ui.theme.LocalThemePack
+import dev.geode.ui.theme.isLivingLake
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -44,6 +54,10 @@ private const val FADE_OUT_MS = 300
 
 @Composable
 fun BootIntro(onDone: () -> Unit) {
+    if (LocalThemePack.current.isLivingLake) {
+        LakeBootIntro(onDone)
+        return
+    }
     val reducedMotion = LocalReducedMotion.current
     val overlayAlpha = remember { Animatable(1f) }
     val textAlpha = remember { Animatable(if (reducedMotion) 1f else 0f) }
@@ -162,6 +176,44 @@ fun BootIntro(onDone: () -> Unit) {
                 style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 3.5.sp),
                 modifier = Modifier.padding(top = 10.dp),
             )
+        }
+    }
+}
+
+/** Shares the shell's persistent world; the intro adds only native branding and a skip target. */
+@Composable
+private fun LakeBootIntro(onDone: () -> Unit) {
+    val reducedMotion = LocalReducedMotion.current
+    val alpha = remember { Animatable(0f) }
+    LaunchedEffect(reducedMotion) {
+        if (reducedMotion) {
+            onDone()
+        } else {
+            alpha.animateTo(1f, tween(220))
+            delay(650)
+            alpha.animateTo(0f, tween(260))
+            onDone()
+        }
+    }
+    val skip = stringResource(R.string.ui2_skip_intro)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .clickable(role = Role.Button, onClickLabel = skip, onClick = onDone)
+            .semantics { contentDescription = skip }
+            .safeDrawingPadding(),
+    ) {
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 64.dp)
+                .graphicsLayer { this.alpha = alpha.value }
+                .lakeFrostedPanel()
+                .padding(horizontal = 28.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
+            Text(stringResource(R.string.ui2_intro_tagline), style = MaterialTheme.typography.labelLarge)
         }
     }
 }

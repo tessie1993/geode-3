@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,11 +8,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -48,12 +52,17 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import dev.geode.R
+import dev.geode.ui.lake.LakeMaterials
+import dev.geode.ui.lake.LakeScreenHeader
+import dev.geode.ui.lake.lakeArtworkFrame
+import dev.geode.ui.lake.lakeFrostedPanel
 import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.StoneComponent
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.StoneSurfaceArt
 import dev.geode.ui.theme.isJellyGlass
+import dev.geode.ui.theme.isLivingLake
 import dev.geode.ui.theme.rememberStoneInteraction
 import dev.geode.ui.theme.rememberStoneState
 import dev.geode.ui.theme.stonePress
@@ -65,8 +74,10 @@ fun PlayerScreen(
     onOpenSearch: () -> Unit,
     onExpand: () -> Unit,
     onOpenLibrary: () -> Unit,
+    onOpenNavigation: () -> Unit = onExpand,
 ) {
     val tidal = LocalThemePack.current.isJellyGlass
+    val livingLake = LocalThemePack.current.isLivingLake
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val mic by viewModel.micState.collectAsStateWithLifecycle()
@@ -90,30 +101,39 @@ fun PlayerScreen(
         verticalArrangement = Arrangement.spacedBy(if (tidal) 10.dp else 16.dp),
     ) {
         item {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    if (tidal) {
-                        Column(Modifier.jellyMatteSheet(12.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                            Text(
-                                stringResource(R.string.app_name).uppercase(),
-                                style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 5.sp),
-                                fontWeight = FontWeight.Medium,
-                            )
-                            Text(
-                                stringResource(R.string.nav_player),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    } else {
-                        CrystalOverline(stringResource(R.string.app_name))
-                        GlowTitle(stringResource(R.string.nav_player))
-                    }
+            if (livingLake) {
+                LakeScreenHeader(
+                    title = stringResource(R.string.nav_player),
+                    subtitle = stringResource(R.string.ui2_screen_player_subtitle),
+                ) {
+                    PlayerTransportButton(StoneIcon.SEARCH, stringResource(R.string.action_search), onOpenSearch)
                 }
-                PlayerTransportButton(StoneIcon.SEARCH, stringResource(R.string.action_search), onOpenSearch)
+            } else {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        if (tidal) {
+                            Column(Modifier.jellyMatteSheet(12.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                                Text(
+                                    stringResource(R.string.app_name).uppercase(),
+                                    style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 5.sp),
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    stringResource(R.string.nav_player),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            CrystalOverline(stringResource(R.string.app_name))
+                            GlowTitle(stringResource(R.string.nav_player))
+                        }
+                    }
+                    PlayerTransportButton(StoneIcon.SEARCH, stringResource(R.string.action_search), onOpenSearch)
+                }
             }
         }
 
@@ -128,6 +148,7 @@ fun PlayerScreen(
                 canResume = canShuffle,
                 onExpand = onExpand,
                 onOpenLibrary = onOpenLibrary,
+                onOpenNavigation = onOpenNavigation,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
@@ -150,7 +171,17 @@ fun PlayerScreen(
             LiveSpectrum(
                 viewModel,
                 live = state.isPlaying || mic.active || external.active,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(44.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .then(
+                            if (livingLake) {
+                                Modifier.lakeFrostedPanel(corner = 20.dp).padding(horizontal = 12.dp, vertical = 10.dp)
+                            } else {
+                                Modifier
+                            },
+                        ).height(if (livingLake) 32.dp else 44.dp),
             )
         }
 
@@ -176,6 +207,7 @@ fun PlayerScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlayerHero(
     viewModel: PlayerViewModel,
@@ -187,15 +219,18 @@ private fun PlayerHero(
     canResume: Boolean,
     onExpand: () -> Unit,
     onOpenLibrary: () -> Unit,
+    onOpenNavigation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tidal = LocalThemePack.current.isJellyGlass
+    val livingLake = LocalThemePack.current.isLivingLake
     val uri = remember(state.title, state.artist) { viewModel.currentTrackUri() }
     val foreign = external.active
     val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
     val hasSource = foreign || micActive || state.hasMedia
     val isFavourite = uri != null && uri in favourites
     val localArtwork = state.hasMedia && !foreign && !micActive
+    val navigationDescription = stringResource(R.string.ui2_screen_open_navigation)
     Column(
         modifier
             .fillMaxWidth()
@@ -211,11 +246,21 @@ private fun PlayerHero(
                         glowStrength = if (state.isPlaying || foreign || micActive) 1.2f else 0.7f,
                     )
                 },
-            ).clickable(enabled = hasSource, onClick = onExpand)
+            ).then(if (livingLake) Modifier else Modifier.clickable(enabled = hasSource, onClick = onExpand))
             .padding(if (tidal) 0.dp else 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (tidal) {
+        if (livingLake) {
+            // The scoped GL world supplies the mineral volume and its water reflection here.
+            // A transparent layout reserve keeps a second artwork/shader hero from covering it.
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
+                    .clickable(role = Role.Button, onClick = onOpenNavigation)
+                    .semantics { contentDescription = navigationDescription },
+            )
+        } else if (tidal) {
             TidalPlayerArtwork(
                 viewModel,
                 state.isPlaying || foreign || micActive,
@@ -229,31 +274,48 @@ private fun PlayerHero(
             )
         }
         Row(
-            Modifier.then(
-                if (tidal) {
-                    Modifier
-                        .crystalPanel(0.62f, MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primary, corner = 24.dp)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                } else {
-                    Modifier
-                },
-            ),
+            Modifier
+                .then(
+                    if (livingLake) Modifier.clickable(enabled = hasSource, role = Role.Button, onClick = onExpand) else Modifier,
+                ).then(
+                    if (tidal) {
+                        Modifier
+                            .crystalPanel(0.62f, MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primary, corner = 24.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    } else {
+                        Modifier
+                    },
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (tidal && localArtwork) {
-                TrackArtwork(uri, Modifier.size(48.dp), corner = 14.dp)
+            if ((tidal || livingLake) && localArtwork) {
+                TrackArtwork(
+                    uri,
+                    Modifier
+                        .size(if (livingLake) 64.dp else 48.dp)
+                        .then(if (livingLake) Modifier.lakeArtworkFrame() else Modifier),
+                    corner = 14.dp,
+                )
                 Box(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f)) {
-                CrystalOverline(
+                val sourceStatus =
                     when {
                         foreign -> external.nowPlaying?.appLabel ?: stringResource(R.string.source_other_apps)
                         micActive -> stringResource(R.string.source_live_input)
                         state.isPlaying -> stringResource(R.string.state_now_playing)
                         state.hasMedia -> stringResource(R.string.state_paused)
                         else -> stringResource(R.string.state_nothing_playing)
-                    },
-                )
+                    }
+                if (livingLake) {
+                    Text(
+                        sourceStatus.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    CrystalOverline(sourceStatus)
+                }
                 Text(
                     when {
                         foreign -> foreignTrack?.title ?: stringResource(R.string.title_whatever_is_playing)
@@ -317,7 +379,7 @@ private fun PlayerHero(
             }
         }
         if (!hasSource) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 CrystalButton(enabled = canResume, onClick = viewModel::resumeLastPlayed) {
                     Text(stringResource(R.string.action_resume_last_played))
                 }
@@ -362,11 +424,14 @@ private fun TransportCard(
     modifier: Modifier = Modifier,
 ) {
     val tidal = LocalThemePack.current.isJellyGlass
+    val livingLake = LocalThemePack.current.isLivingLake
     Column(
         modifier
             .fillMaxWidth()
             .then(
-                if (tidal) {
+                if (livingLake) {
+                    Modifier.lakeFrostedPanel()
+                } else if (tidal) {
                     Modifier
                 } else {
                     Modifier.crystalPanel(
@@ -377,24 +442,9 @@ private fun TransportCard(
                         glowStrength = 0.8f,
                     )
                 },
-            ).padding(horizontal = if (tidal) 0.dp else 14.dp, vertical = 10.dp),
+            ).padding(horizontal = if (tidal && !livingLake) 0.dp else 14.dp, vertical = 10.dp),
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .then(
-                    if (tidal) {
-                        Modifier
-                            .crystalPanel(0.6f, MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primary, corner = 32.dp)
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                    } else {
-                        Modifier
-                    },
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(formatClock(state.positionMs), style = MaterialTheme.typography.labelSmall)
+        if (livingLake) {
             WaveformSeekBar(
                 waveform = waveform,
                 positionMs = state.positionMs,
@@ -402,9 +452,48 @@ private fun TransportCard(
                 loopStartMs = abLoop?.startMs,
                 loopEndMs = abLoop?.endMs,
                 onSeek = viewModel::seekTo,
-                modifier = Modifier.weight(1f).height(if (tidal) 48.dp else 40.dp),
+                modifier = Modifier.fillMaxWidth().height(LakeMaterials.MinimumTouchTarget),
             )
-            Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    formatClock(state.positionMs),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    formatClock(state.durationMs),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (tidal) {
+                            Modifier
+                                .crystalPanel(0.6f, MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primary, corner = 32.dp)
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        } else {
+                            Modifier
+                        },
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(formatClock(state.positionMs), style = MaterialTheme.typography.labelSmall)
+                WaveformSeekBar(
+                    waveform = waveform,
+                    positionMs = state.positionMs,
+                    durationMs = state.durationMs,
+                    loopStartMs = abLoop?.startMs,
+                    loopEndMs = abLoop?.endMs,
+                    onSeek = viewModel::seekTo,
+                    modifier = Modifier.weight(1f).height(if (tidal) 48.dp else 40.dp),
+                )
+                Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
+            }
         }
         FlowRow(
             Modifier.fillMaxWidth().padding(vertical = if (tidal) 6.dp else 0.dp),
@@ -454,13 +543,21 @@ private fun TransportCard(
                 selected = state.repeatMode != Player.REPEAT_MODE_OFF,
             )
         }
+        if (livingLake) {
+            Spacer(Modifier.height(6.dp))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)))
+        }
         FlowRow(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalArrangement = Arrangement.spacedBy(4.dp),
             maxItemsInEachRow = 3,
         ) {
-            TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
+            TextButton(
+                onClick = viewModel::cycleAbLoop,
+                enabled = state.hasMedia,
+                modifier = Modifier.heightIn(min = LakeMaterials.MinimumTouchTarget),
+            ) {
                 Text(
                     when {
                         abLoop == null -> stringResource(R.string.ab_loop_idle)
@@ -476,7 +573,7 @@ private fun TransportCard(
                         },
                 )
             }
-            TextButton(onClick = viewModel::cycleAutoMode) {
+            TextButton(onClick = viewModel::cycleAutoMode, modifier = Modifier.heightIn(min = LakeMaterials.MinimumTouchTarget)) {
                 Text(
                     when (autoMode) {
                         1 -> stringResource(R.string.auto_random)
@@ -488,7 +585,7 @@ private fun TransportCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            TextButton(onClick = onToggleQueue) {
+            TextButton(onClick = onToggleQueue, modifier = Modifier.heightIn(min = LakeMaterials.MinimumTouchTarget)) {
                 Text(
                     if (queueSize > 1) {
                         stringResource(R.string.queue_with_count, queueSize)
@@ -533,7 +630,13 @@ private fun PlayerTransportButton(
     val state = rememberStoneState(interaction, enabled, selected)
     Box(
         Modifier
-            .size(if (large) 76.dp else 52.dp)
+            .size(
+                if (LocalThemePack.current.isLivingLake) {
+                    if (large) 68.dp else LakeMaterials.MinimumTouchTarget
+                } else {
+                    if (large) 76.dp else 52.dp
+                },
+            )
             .then(selection)
             .stonePress(interaction)
             .clickable(
@@ -561,6 +664,7 @@ private fun QueuePreview(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val livingLake = LocalThemePack.current.isLivingLake
     Column(
         modifier
             .fillMaxWidth()
@@ -574,11 +678,23 @@ private fun QueuePreview(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         val untitled = stringResource(R.string.title_untitled)
-        CrystalOverline(stringResource(R.string.queue_up_next))
+        if (livingLake) {
+            Text(
+                stringResource(R.string.queue_up_next).uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            CrystalOverline(stringResource(R.string.queue_up_next))
+        }
         upNext.forEach { t ->
             Text(
                 t.title.ifBlank { untitled },
-                Modifier.fillMaxWidth().clickable(onClick = onExpand),
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = LakeMaterials.MinimumTouchTarget)
+                    .clickable(onClick = onExpand)
+                    .padding(vertical = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

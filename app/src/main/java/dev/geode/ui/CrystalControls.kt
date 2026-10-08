@@ -35,6 +35,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.geode.ui.lake.LakeMaterials
 import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.StoneComponent
@@ -54,6 +56,7 @@ import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.StoneState
 import dev.geode.ui.theme.StoneSurfaceArt
 import dev.geode.ui.theme.isJellyGlass
+import dev.geode.ui.theme.isLivingLake
 import dev.geode.ui.theme.rememberStoneInteraction
 import dev.geode.ui.theme.rememberStoneState
 import dev.geode.ui.theme.stonePress
@@ -69,12 +72,13 @@ fun CrystalButton(
 ) {
     val cs = MaterialTheme.colorScheme
     val tidal = LocalThemePack.current.isJellyGlass
+    val livingLake = LocalThemePack.current.isLivingLake
     val reducedMotion = LocalReducedMotion.current
     val interaction = rememberStoneInteraction()
     val state = rememberStoneState(interaction, enabled = enabled)
     val component =
         when {
-            compact -> StoneComponent.COMPACT_BUTTON
+            compact && (!livingLake || filled) -> StoneComponent.COMPACT_BUTTON
             filled -> StoneComponent.PRIMARY_BUTTON
             else -> StoneComponent.SECONDARY_BUTTON
         }
@@ -87,7 +91,7 @@ fun CrystalButton(
                 enabled = enabled,
                 role = Role.Button,
                 onClick = onClick,
-            ).defaultMinSize(minHeight = if (compact && !tidal) 36.dp else 48.dp),
+            ).defaultMinSize(minWidth = LakeMaterials.MinimumTouchTarget, minHeight = LakeMaterials.MinimumTouchTarget),
     ) {
         StoneSurfaceArt(component, state, Modifier.matchParentSize(), reducedMotion = reducedMotion)
         Row(
@@ -121,9 +125,9 @@ fun CrystalPlayButton(
     val state = rememberStoneState(interaction, enabled = enabled)
     Box(
         modifier
-            .size(60.dp)
+            .size(if (LocalThemePack.current.isLivingLake) LakeMaterials.ControlSize else 60.dp)
             .stonePress(interaction, reducedMotion = reducedMotion)
-            .then(if (enabled) Modifier.softGlow(cs.primary, 14.dp, 0.5f) else Modifier)
+            .then(if (enabled && !LocalThemePack.current.isLivingLake) Modifier.softGlow(cs.primary, 14.dp, 0.5f) else Modifier)
             .clickable(
                 interactionSource = interaction,
                 indication = null,
@@ -398,10 +402,11 @@ fun CrystalTabs(
 ) {
     val cs = MaterialTheme.colorScheme
     val tidal = LocalThemePack.current.isJellyGlass
+    val livingLake = LocalThemePack.current.isLivingLake
     val reducedMotion = LocalReducedMotion.current
     ScrollableTabRow(
         selectedTabIndex = selected,
-        modifier = modifier,
+        modifier = if (livingLake) modifier.jellyMatteSheet(corner = 18.dp) else modifier,
         edgePadding = 8.dp,
         containerColor = Color.Transparent,
         indicator = { },
@@ -416,11 +421,36 @@ fun CrystalTabs(
             Tab(
                 selected = sel,
                 onClick = { onSelect(i) },
-                modifier = if (tidal) Modifier.padding(horizontal = 4.dp, vertical = 6.dp) else Modifier,
+                modifier = if (tidal && !livingLake) Modifier.padding(horizontal = 4.dp, vertical = 6.dp) else Modifier,
                 selectedContentColor = accentTextColor(),
                 unselectedContentColor = cs.onSurfaceVariant.copy(alpha = 0.7f),
                 text = {
-                    if (tidal) {
+                    if (livingLake) {
+                        Box(
+                            Modifier
+                                .defaultMinSize(minHeight = LakeMaterials.MinimumTouchTarget)
+                                .drawBehind {
+                                    if (sel) {
+                                        drawLine(
+                                            cs.primary,
+                                            Offset(4.dp.toPx(), size.height - 2.dp.toPx()),
+                                            Offset(size.width - 4.dp.toPx(), size.height - 2.dp.toPx()),
+                                            strokeWidth = 2.dp.toPx(),
+                                            cap = StrokeCap.Round,
+                                        )
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                title,
+                                Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Medium,
+                                color = LocalFontColor.current ?: if (sel) cs.primary else cs.onSurfaceVariant,
+                            )
+                        }
+                    } else if (tidal) {
                         Box(
                             Modifier.defaultMinSize(minHeight = 48.dp),
                             contentAlignment = Alignment.Center,
@@ -515,7 +545,7 @@ private fun CrystalSegmentedOption(
     Box(
         modifier
             .stonePress(interaction, reducedMotion = reducedMotion)
-            .defaultMinSize(minHeight = if (tidal) 48.dp else 40.dp)
+            .defaultMinSize(minHeight = LakeMaterials.MinimumTouchTarget)
             .selectable(
                 selected = selected,
                 role = Role.RadioButton,

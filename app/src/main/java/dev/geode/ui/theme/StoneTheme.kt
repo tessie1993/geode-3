@@ -119,8 +119,9 @@ fun ThemePack.colorScheme(
         if (isLight) {
             lightColorScheme(
                 primary = primary,
-                onPrimary = p.onSurface,
+                onPrimary = readableOn(p.onSurface, primary, ThemeContrast.BODY_CONTRAST_MIN),
                 secondary = secondary,
+                onSecondary = readableOn(p.onSurface, secondary, ThemeContrast.BODY_CONTRAST_MIN),
                 tertiary = p.accent.intensity(),
                 background = background,
                 onBackground = onBackground,

@@ -1,29 +1,27 @@
 package dev.geode.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.geode.ui.lake.LakeMaterials
+import dev.geode.ui.lake.lakeFrostedPanel
 import dev.geode.ui.theme.LocalThemePack
-import dev.geode.ui.theme.isJellyGlass
+import dev.geode.ui.theme.isLivingLake
 import kotlin.math.max
 import kotlin.math.min
 
-/** A quiet neutral under text; the coloured glass and moving highlights stay around its rim. */
+/** Contrast follows the chosen native ink; the default lake always reads on pale mineral frost. */
 internal fun jellyMatteTint(
     foreground: Color,
     tint: Color,
 ): Color {
     val dark = lerp(Color(0xFF05080D), tint.copy(alpha = 1f), 0.045f)
-    val light = lerp(Color(0xFFF9FBFE), tint.copy(alpha = 1f), 0.045f)
+    val light = lerp(LakeMaterials.Frost, tint.copy(alpha = 1f), 0.045f)
     val ink = foreground.copy(alpha = 1f).luminance()
 
     fun contrast(backing: Color): Float {
@@ -38,14 +36,10 @@ internal fun jellyMatteTint(
 @Composable
 internal fun Modifier.jellyMatteSheet(
     corner: Dp = 16.dp,
-    opacity: Float = 0.88f,
+    opacity: Float = LakeMaterials.READING_OPACITY,
 ): Modifier {
-    if (!LocalThemePack.current.isJellyGlass) return this
+    if (!LocalThemePack.current.isLivingLake) return this
     val colors = MaterialTheme.colorScheme
     val backing = jellyMatteTint(LocalFontColor.current ?: colors.onSurface, colors.surfaceVariant)
-    val shape = RoundedCornerShape(corner)
-    return this
-        .clip(shape)
-        .background(backing.copy(alpha = opacity.coerceIn(0.86f, 0.98f)))
-        .border(0.75.dp, colors.outlineVariant.copy(alpha = 0.24f), shape)
+    return lakeFrostedPanel(tint = backing, opacity = opacity, corner = corner, rim = colors.outlineVariant)
 }

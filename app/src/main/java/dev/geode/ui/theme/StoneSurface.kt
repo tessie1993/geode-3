@@ -18,8 +18,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import dev.geode.ui.TidalSurfaceArt
-import dev.geode.ui.jellySpatialPress
+import dev.geode.ui.lake.LakeSurfaceArt
 import dev.geode.ui.tidalPressRipple
 
 @Composable
@@ -30,8 +29,8 @@ fun StoneSurfaceArt(
     reducedMotion: Boolean = false,
 ) {
     val pack = LocalThemePack.current
-    if (pack.isJellyGlass) {
-        TidalSurfaceArt(component, state, modifier, reducedMotion)
+    if (pack.isLivingLake) {
+        LakeSurfaceArt(component, state, modifier, reducedMotion)
         return
     }
     val art = pack.surface(component)
@@ -106,8 +105,8 @@ fun Modifier.stonePress(
         label = "stone-press",
     )
     val relief = scale(scale)
-    return if (pack.isJellyGlass) {
-        relief.jellySpatialPress(interaction, motionDisabled).tidalPressRipple(interaction, motionDisabled)
+    return if (pack.isLivingLake) {
+        relief.tidalPressRipple(interaction, motionDisabled)
     } else {
         relief
     }

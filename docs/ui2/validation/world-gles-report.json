@@ -1,0 +1,67 @@
+{
+  "renderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
+  "gles": "OpenGL ES 3.2 Mesa 25.2.8-0ubuntu0.24.04.2",
+  "uniform_audit": "all declared uniforms uploaded",
+  "shader_sha256": "1421451f1631da93b278fb08502991f351c497771d07f2725791010ab08ff599",
+  "scenery_file": "ui2_lake_dawn.png",
+  "scenery_horizon": 0.371,
+  "scenery_sha256": "ec08f2a34602ddc850cc98151f056facd2f5d7e3495580800262a8db6fbb89bf",
+  "reduced_motion_time_invariance": true,
+  "live_audio_mean_channel_delta": 1.119410686728395,
+  "dimensions": [
+    360,
+    720
+  ],
+  "captures": [
+    {
+      "capture": "world-player-daylight",
+      "mean_luma": 0.5308052950587024,
+      "fraction_black": 0.001099537037037037,
+      "gl_error": 0,
+      "software_render_seconds": 1.3701888350005902
+    },
+    {
+      "capture": "world-player-lenses",
+      "mean_luma": 0.5465864844862018,
+      "fraction_black": 0.0008680555555555555,
+      "gl_error": 0,
+      "software_render_seconds": 0.03442223299862235
+    },
+    {
+      "capture": "world-library",
+      "mean_luma": 0.5521965201646091,
+      "fraction_black": 0.0009953703703703704,
+      "gl_error": 0,
+      "software_render_seconds": 0.00508633000208647
+    },
+    {
+      "capture": "world-reduced-motion",
+      "mean_luma": 0.5462360538005325,
+      "fraction_black": 0.0008719135802469135,
+      "gl_error": 0,
+      "software_render_seconds": 0.006446048999350751
+    },
+    {
+      "capture": "world-reduced-motion-later",
+      "mean_luma": 0.5462360538005325,
+      "fraction_black": 0.0008719135802469135,
+      "gl_error": 0,
+      "software_render_seconds": 0.005471059001138201
+    },
+    {
+      "capture": "world-live-audio",
+      "mean_luma": 0.5316297331245461,
+      "fraction_black": 0.0011998456790123456,
+      "gl_error": 0,
+      "software_render_seconds": 0.0063379570019606035
+    },
+    {
+      "capture": "world-orbit-live-audio",
+      "mean_luma": 0.5467906288307915,
+      "fraction_black": 0.0008796296296296296,
+      "gl_error": 0,
+      "software_render_seconds": 0.026426217002153862
+    }
+  ],
+  "limits": "Actual production GLSL rendered with Mesa llvmpipe. Does not validate Android lifecycle, SurfaceView composition, phone shader drivers, memory, thermal behavior, sustained frame rate or accessibility."
+}

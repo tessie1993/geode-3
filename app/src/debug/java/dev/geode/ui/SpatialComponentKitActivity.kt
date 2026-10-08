@@ -7,7 +7,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,8 +19,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -93,15 +94,17 @@ private fun SpatialComponentKit(
     var interactions by rememberSaveable { mutableIntStateOf(0) }
     var capsuleSelected by rememberSaveable { mutableStateOf(true) }
     var roundSelected by rememberSaveable { mutableStateOf(true) }
+    var sliderValue by rememberSaveable { mutableStateOf(0.45f) }
+    var selectedSegment by rememberSaveable { mutableIntStateOf(0) }
     val reducedMotion = LocalReducedMotion.current
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        CrystalBackground(Modifier.fillMaxSize(), reducedMotion = reducedMotion)
-        val orbHeight = (maxHeight.value * 0.22f).coerceIn(96f, 160f).dp
+    Box(Modifier.fillMaxSize()) {
+        CrystalBackground(Modifier.fillMaxSize())
         Column(
             Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -111,7 +114,7 @@ private fun SpatialComponentKit(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Component kit",
+                    "Living Lake · component kit",
                     Modifier.jellyMatteSheet(10.dp).padding(horizontal = 10.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -119,17 +122,18 @@ private fun SpatialComponentKit(
                 CrystalButton(onClick = onAwaken, compact = true) { Text("Awaken") }
             }
             KitThemePicker(pack, onTheme)
-            TidalWaterOrb(
-                Modifier.fillMaxWidth().height(orbHeight),
-                reducedMotion = reducedMotion,
-                artwork = { TrackArtwork(null, Modifier.fillMaxSize()) },
-            )
             Column(
                 Modifier.fillMaxWidth().jellyMatteSheet(16.dp).padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Text("Matte reading panel", style = MaterialTheme.typography.titleSmall)
-                Text("Native text beside floating waterglass.", style = MaterialTheme.typography.bodySmall)
+                Text("Pale mineral reading panel", style = MaterialTheme.typography.titleSmall)
+                Text("Sharp native text with local frost and quiet optical edges.", style = MaterialTheme.typography.bodySmall)
+                CrystalSlider(value = sliderValue, onValueChange = { sliderValue = it })
+                CrystalSegmented(
+                    options = listOf("World", "Library", "Studio"),
+                    selected = selectedSegment,
+                    onSelect = { selectedSegment = it },
+                )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CrystalButton(onClick = { interactions++ }, modifier = Modifier.weight(1f), compact = true) {
@@ -259,7 +263,7 @@ private fun KitSelectedCapsule(
 @Composable
 private fun KitPressedCapsule(modifier: Modifier) {
     Box(modifier.height(48.dp), contentAlignment = Alignment.Center) {
-        TidalSurfaceArt(StoneComponent.PRIMARY_BUTTON, StoneState.PRESSED, Modifier.matchParentSize())
+        StoneSurfaceArt(StoneComponent.PRIMARY_BUTTON, StoneState.PRESSED, Modifier.matchParentSize())
         Text("Pressed preview", style = MaterialTheme.typography.labelLarge)
     }
 }
@@ -303,7 +307,7 @@ private fun KitSelectedRound(
 @Composable
 private fun KitPressedRound() {
     Box(Modifier.size(60.dp), contentAlignment = Alignment.Center) {
-        TidalSurfaceArt(StoneComponent.ICON_BUTTON, StoneState.PRESSED, Modifier.matchParentSize())
+        StoneSurfaceArt(StoneComponent.ICON_BUTTON, StoneState.PRESSED, Modifier.matchParentSize())
         StoneIconArt(StoneIcon.FAVORITE, "Pressed round preview")
     }
 }
