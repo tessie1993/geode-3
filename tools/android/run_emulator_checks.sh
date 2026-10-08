@@ -35,6 +35,36 @@ capture_instrumentation_evidence() {
     | tar -xf - -C "$report_dir" || true
 }
 
+print_evidence_tail() {
+  local label=$1
+  local evidence_file=$2
+  local lines=$3
+  printf '\n[emulator evidence] %s (last %s lines)\n' "$label" "$lines"
+  if [ -s "$evidence_file" ]; then
+    tail -n "$lines" "$evidence_file" || true
+  else
+    printf 'Evidence unavailable: %s\n' "$evidence_file"
+  fi
+}
+
+print_instrumentation_stall() {
+  # Job logs remain readable even when the artifact download cannot be opened.
+  print_evidence_tail "fluid switch progress" "$report_dir/spatial-scene-review/fluid-switch-progress.txt" 60
+  print_evidence_tail "live instrumentation stages" "$report_dir/instrumentation-stage-logcat.txt" 60
+  local native_stacks="$report_dir/instrumentation-native-stacks.txt"
+  local key_frames='libgeode|libGLES|libEGL|SwiftShader|name: Instr|Permission denied|failed|error'
+  printf '\n[emulator evidence] native stack excerpt (at most 120 lines)\n'
+  if [ -s "$native_stacks" ]; then
+    if grep -Eq "$key_frames" "$native_stacks"; then
+      grep -E -B 6 -A 12 "$key_frames" "$native_stacks" | head -n 120 || true
+    else
+      head -n 40 "$native_stacks" || true
+    fi
+  else
+    printf 'Native stack evidence unavailable: %s\n' "$native_stacks"
+  fi
+}
+
 capture_instrumentation_stall() {
   # Capture while the instrumented process still exists; force-stop comes last.
   timeout --kill-after=2s 15s adb -s "$android_serial" shell ps -A -T \
@@ -54,6 +84,7 @@ capture_instrumentation_stall() {
       > "$report_dir/instrumentation-java-stack-request.txt" 2>&1 || true
   fi
   capture_instrumentation_evidence
+  print_instrumentation_stall
   timeout --kill-after=2s 10s adb -s "$android_serial" shell am force-stop "$package" \
     > "$report_dir/instrumentation-force-stop.txt" 2>&1 || true
 }
@@ -100,6 +131,7 @@ timeout --kill-after=10s "${instrumentation_timeout_seconds}s" \
   printf 'elapsed_seconds=%s\n' "$((SECONDS - instrumentation_start_seconds))"
   printf 'timeout_seconds=%s\nexit_status=%s\n' "$instrumentation_timeout_seconds" "$instrumentation_status"
 } > "$report_dir/instrumentation-timing.txt"
+print_evidence_tail "instrumentation timing" "$report_dir/instrumentation-timing.txt" 6
 if [ "$instrumentation_status" -eq 124 ] || [ "$instrumentation_status" -eq 137 ]; then
   echo "Instrumentation stopped (exit=$instrumentation_status, deadline=${instrumentation_timeout_seconds}s); capturing stage/process evidence" >&2
   capture_instrumentation_stall
