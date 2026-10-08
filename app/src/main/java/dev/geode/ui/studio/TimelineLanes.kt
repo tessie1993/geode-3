@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,6 +65,24 @@ private enum class PickKind {
     AUDIO,
 }
 
+private val ClipSelectionSaver =
+    listSaver<ClipId?, String>(
+        save = { id -> id?.let { listOf(it.value) } ?: emptyList() },
+        restore = { saved -> saved.firstOrNull()?.let(::ClipId) },
+    )
+
+private val MarkerSelectionSaver =
+    listSaver<MarkerId?, String>(
+        save = { id -> id?.let { listOf(it.value) } ?: emptyList() },
+        restore = { saved -> saved.firstOrNull()?.let(::MarkerId) },
+    )
+
+private val KeyframeSelectionSaver =
+    listSaver<KeyframeId?, String>(
+        save = { id -> id?.let { listOf(it.value) } ?: emptyList() },
+        restore = { saved -> saved.firstOrNull()?.let(::KeyframeId) },
+    )
+
 /** The timeline: ruler, marker lane, one row per lane, keyframe rows for the selection, and the playhead. */
 @Composable
 fun TimelineEditor(
@@ -75,9 +94,9 @@ fun TimelineEditor(
     val context = LocalContext.current
     val project = state.project
     var pxPerMs by rememberSaveable { mutableStateOf(TimelineScale.DEFAULT_PX_PER_MS) }
-    var selectedClip by remember { mutableStateOf<ClipId?>(null) }
-    var selectedMarker by remember { mutableStateOf<MarkerId?>(null) }
-    var selectedKey by remember { mutableStateOf<KeyframeId?>(null) }
+    var selectedClip by rememberSaveable(stateSaver = ClipSelectionSaver) { mutableStateOf<ClipId?>(null) }
+    var selectedMarker by rememberSaveable(stateSaver = MarkerSelectionSaver) { mutableStateOf<MarkerId?>(null) }
+    var selectedKey by rememberSaveable(stateSaver = KeyframeSelectionSaver) { mutableStateOf<KeyframeId?>(null) }
     var editError by remember { mutableStateOf<EditError?>(null) }
     var autoCutOpen by remember { mutableStateOf(false) }
     var textLane by remember { mutableStateOf<LaneId?>(null) }

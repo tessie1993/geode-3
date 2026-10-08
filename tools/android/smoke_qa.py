@@ -2,8 +2,8 @@
 """UI-tree-driven smoke evidence on a disposable CI emulator.
 
 Every tap and swipe comes from measured UI XML. Changing production screens use
-fresh hierarchies; the debug component kit reuses its validated fixed layout
-while recording, then proves the resulting callback and selection state. This covers onboarding,
+fresh hierarchies; the scrollable debug component kit measures every target
+while recording, then proves callback and selection state. This covers onboarding,
 generated-fixture playback, UI preferences and adaptive navigation. Emulator frame
 and memory reports are emulator diagnostics. This does not measure physical
 route latency or audio fidelity, test export or purchase, or assess all accessibility.
@@ -24,17 +24,14 @@ PACKAGE = "dev.geode.debug"
 DESTINATIONS = ("Player", "Library", "Visuals", "Studio", "Settings")
 LIBRARY_TABS = ("Tracks", "Albums", "Artists", "Folders", "Playlists")
 VISUALS_TABS = ("Presets", "Styles", "Customize", "Textures", "Takes")
-SETTINGS_TABS = ("Look", "Audio", "Export", "Folders", "Behavior", "Help", "About")
-THEMES = (
-    ("Tidal Glass", "tidal-glass"), ("Lapis Lazuli", "lapis-lazuli"),
-    ("Sugilite", "sugilite"), ("Amethyst", "amethyst"),
-    ("Clear Quartz", "clear-quartz"), ("Azurite", "azurite"),
-    ("Firestone", "firestone"), ("Kyanite", "kyanite"),
-    ("Malachite", "malachite"), ("Mookaite", "mookaite"), ("Onyx", "onyx"),
-)
+SETTINGS_GROUPS = ("Look", "Audio", "Export", "Folders", "Behavior", "Help", "About")
+THEMES = (("Living Lake", "living-lake"),)
 THEME_LABELS = tuple(name for name, _ in THEMES)
 CUSTOMIZE_AB_LABELS = ("A/B", "Set A", "Recall A", "Set B", "Recall B")
 MOTION_LABEL = "Slow the motion down"
+NAV_OPEN_PREFIX = "Open navigation, currently "
+NAV_CLOSE_LABEL = "Close navigation"
+SETTINGS_BACK_LABEL = "‹ Back"
 ANIMATION_SETTINGS = (
     "window_animation_scale", "transition_animation_scale", "animator_duration_scale",
 )
@@ -256,12 +253,14 @@ class SmokeRun:
             if node is not None:
                 return root, node
             if scroll:
-                self.swipe(root, scroll, reverse, scroll_labels)
+                self.swipe(root, scroll, reverse,
+                           (*scroll_labels, label) if scroll_labels and label not in scroll_labels else scroll_labels)
             time.sleep(1)
         raise AssertionError(f"UI action missing after polling and tree-derived scroll: {label}")
 
-    def tap(self, label, *, scroll=None, reverse=False, scroll_labels=None, settle=1):
-        root, _ = self.seek(label, clickable=True, scroll=scroll, reverse=reverse, scroll_labels=scroll_labels)
+    def tap(self, label, *, scroll=None, reverse=False, scroll_labels=None, settle=1, fully_visible=False):
+        root, _ = self.seek(label, clickable=True, scroll=scroll, reverse=reverse,
+                            scroll_labels=scroll_labels, fully_visible=fully_visible)
         self.tap_current(root, label, settle=settle)
 
     def tap_current(self, root, label, *, settle=1):
@@ -314,7 +313,7 @@ class SmokeRun:
                 self.shell("am", "start", "-S", "-W", "-f", "0x10008000", "-n", component,
                            "--es", "theme_slug", theme_slug)
                 root = self.capture(f"component-kit-{theme_slug}")
-                self.assert_labels(root, "Component kit", name, "Awaken", "Scene: 0", "Matte reading panel", "Interactions: 0",
+                self.assert_labels(root, "Living Lake · component kit", name, "Awaken", "Scene: 0", "Pale mineral reading panel", "Interactions: 0",
                                    "Press capsule", "Pressed preview", "Selected capsule", "Disabled capsule",
                                    "Press round button", "Pressed round preview", "Selected round button", "Disabled round button")
                 self.assert_selected(root, name, allow_checked=True)
@@ -324,7 +323,7 @@ class SmokeRun:
                     if self.action(root, disabled) is not None:
                         raise AssertionError(f"Component kit disabled control is interactive: {disabled}")
                 self.component_movie(root, theme_slug, remote, supports_recording)
-            self.events.append("All eleven debug component themes captured; actual capsule/round callbacks and selection verified")
+            self.events.append("Living Lake debug component kit captured; actual capsule/round callbacks and selection verified")
         finally:
             self.adb("shell", "rm", "-f", remote, check=False)
             self.restore_configuration()
@@ -341,36 +340,27 @@ class SmokeRun:
     def component_movie(self, root, theme_slug, remote, supports_recording):
         stem = f"component-motion-{theme_slug}"
         result = {"scope": "debug shared components; no audio, GL or foreground service", "theme": theme_slug,
-                  "time_limit_seconds": 14, "bit_rate": 700000, "recording_tail_seconds": 1,
+                  "time_limit_seconds": 40, "bit_rate": 700000, "recording_tail_seconds": 1,
                   "action_timing_reference": "tap completion since recorder launch, before settling",
-                  "actions": [], "action_elapsed_seconds": {}}
+                  "actions": [], "action_elapsed_seconds": {}, "validated_target_bounds": {}}
         labels = ("Awaken", "Press capsule", "Press round button", "Selected capsule")
-        # This debug screen has fixed-height rows and no scroll or navigation.
-        # Awaken only resets its scene generation; these labels and bounds stay
-        # fixed through all three callbacks. Validate every native target before
-        # recording instead of spending most of the film dumping unchanged XML.
         recorder = None
         try:
-            targets = {}
-            for label in labels:
-                node = self.fully_visible_action(root, label)
-                if node is None or node.get("clickable") != "true":
-                    raise AssertionError(f"Component movie target is not fully visible and enabled: {label}")
-                targets[label] = node.get("bounds")
-            result["validated_target_bounds"] = targets
             started = time.monotonic()
             if supports_recording:
                 recorder = subprocess.Popen(
-                    ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "14",
+                    ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "40",
                      "--bit-rate", "700000", remote], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 )
             time.sleep(0.2)
-            self.tap_current(root, "Awaken", settle=0)
-            result["actions"].append("Tapped Awaken")
-            result["action_elapsed_seconds"]["Awaken"] = round(time.monotonic() - started, 2)
-            time.sleep(1.8)
-            for label in labels[1:]:
-                self.tap_current(root, label, settle=0)
+            # The showroom now scrolls. Every target is measured again after
+            # Awaken or the previous callback; stale coordinates cannot prove it.
+            for label in labels:
+                current, node = self.seek(label, clickable=True, fully_visible=True, scroll="vertical")
+                if node.get("clickable") != "true":
+                    raise AssertionError(f"Component movie target is not enabled: {label}")
+                result["validated_target_bounds"][label] = node.get("bounds")
+                self.tap_current(current, label, settle=0)
                 result["actions"].append(f"Tapped {label}")
                 result["action_elapsed_seconds"][label] = round(time.monotonic() - started, 2)
                 time.sleep(0.5)
@@ -378,12 +368,8 @@ class SmokeRun:
             self.assert_labels(root, "Scene: 1", "Interactions: 3")
             self.assert_not_selected(root, "Selected capsule", allow_checked=True)
             self.assert_selected(root, "Selected round button", allow_checked=True)
-            for label, bounds in targets.items():
-                node = self.fully_visible_action(root, label)
-                if node is None or node.get("clickable") != "true" or node.get("bounds") != bounds:
-                    raise AssertionError(f"Component movie target changed its measured layout: {label}")
             if recorder is not None:
-                stdout, stderr = recorder.communicate(timeout=25)
+                stdout, stderr = recorder.communicate(timeout=50)
                 (self.output / f"{stem}-screenrecord.txt").write_bytes(stdout + stderr)
                 if recorder.returncode:
                     raise RuntimeError(f"Component screenrecord exited {recorder.returncode}: {theme_slug}")
@@ -415,14 +401,66 @@ class SmokeRun:
         if missing:
             raise AssertionError(f"Motion actions missing from recording before {deadline}s tail deadline: {missing}")
 
+    @staticmethod
+    def current_destination(root):
+        observed = {
+            node.get("content-desc")[len(NAV_OPEN_PREFIX):]
+            for node in root.iter("node")
+            if node.get("content-desc", "").startswith(NAV_OPEN_PREFIX)
+            and SmokeRun.action(root, node.get("content-desc")) is not None
+        }
+        if len(observed) != 1 or not observed.issubset(DESTINATIONS):
+            raise AssertionError(f"Current destination lacks an unambiguous enabled geode handle: {sorted(observed)}")
+        return observed.pop()
+
+    @staticmethod
+    def assert_destination(root, expected):
+        actual = SmokeRun.current_destination(root)
+        if actual != expected:
+            raise AssertionError(f"Destination did not become {expected}: geode handle reports {actual}")
+        if SmokeRun.find(root, NAV_CLOSE_LABEL) is not None:
+            raise AssertionError("Orbit navigation remained open after destination selection or cancellation")
+
+    def open_navigation(self, profile="default"):
+        root = self.capture(f"{profile}-navigation-handle")
+        current = self.current_destination(root)
+        self.tap_current(root, NAV_OPEN_PREFIX + current)
+        root = self.capture(f"{profile}-orbit-{slug(current)}")
+        self.assert_labels(root, "Navigate", NAV_CLOSE_LABEL, "Choose a destination")
+        if self.action(root, NAV_CLOSE_LABEL) is None:
+            raise AssertionError("Orbit lacks its enabled close action")
+        return root
+
     def visit(self, label, profile="default"):
-        self.tap(label)
+        if label not in DESTINATIONS:
+            raise ValueError(f"Unknown destination: {label}")
+        self.open_navigation(profile)
+        self.tap(label, scroll="vertical", fully_visible=True)
         root = self.capture(f"{profile}-{label}")
-        self.assert_selected(root, label)
-        self.assert_labels(root, *DESTINATIONS)
+        self.assert_destination(root, label)
         if not self.shell("pidof", PACKAGE):
             raise AssertionError(f"App process died after {label}")
         return root
+
+    def navigation(self):
+        for index, label in enumerate(DESTINATIONS):
+            self.visit(label, "navigation")
+            self.open_navigation("navigation-selected")
+            root, _ = self.seek(label, scroll="vertical")
+            self.assert_selected(root, label)
+            if index % 2:
+                self.shell("input", "keyevent", "4")
+                time.sleep(1)
+            else:
+                self.tap(NAV_CLOSE_LABEL)
+            self.assert_destination(self.capture(f"navigation-cancelled-{slug(label)}"), label)
+        self.visit("Library", "navigation-history")
+        self.visit("Visuals", "navigation-history")
+        self.shell("input", "keyevent", "4")
+        time.sleep(1)
+        self.assert_destination(self.capture("navigation-back-library"), "Library")
+        self.visit("Player", "navigation-restored")
+        self.events.append("Five orbit destinations, exact selected routes, Close/Android Back cancellation and destination Back history verified")
 
     @staticmethod
     def assert_restarted(root):
@@ -438,6 +476,7 @@ class SmokeRun:
         time.sleep(2)
         root = self.capture(label)
         self.assert_restarted(root)
+        self.assert_destination(root, "Player")
         self.events.append("Onboarding persisted across process restart")
         return root
 
@@ -489,7 +528,8 @@ class SmokeRun:
         play_label = "Pause" if has_media else "Play"
         self.seek(play_label, scroll="vertical")
         root = self.capture(f"{profile}-transport")
-        self.assert_labels(root, "Shuffle", "Previous", play_label, "Next", "Repeat", *DESTINATIONS)
+        self.assert_labels(root, "Shuffle", "Previous", play_label, "Next", "Repeat")
+        self.assert_destination(root, "Player")
         parents = {child: parent for parent in root.iter() for child in parent}
         for label in ("Previous", play_label, "Next"):
             disabled = False
@@ -729,7 +769,9 @@ class SmokeRun:
         self.transport(profile, has_media=True)
 
     def search(self):
-        self.tap("Search", scroll="vertical", reverse=True)
+        root, _ = self.seek("Search", clickable=True, scroll="vertical", reverse=True)
+        original = self.current_destination(root)
+        self.tap_current(root, "Search")
         root = self.capture("search-open")
         self.assert_labels(root, "Close search", "Search tracks, playlists & presets", "Type to search your music")
         field = next((node for node in root.iter("node")
@@ -747,8 +789,8 @@ class SmokeRun:
         root = self.capture("search-closed")
         if self.find(root, "Close search") is not None:
             raise AssertionError("Search overlay did not close")
-        self.assert_labels(root, *DESTINATIONS)
-        self.events.append("Search accepted a query, reported no results and closed")
+        self.assert_destination(root, original)
+        self.events.append("Search accepted a query, reported no results and closed to its original destination")
 
     def tabs(self, destination, labels):
         self.visit(destination)
@@ -756,7 +798,7 @@ class SmokeRun:
             self.tap(label, scroll="horizontal")
             root = self.capture(f"{destination}-{label}")
             self.assert_selected(root, label)
-            self.assert_selected(root, destination)
+            self.assert_destination(root, destination)
             if destination == "Library" and label == "Playlists":
                 self.assert_labels(root, "New playlist", "Import playlist…")
             if destination == "Visuals" and label == "Textures":
@@ -768,7 +810,7 @@ class SmokeRun:
     def customize_toolbar(self):
         self.seek("Set A", clickable=True, fully_visible=True, scroll="vertical")
         root = self.capture("visuals-customize-toolbar-a")
-        self.assert_selected(root, "Visuals")
+        self.assert_destination(root, "Visuals")
         self.assert_selected(root, "Customize")
         if self.fully_visible_action(root, "Set A") is None:
             raise AssertionError("Customize Set A action was clipped by its actual scroll viewport")
@@ -788,65 +830,89 @@ class SmokeRun:
             raise AssertionError("Live visualizer had no enabled native Collapse action")
         self.tap_current(root, "Collapse")
         root = self.capture("live-visualizer-collapsed")
-        self.assert_selected(root, "Visuals")
+        self.assert_destination(root, "Visuals")
         self.assert_selected(root, "Takes")
-        self.assert_labels(root, *DESTINATIONS, "View live")
+        self.assert_labels(root, "View live")
         if self.find(root, "Collapse") is not None:
             raise AssertionError("Live visualizer Collapse action remained after dismissal")
         if not self.shell("pidof", PACKAGE):
             raise AssertionError("App process died after collapsing the live visualizer")
         self.events.append("Existing live visualizer opened and collapsed to the original Visuals Takes tab")
 
+    def settings_home(self, profile="settings"):
+        root = self.visit("Settings", profile)
+        if self.action(root, SETTINGS_BACK_LABEL) is not None:
+            self.tap_current(root, SETTINGS_BACK_LABEL)
+        root, _ = self.seek("Look", clickable=True, scroll="vertical", reverse=True)
+        if self.find(root, SETTINGS_BACK_LABEL) is not None:
+            raise AssertionError("Settings group did not return to its home hierarchy")
+        self.assert_destination(root, "Settings")
+        return self.capture(f"{profile}-home")
+
+    def settings_group(self, label, profile="settings"):
+        if label not in SETTINGS_GROUPS:
+            raise ValueError(f"Unknown Settings group: {label}")
+        self.settings_home(profile)
+        self.tap(label, scroll="vertical", fully_visible=True)
+        root = self.capture(f"{profile}-{slug(label)}")
+        self.assert_destination(root, "Settings")
+        self.assert_labels(root, label, SETTINGS_BACK_LABEL)
+        if self.action(root, SETTINGS_BACK_LABEL) is None:
+            raise AssertionError(f"Settings {label} has no enabled parent-navigation action")
+        return root
+
+    def settings_groups(self):
+        for label in SETTINGS_GROUPS:
+            self.settings_group(label)
+            self.shell("input", "keyevent", "4")
+            time.sleep(1)
+            root = self.capture(f"settings-back-{slug(label)}")
+            self.assert_destination(root, "Settings")
+            if self.find(root, SETTINGS_BACK_LABEL) is not None:
+                raise AssertionError(f"Android Back failed to close the Settings {label} group")
+            root, _ = self.seek("Look", clickable=True, scroll="vertical", reverse=True)
+            self.assert_destination(root, "Settings")
+        self.events.append("All seven Settings groups opened, captured and returned to their parent with Android Back")
+
     def preferences(self):
-        self.visit("Settings")
-        self.tap("Look", scroll="horizontal", reverse=True)
-        root, _ = self.seek("Tidal Glass", scroll="horizontal", scroll_labels=THEME_LABELS)
-        if not self.checked(root, "Tidal Glass"):
-            raise AssertionError("Fresh-install default theme RadioButton was not checked: Tidal Glass")
-        self.events.append("Fresh-install default theme is Tidal Glass")
-        for name, theme_slug in THEMES:
-            self.select_theme(name)
-            root = self.capture(f"glass-picker-{theme_slug}")
-            if not self.checked(root, name):
-                raise AssertionError(f"Theme RadioButton was not checked after selection: {name}")
-            self.visit("Player", f"glass-{theme_slug}")
-            self.seek("Search", scroll="vertical", reverse=True)
-            root = self.capture(f"glass-theme-{theme_slug}")
-            if self.current_hero_track(root) not in {fixture["title"] for fixture in self.fixtures}:
-                raise AssertionError(f"Loaded PlayerHero missing after selecting theme: {name}")
-            self.visit("Settings", f"glass-{theme_slug}")
-            self.tap("Look", scroll="horizontal", reverse=True)
-        self.events.append("All eleven built-in themes selected and captured with the actual loaded PlayerHero")
-        self.select_theme("Tidal Glass", reverse=True)
-        if not self.checked(self.capture("theme-tidal-restored"), "Tidal Glass"):
-            raise AssertionError("Restored theme RadioButton was not checked: Tidal Glass")
-        self.restart("theme-tidal-restart")
-        self.visit("Settings", "tidal-theme-persisted")
-        self.tap("Look", scroll="horizontal", reverse=True)
-        root, _ = self.seek("Tidal Glass", scroll="horizontal", scroll_labels=THEME_LABELS)
-        if not self.checked(root, "Tidal Glass"):
-            raise AssertionError("Restored theme RadioButton was not checked after restart: Tidal Glass")
-        self.events.append("Restored Tidal Glass theme persisted across process restart")
-        self.ensure_playing("tidal-theme")
-        self.visit("Settings", "tidal-theme")
-        self.tap("Behavior", scroll="horizontal")
+        self.settings_group("Look")
+        root, _ = self.seek("Living Lake", scroll="horizontal", scroll_labels=THEME_LABELS)
+        if not self.checked(root, "Living Lake"):
+            raise AssertionError("Fresh-install default theme RadioButton was not checked: Living Lake")
+        retired = ("Tidal Glass", "Lapis Lazuli", "Sugilite", "Amethyst", "Clear Quartz", "Azurite",
+                   "Firestone", "Kyanite", "Malachite", "Mookaite", "Onyx")
+        if any(self.find(root, name, include_disabled=True) is not None for name in retired):
+            raise AssertionError("Retired built-in theme remains in the Living Lake chooser")
+        self.select_theme("Living Lake")
+        self.capture("theme-lake-default")
+        self.visit("Player", "lake-theme")
+        self.seek("Search", scroll="vertical", reverse=True)
+        root = self.capture("glass-theme-living-lake")
+        if self.current_hero_track(root) not in {fixture["title"] for fixture in self.fixtures}:
+            raise AssertionError("Loaded PlayerHero missing in Living Lake")
+        self.restart("theme-lake-restart")
+        self.settings_group("Look", "lake-theme-persisted")
+        root, _ = self.seek("Living Lake", scroll="horizontal", scroll_labels=THEME_LABELS)
+        if not self.checked(root, "Living Lake"):
+            raise AssertionError("Living Lake default was not checked after process restart")
+        self.events.append("Sole Living Lake built-in, loaded PlayerHero and theme restoration verified")
+        self.ensure_playing("living-lake")
+        self.settings_group("Behavior")
         root, _ = self.seek(MOTION_LABEL, scroll="vertical")
-        before = self.checked(root, MOTION_LABEL)
-        if before:
+        if self.checked(root, MOTION_LABEL):
             raise AssertionError("Fresh-install reduced motion was unexpectedly enabled")
         self.tap(MOTION_LABEL, scroll="vertical")
         if not self.checked(self.capture("reduced-motion-enabled"), MOTION_LABEL):
             raise AssertionError("Reduced-motion switch did not enable")
         self.restart("preferences-restart")
-        self.visit("Settings")
-        self.tap("Behavior", scroll="horizontal")
+        self.settings_group("Behavior")
         root, _ = self.seek(MOTION_LABEL, scroll="vertical")
         if not self.checked(root, MOTION_LABEL):
             raise AssertionError("Reduced-motion preference did not persist across restart")
         self.tap(MOTION_LABEL, scroll="vertical")
         if self.checked(self.capture("reduced-motion-restored"), MOTION_LABEL):
             raise AssertionError("Reduced-motion switch did not restore")
-        self.events.append("Theme switching and reduced-motion persistence verified")
+        self.events.append("Living Lake theme and reduced-motion persistence verified")
 
     def profiles(self):
         # A 360 dp portrait viewport at 200% system font scale. The exact display
@@ -881,8 +947,8 @@ class SmokeRun:
         self.events.append("All five destinations replayed at 200% compact, landscape and restored display")
 
     def motion_video(self):
-        result = {"scope": "emulator UI animation sample; no physical-device performance claim",
-                  "time_limit_seconds": 40, "bit_rate": 700000, "recording_tail_seconds": 1,
+        result = {"scope": "emulator orbit/scene and Search animation sample; no physical-device performance claim",
+                  "time_limit_seconds": 60, "bit_rate": 550000, "recording_tail_seconds": 1,
                   "action_timing_reference": "tap completion since recorder launch, before settling"}
         if not self.adb("shell", "which", "screenrecord", check=False).strip():
             result["status"] = "unsupported: screenrecord unavailable"
@@ -893,36 +959,50 @@ class SmokeRun:
         try:
             for setting in ANIMATION_SETTINGS:
                 self.shell("settings", "put", "global", setting, "1.0")
-            # Restart returns the scroll position to the Search action and gives
-            # Compose the current animation policy before recording water motion.
             self.restart("motion-ready")
             self.ensure_playing("motion-ready")
-            self.seek("Search", scroll="vertical", reverse=True)
+            root, _ = self.seek("Search", scroll="vertical", reverse=True)
+            self.assert_destination(root, "Player")
             started = time.monotonic()
             recorder = subprocess.Popen(
-                ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "40", "--bit-rate", "700000", remote],
+                ["adb", "-s", self.serial, "shell", "screenrecord", "--time-limit", "60", "--bit-rate", "550000", remote],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             )
             time.sleep(0.2)
             result["actions"] = []
             result["action_elapsed_seconds"] = {}
-            labels = ("Library", "Player", "Search", "Close search")
-            for label in labels:
-                self.tap(label, scroll="vertical" if label == "Search" else None,
-                         reverse=label == "Search", settle=0)
+
+            def record_tap(tree, label):
+                self.tap_current(tree, label, settle=0)
                 result["actions"].append(f"Tapped {label}")
                 result["action_elapsed_seconds"][label] = round(time.monotonic() - started, 2)
                 time.sleep(0.15)
-            stdout, stderr = recorder.communicate(timeout=55)
+
+            for destination in ("Library", "Player"):
+                handle = NAV_OPEN_PREFIX + self.current_destination(root)
+                record_tap(root, handle)
+                root = self.capture(f"motion-orbit-for-{slug(destination)}")
+                self.assert_labels(root, NAV_CLOSE_LABEL)
+                root, _ = self.seek(destination, clickable=True, fully_visible=True, scroll="vertical")
+                record_tap(root, destination)
+                root = self.capture(f"motion-selected-{slug(destination)}")
+                self.assert_destination(root, destination)
+            for label in ("Search", "Close search"):
+                root, _ = self.seek(label, clickable=True, fully_visible=True,
+                                    scroll="vertical" if label == "Search" else None, reverse=label == "Search")
+                record_tap(root, label)
+            self.assert_destination(self.capture("motion-search-returned"), "Player")
+            stdout, stderr = recorder.communicate(timeout=60)
             (self.output / "screenrecord.txt").write_bytes(stdout + stderr)
             if recorder.returncode:
                 raise RuntimeError(f"screenrecord exited {recorder.returncode}")
             self.adb("pull", remote, str(self.output / "ui-motion.mp4"))
             if not (self.output / "ui-motion.mp4").stat().st_size:
                 raise RuntimeError("screenrecord produced an empty video")
+            labels = (NAV_OPEN_PREFIX + "Player", "Library", NAV_OPEN_PREFIX + "Library", "Player", "Search", "Close search")
             self.assert_recorded_actions(result, labels)
             result["status"] = "recorded"
-            self.events.append("Recorded 40-second animation sample with every navigation/Search action inside the recording and a settling tail, animation scales temporarily enabled")
+            self.events.append("Recorded 60-second orbit/scene sample; both navigation handles, routes and Search actions fit inside the film with a settling tail")
         finally:
             if recorder is not None and recorder.poll() is None:
                 recorder.kill()
@@ -939,7 +1019,7 @@ class SmokeRun:
             "api": self.shell("getprop", "ro.build.version.sdk"),
             "model": self.shell("getprop", "ro.product.model"),
             "package": PACKAGE, "variant": "debug", "runs": 1,
-            "scope": "eleven debug component kits, fresh onboarding, empty queue, generated WAV playback, five destinations, search, ten Library/Visuals tabs, Customize toolbar visibility, native live visualizer collapse, seven Settings tabs, eleven themes, preferences, process restart, adaptive UI",
+            "scope": "Living Lake component kit, fresh onboarding, empty queue, generated WAV playback, five orbit destinations with selected-route/cancellation/history checks, search, ten Library/Visuals tabs, Customize toolbar visibility, native live visualizer collapse, seven Settings groups, sole built-in theme, preferences, process restart, adaptive UI",
             "performance_scope": "emulator gfxinfo/meminfo only; no physical latency, GPU or frame-rate guarantee",
             "profiles": {"compact-font-200": {"size": "1080x1920", "density": 480, "font_scale": 2.0},
                          "landscape": {"size": "1080x1920", "density": 480, "font_scale": 1.0, "user_rotation": 1}},
@@ -965,6 +1045,7 @@ class SmokeRun:
         self.shell("dumpsys", "gfxinfo", PACKAGE, "reset")
         self.visit("Player")
         self.transport("default")
+        self.navigation()
         self.search()
         self.seed_audio()
         self.tabs("Library", LIBRARY_TABS)
@@ -973,17 +1054,16 @@ class SmokeRun:
         self.live_visualizer()
         root = self.visit("Studio")
         self.assert_labels(root, "Open a video…", "NOTHING RENDERED YET")
-        self.tabs("Settings", SETTINGS_TABS)
+        self.settings_groups()
         self.preferences()
         self.diagnostic_reports("default-navigation")
         self.profiles()
         self.motion_video()
         self.restart("final-restart")
         self.ensure_playing("final")
-        self.visit("Settings", "final")
-        self.tap("Look", scroll="horizontal", reverse=True)
-        root, _ = self.seek("Tidal Glass", scroll="horizontal")
-        self.assert_selected(root, "Tidal Glass", allow_checked=True)
+        self.settings_group("Look", "final")
+        root, _ = self.seek("Living Lake", scroll="horizontal", scroll_labels=THEME_LABELS)
+        self.assert_selected(root, "Living Lake", allow_checked=True)
         self.visit("Player", "final")
 
     def finish(self):

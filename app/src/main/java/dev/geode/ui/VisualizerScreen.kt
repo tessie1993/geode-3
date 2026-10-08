@@ -60,6 +60,7 @@ import dev.geode.render.VisualizerView
 import dev.geode.render.scene.TouchTransform
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.isLivingLake
 import kotlin.math.PI
 import kotlin.math.abs
 
@@ -84,7 +85,7 @@ fun VisualizerScreen(
     val currentUri = remember(state.title, state.artist) { viewModel.currentTrackUri() }
     val isFavourite = currentUri != null && currentUri in favourites
     var panel by remember { mutableStateOf(PlayerPanel.TRANSPORT) }
-    val chromeAlpha = maxOf(gui.barOpacity, 0.25f)
+    val chromeAlpha = if (dev.geode.ui.theme.LocalThemePack.current.isLivingLake) 0.84f else maxOf(gui.barOpacity, 0.25f)
     var controlsVisible by remember { mutableStateOf(true) }
     val context = LocalContext.current
     // Picture-in-picture shrinks this screen to a window with no room for chrome, and no way for
@@ -93,12 +94,11 @@ fun VisualizerScreen(
     val inPip = VisualizerPipCoordinator.inPictureInPicture
     val showChrome = controlsVisible && !inPip
 
-    val dismiss = rememberPredictiveDismiss(onDismiss = onCollapse)
+    rememberPredictiveDismiss(onDismiss = onCollapse)
 
     Box(
         Modifier
             .fillMaxSize()
-            .dismissTransform(dismiss)
             .background(Color.Black)
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { controlsVisible = !controlsVisible })
@@ -129,7 +129,7 @@ fun VisualizerScreen(
                     },
             )
         } else {
-            CrystalBackground(Modifier.fillMaxSize(), reducedMotion = gui.reducedMotion)
+            CrystalBackground(Modifier.fillMaxSize())
             Column(
                 Modifier.align(Alignment.Center).padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

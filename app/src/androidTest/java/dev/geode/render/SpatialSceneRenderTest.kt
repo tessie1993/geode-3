@@ -5,6 +5,8 @@ import android.opengl.EGL14
 import android.opengl.EGLConfig
 import android.opengl.EGLExt
 import android.opengl.GLES30
+import android.os.SystemClock
+import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.geode.analysis.AudioFeatures
@@ -21,6 +23,8 @@ import kotlin.math.sin
 /** Exercises the shipped asset loader, native camera uniforms and real GLES shaders. */
 @RunWith(AndroidJUnit4::class)
 class SpatialSceneRenderTest {
+    private var stageEvidence: File? = null
+
     @Test
     fun spatialScenesRenderFreshPcmThenGapAndSilence() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -157,17 +161,20 @@ class SpatialSceneRenderTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val evidence = File(context.cacheDir, "spatial-scene-review")
         assertTrue("Could not create scene evidence directory", evidence.isDirectory || evidence.mkdirs())
+        stageEvidence = File(evidence, "fluid-switch-progress.txt").apply { writeText("") }
         withPbuffer {
             val viz = NativeViz(context)
             try {
-                assertTrue("Could not create native renderer", viz.create())
-                viz.setOffscreen(true)
-                viz.surfaceCreated()
-                viz.surfaceChanged(WIDTH, HEIGHT)
+                traceStage("native-create") { assertTrue("Could not create native renderer", viz.create()) }
+                traceStage("native-offscreen") { viz.setOffscreen(true) }
+                traceStage("native-surface-created") { viz.surfaceCreated() }
+                traceStage("native-surface-changed") { viz.surfaceChanged(WIDTH, HEIGHT) }
                 // Production Medium buffers, including particle state, must
                 // survive visiting every look in the same renderer.
-                viz.setParams(SceneParams(fluidQuality = 2, fluidAutoQuality = false, paramFadeSec = 0f))
-                viz.setTransition("cut", 1)
+                traceStage("native-params") {
+                    viz.setParams(SceneParams(fluidQuality = 2, fluidAutoQuality = false, paramFadeSec = 0f))
+                }
+                traceStage("native-transition") { viz.setTransition("cut", 1) }
                 val audio = AudioFeatures.empty().copy(rms = 0.5f, bass = 0.7f, mid = 0.4f, treble = 0.3f)
                 val scenes =
                     listOf(
@@ -184,19 +191,67 @@ class SpatialSceneRenderTest {
                 var frame = 0
                 repeat(2) { cycle ->
                     for (scene in scenes) {
-                        assertTrue("Could not switch to $scene", viz.setScene(scene))
-                        repeat(8) { tick ->
-                            viz.setFeatures(
-                                audio.copy(beat = tick == 0, beatStrength = 0.8f, transient = if (tick == 0) 0.8f else 0f),
-                            )
-                            viz.render(++frame / 60.0, targetFbo = 0)
+                        val styleStage = "cycle=$cycle scene=$scene"
+                        traceStage("$styleStage switch") {
+                            assertTrue("Could not switch to $scene", viz.setScene(scene))
                         }
-                        captureAndCheck(viz, File(evidence, "$scene-cycle-$cycle.png"))
+                        repeat(8) { tick ->
+                            traceStage("$styleStage tick=$tick features") {
+                                viz.setFeatures(
+                                    audio.copy(
+                                        beat = tick == 0,
+                                        beatStrength = 0.8f,
+                                        transient = if (tick == 0) 0.8f else 0f,
+                                    ),
+                                )
+                            }
+                            frame++
+                            traceStage("$styleStage tick=$tick frame=$frame render") {
+                                viz.render(frame / 60.0, targetFbo = 0)
+                            }
+                        }
+                        traceStage("$styleStage capture-and-assert") {
+                            captureAndCheck(viz, File(evidence, "$scene-cycle-$cycle.png"))
+                        }
                     }
                 }
             } finally {
-                viz.destroy()
+                traceStage("native-destroy") { viz.destroy() }
             }
+        }
+    }
+
+    /** Persist the last native boundary before a stuck driver can prevent test completion. */
+    private fun <T> traceStage(
+        label: String,
+        block: () -> T,
+    ): T {
+        if (stageEvidence == null) return block()
+        val started = SystemClock.elapsedRealtime()
+        recordStage("BEGIN", label, started, 0)
+        try {
+            val result = block()
+            recordStage("END", label, started, SystemClock.elapsedRealtime() - started)
+            return result
+        } catch (failure: Throwable) {
+            recordStage("FAIL", label, started, SystemClock.elapsedRealtime() - started)
+            throw failure
+        }
+    }
+
+    private fun recordStage(
+        phase: String,
+        label: String,
+        started: Long,
+        elapsed: Long,
+    ) {
+        val message = "[DEBUG-fluid-switch] $phase elapsedMs=$elapsed startedMs=$started $label"
+        Log.i(STAGE_TAG, message)
+        try {
+            stageEvidence?.appendText("$message\n")
+        } catch (failure: Exception) {
+            // Evidence must not change the renderer assertion result.
+            Log.w(STAGE_TAG, "[DEBUG-fluid-switch] Could not persist stage evidence", failure)
         }
     }
 
@@ -208,9 +263,10 @@ class SpatialSceneRenderTest {
         viewportHeight: Int = HEIGHT,
     ): IntArray {
         var shaderError: String? = null
-        viz.pollError { shaderError = it }
-        val glError = GLES30.glGetError()
-        val framebufferStatus = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
+        traceStage("${file.name} poll-error") { viz.pollError { shaderError = it } }
+        val glError = traceStage("${file.name} get-gl-error") { GLES30.glGetError() }
+        val framebufferStatus =
+            traceStage("${file.name} check-framebuffer") { GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) }
         // Capture before assertions so a black/error render still leaves useful evidence.
         val pixels = saveFrame(file)
         assertTrue("${file.name}: $shaderError", shaderError.isNullOrEmpty())
@@ -250,7 +306,9 @@ class SpatialSceneRenderTest {
 
     private fun saveFrame(file: File): IntArray {
         val rgba = ByteBuffer.allocateDirect(WIDTH * HEIGHT * 4)
-        GLES30.glReadPixels(0, 0, WIDTH, HEIGHT, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, rgba)
+        traceStage("${file.name} read-pixels") {
+            GLES30.glReadPixels(0, 0, WIDTH, HEIGHT, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, rgba)
+        }
         val readError = GLES30.glGetError()
         val pixels = IntArray(WIDTH * HEIGHT)
         for (y in 0 until HEIGHT) {
@@ -264,7 +322,11 @@ class SpatialSceneRenderTest {
         }
         val bitmap = Bitmap.createBitmap(pixels, WIDTH, HEIGHT, Bitmap.Config.ARGB_8888)
         try {
-            file.outputStream().use { assertTrue("Could not save scene evidence", bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+            traceStage("${file.name} save-png") {
+                file.outputStream().use {
+                    assertTrue("Could not save scene evidence", bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                }
+            }
         } finally {
             bitmap.recycle()
         }
@@ -273,13 +335,15 @@ class SpatialSceneRenderTest {
     }
 
     private fun withPbuffer(block: () -> Unit) {
-        val display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+        val display = traceStage("egl-get-display") { EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY) }
         assertTrue("No EGL display", display != EGL14.EGL_NO_DISPLAY)
         var eglContext = EGL14.EGL_NO_CONTEXT
         var surface = EGL14.EGL_NO_SURFACE
         try {
             val version = IntArray(2)
-            assertTrue("EGL initialization failed", EGL14.eglInitialize(display, version, 0, version, 1))
+            traceStage("egl-initialize") {
+                assertTrue("EGL initialization failed", EGL14.eglInitialize(display, version, 0, version, 1))
+            }
             val attributes =
                 intArrayOf(
                     EGL14.EGL_SURFACE_TYPE,
@@ -298,41 +362,55 @@ class SpatialSceneRenderTest {
                 )
             val configs = arrayOfNulls<EGLConfig>(1)
             val count = IntArray(1)
-            assertTrue(
-                "No GLES 3 pbuffer config",
-                EGL14.eglChooseConfig(display, attributes, 0, configs, 0, 1, count, 0) && count[0] > 0,
-            )
-            eglContext =
-                EGL14.eglCreateContext(
-                    display,
-                    configs[0],
-                    EGL14.EGL_NO_CONTEXT,
-                    intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE),
-                    0,
+            traceStage("egl-choose-config") {
+                assertTrue(
+                    "No GLES 3 pbuffer config",
+                    EGL14.eglChooseConfig(display, attributes, 0, configs, 0, 1, count, 0) && count[0] > 0,
                 )
+            }
+            eglContext =
+                traceStage("egl-create-context") {
+                    EGL14.eglCreateContext(
+                        display,
+                        configs[0],
+                        EGL14.EGL_NO_CONTEXT,
+                        intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE),
+                        0,
+                    )
+                }
             assertTrue("GLES 3 context creation failed", eglContext != EGL14.EGL_NO_CONTEXT)
             surface =
-                EGL14.eglCreatePbufferSurface(
-                    display,
-                    configs[0],
-                    intArrayOf(EGL14.EGL_WIDTH, WIDTH, EGL14.EGL_HEIGHT, HEIGHT, EGL14.EGL_NONE),
-                    0,
-                )
+                traceStage("egl-create-pbuffer") {
+                    EGL14.eglCreatePbufferSurface(
+                        display,
+                        configs[0],
+                        intArrayOf(EGL14.EGL_WIDTH, WIDTH, EGL14.EGL_HEIGHT, HEIGHT, EGL14.EGL_NONE),
+                        0,
+                    )
+                }
             assertTrue("Pbuffer creation failed", surface != EGL14.EGL_NO_SURFACE)
-            assertTrue("Could not bind GLES 3 context", EGL14.eglMakeCurrent(display, surface, surface, eglContext))
+            traceStage("egl-make-current") {
+                assertTrue("Could not bind GLES 3 context", EGL14.eglMakeCurrent(display, surface, surface, eglContext))
+            }
             block()
         } finally {
             try {
-                EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+                traceStage("egl-unbind") {
+                    EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+                }
             } finally {
                 try {
-                    if (surface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(display, surface)
+                    if (surface != EGL14.EGL_NO_SURFACE) {
+                        traceStage("egl-destroy-surface") { EGL14.eglDestroySurface(display, surface) }
+                    }
                 } finally {
                     try {
-                        if (eglContext != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(display, eglContext)
+                        if (eglContext != EGL14.EGL_NO_CONTEXT) {
+                            traceStage("egl-destroy-context") { EGL14.eglDestroyContext(display, eglContext) }
+                        }
                     } finally {
-                        EGL14.eglTerminate(display)
-                        EGL14.eglReleaseThread()
+                        traceStage("egl-terminate") { EGL14.eglTerminate(display) }
+                        traceStage("egl-release-thread") { EGL14.eglReleaseThread() }
                     }
                 }
             }
@@ -340,6 +418,7 @@ class SpatialSceneRenderTest {
     }
 
     private companion object {
+        const val STAGE_TAG = "SpatialSceneRenderTest"
         const val WIDTH = 128
         const val HEIGHT = 96
     }

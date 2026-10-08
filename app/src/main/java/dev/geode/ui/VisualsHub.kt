@@ -3,12 +3,14 @@ package dev.geode.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,8 +29,12 @@ import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LayersClear
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.StopCircle
+import androidx.compose.material.icons.outlined.OpenInFull
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -51,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,8 +70,11 @@ import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.ui.lake.LakeScreenHeader
+import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.isLivingLake
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -74,20 +84,30 @@ fun VisualsHub(
     visualizerView: VisualizerView,
     onOpenNowPlaying: () -> Unit,
     liveBackdrop: Boolean = false,
+    ownsVisualizerSurface: Boolean = true,
 ) {
+    val livingLake = LocalThemePack.current.isLivingLake
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val studioViewModel: StudioViewModel = geodeViewModel()
     var tab by rememberSaveable { mutableStateOf(0) }
-    val tabs = listOf("Presets", "Styles", "Customize", "Textures", "Takes")
+    val tabs =
+        listOf(
+            stringResource(R.string.ui2_visuals_presets),
+            stringResource(R.string.ui2_visuals_styles),
+            stringResource(R.string.ui2_visuals_customize),
+            stringResource(R.string.ui2_visuals_textures),
+            stringResource(R.string.ui2_visuals_takes),
+        )
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
     Box(Modifier.fillMaxSize()) {
-        if (liveBackdrop) {
+        if (liveBackdrop && ownsVisualizerSurface) {
             VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.1f)))
         }
         val bodyStyle =
-            if (liveBackdrop) {
+            if (liveBackdrop && !livingLake) {
                 LocalTextStyle.current.copy(
                     shadow = Shadow(color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.9f), blurRadius = 10f),
                 )
@@ -95,7 +115,7 @@ fun VisualsHub(
                 LocalTextStyle.current
             }
         val plate =
-            if (liveBackdrop) {
+            if (liveBackdrop && !livingLake) {
                 Modifier
                     .padding(horizontal = 8.dp, vertical = 6.dp)
                     .readingPlate(
@@ -109,47 +129,101 @@ fun VisualsHub(
             }
         ProvideTextStyle(bodyStyle) {
             Column(Modifier.fillMaxSize().then(plate)) {
-                FlowRow(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Column {
-                        CrystalOverline(
+                if (livingLake) {
+                    LakeScreenHeader(
+                        title = stringResource(R.string.nav_visuals),
+                        modifier = if (liveBackdrop) Modifier.padding(horizontal = 8.dp).jellyMatteSheet(corner = 20.dp) else Modifier,
+                        subtitle =
                             when {
-                                takes.recording -> "● Recording  ${formatTakeTime(takes.recordedMs)}"
-                                takes.replaying != null -> "▶ ${takes.replaying}"
-                                liveBackdrop -> "Live overlay"
-                                else -> "Geode"
+                                takes.recording -> stringResource(R.string.ui2_visuals_recording, formatTakeTime(takes.recordedMs))
+                                takes.replaying != null -> stringResource(R.string.ui2_visuals_replaying, takes.replaying.orEmpty())
+                                else -> sceneDisplayLabel(viz.sceneId)
                             },
-                            color = if (takes.recording) MaterialTheme.colorScheme.error else accentTextColor(),
-                        )
-                        GlowTitle("Visuals")
+                    ) {
+                        IconButton(onClick = {
+                            if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording()
+                        }) {
+                            Icon(
+                                if (takes.recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
+                                stringResource(if (takes.recording) R.string.ui2_visuals_stop_recording else R.string.ui2_visuals_record),
+                                tint = if (takes.recording) MaterialTheme.colorScheme.error else LocalContentColor.current,
+                            )
+                        }
+                        IconButton(onClick = {
+                            settingsViewModel.setGuiPrefs(gui.copy(clearVisualsMenu = !gui.clearVisualsMenu))
+                        }) {
+                            Icon(
+                                if (liveBackdrop) Icons.Filled.LayersClear else Icons.Filled.Layers,
+                                stringResource(if (liveBackdrop) R.string.ui2_visuals_solid_menu else R.string.ui2_visuals_clear_menu),
+                            )
+                        }
                     }
-                    IconButton(onClick = {
-                        if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording()
-                    }) {
-                        Icon(
-                            if (takes.recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
-                            if (takes.recording) "Stop recording this take" else "Record a take",
-                            tint =
-                                if (takes.recording) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    LocalContentColor.current
+                    if (!liveBackdrop && ownsVisualizerSurface) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .height(132.dp)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                        ) {
+                            VisualizerCanvasHost(visualizerView, Modifier.fillMaxSize())
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End) {
+                        CrystalButton(filled = false, compact = true, onClick = onOpenNowPlaying) {
+                            Icon(Icons.Outlined.OpenInFull, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.ui2_visuals_live))
+                        }
+                    }
+                } else {
+                    FlowRow(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Column {
+                            CrystalOverline(
+                                when {
+                                    takes.recording -> stringResource(R.string.ui2_visuals_recording, formatTakeTime(takes.recordedMs))
+                                    takes.replaying != null -> stringResource(R.string.ui2_visuals_replaying, takes.replaying.orEmpty())
+                                    liveBackdrop -> stringResource(R.string.ui2_visuals_live_overlay)
+                                    else -> stringResource(R.string.app_name)
                                 },
-                        )
+                                color = if (takes.recording) MaterialTheme.colorScheme.error else accentTextColor(),
+                            )
+                            GlowTitle(stringResource(R.string.nav_visuals))
+                        }
+                        IconButton(onClick = {
+                            if (takes.recording) studioViewModel.stopRecording() else studioViewModel.startRecording()
+                        }) {
+                            Icon(
+                                if (takes.recording) Icons.Filled.StopCircle else Icons.Filled.FiberManualRecord,
+                                stringResource(if (takes.recording) R.string.ui2_visuals_stop_recording else R.string.ui2_visuals_record),
+                                tint =
+                                    if (takes.recording) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        LocalContentColor.current
+                                    },
+                            )
+                        }
+                        IconButton(onClick = {
+                            settingsViewModel.setGuiPrefs(gui.copy(clearVisualsMenu = !gui.clearVisualsMenu))
+                        }) {
+                            Icon(
+                                if (liveBackdrop) Icons.Filled.LayersClear else Icons.Filled.Layers,
+                                stringResource(if (liveBackdrop) R.string.ui2_visuals_solid_menu else R.string.ui2_visuals_clear_menu),
+                                tint = if (liveBackdrop) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                            )
+                        }
+                        CrystalButton(
+                            compact = true,
+                            filled = false,
+                            onClick = onOpenNowPlaying,
+                        ) { Text(stringResource(R.string.ui2_visuals_live)) }
                     }
-                    IconButton(onClick = {
-                        settingsViewModel.setGuiPrefs(gui.copy(clearVisualsMenu = !gui.clearVisualsMenu))
-                    }) {
-                        Icon(
-                            if (liveBackdrop) Icons.Filled.LayersClear else Icons.Filled.Layers,
-                            if (liveBackdrop) "Solid menu" else "Clear overlay on live visuals",
-                            tint = if (liveBackdrop) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
-                    CrystalButton(compact = true, filled = false, onClick = onOpenNowPlaying) { Text("View live") }
                 }
                 CrystalTabs(titles = tabs, selected = tab, onSelect = { tab = it })
                 when (tab) {
@@ -194,12 +268,13 @@ private fun PresetsTreeTab(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
 ) {
+    val livingLake = LocalThemePack.current.isLivingLake
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val presetFolders by visualsViewModel.presetFolders.collectAsStateWithLifecycle()
     val folders = presetFolders.folders
-    var newFolder by remember { mutableStateOf("") }
-    var saveName by remember { mutableStateOf("") }
+    var newFolder by rememberSaveable { mutableStateOf("") }
+    var saveName by rememberSaveable { mutableStateOf("") }
     var saveFolder by rememberSaveable { mutableStateOf("") }
     var renamingFolder by remember { mutableStateOf<String?>(null) }
     var folderRenameText by remember { mutableStateOf("") }
@@ -207,43 +282,65 @@ private fun PresetsTreeTab(
     var deletingPreset by remember { mutableStateOf<String?>(null) }
     var replacingPreset by remember { mutableStateOf<String?>(null) }
     var showTemplates by remember { mutableStateOf(false) }
+    var showNewFolder by rememberSaveable { mutableStateOf(false) }
+    var showSavePreset by rememberSaveable { mutableStateOf(false) }
     val userPresets = viz.presets.filterNot { BuiltInPresets.isBuiltIn(it.name) }.distinctBy { it.name }
     val byFolder = userPresets.groupBy { presetFolders.folderOf(it.name) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val resources = LocalResources.current
     var importNote by remember { mutableStateOf<String?>(null) }
     val presetFilePicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 visualsViewModel.importPresetFile(uri) { name ->
-                    importNote = name?.let { "Imported \"$it\"." } ?: "That file is not a Geode preset."
+                    importNote =
+                        name?.let { resources.getString(R.string.ui2_preset_imported, it) }
+                            ?: resources.getString(R.string.ui2_preset_invalid_file)
                 }
             }
         }
 
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        item {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(bottom = 6.dp),
-            ) {
-                CrystalButton(compact = true, filled = false, onClick = {
-                    val pasted = clipboardText(context)
-                    importNote =
-                        when {
-                            pasted.isNullOrBlank() -> "The clipboard is empty."
-                            else ->
-                                visualsViewModel.importPresetLink(pasted)?.let { "Imported \"$it\"." }
-                                    ?: "That clipboard text is not a Geode preset link."
-                        }
-                }) { Text("Paste a shared preset") }
-                CrystalButton(compact = true, filled = false, onClick = {
-                    presetFilePicker.launch(arrayOf("*/*"))
-                }) { Text("Open a preset file") }
-                CrystalButton(compact = true, filled = false, onClick = { showTemplates = true }) {
-                    Text(stringResource(R.string.template_entry_point))
-                }
+    fun pastePreset() {
+        val pasted = clipboardText(context)
+        importNote =
+            when {
+                pasted.isNullOrBlank() -> resources.getString(R.string.ui2_preset_empty_clipboard)
+                else ->
+                    visualsViewModel.importPresetLink(pasted)?.let { resources.getString(R.string.ui2_preset_imported, it) }
+                        ?: resources.getString(R.string.ui2_preset_invalid_link)
             }
+    }
+
+    fun saveCurrentPreset() {
+        if (saveName.isBlank()) return
+        val existing = presetReplaceTarget(saveName, viz.presets)
+        if (existing != null) {
+            replacingPreset = existing
+        } else {
+            visualsViewModel.savePreset(
+                saveName.trim(),
+                visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
+                saveFolder,
+            )
+            saveName = ""
+        }
+        showSavePreset = false
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(if (livingLake) 8.dp else 4.dp),
+        contentPadding = if (livingLake) PaddingValues(top = 4.dp, bottom = 16.dp) else PaddingValues(),
+    ) {
+        item {
+            PresetManagementToolbar(
+                livingLake = livingLake,
+                onPaste = ::pastePreset,
+                onOpenFile = { presetFilePicker.launch(arrayOf("*/*")) },
+                onTemplates = { showTemplates = true },
+                onSave = { showSavePreset = true },
+                onNewFolder = { showNewFolder = true },
+            )
             importNote?.let { note ->
                 Text(
                     note,
@@ -252,20 +349,22 @@ private fun PresetsTreeTab(
                     modifier = Modifier.padding(bottom = 6.dp).jellyMatteSheet().padding(10.dp),
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = newFolder,
-                    onValueChange = { newFolder = it },
-                    modifier = Modifier.weight(1f).jellyMatteSheet(corner = 12.dp),
-                    placeholder = { Text("New folder name") },
-                    singleLine = true,
-                )
-                CrystalButton(onClick = {
-                    if (newFolder.isNotBlank()) {
-                        visualsViewModel.addPresetFolder(newFolder.trim())
-                        newFolder = ""
-                    }
-                }) { Text("Add") }
+            if (!livingLake) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newFolder,
+                        onValueChange = { newFolder = it },
+                        modifier = Modifier.weight(1f).jellyMatteSheet(corner = 12.dp),
+                        placeholder = { Text(stringResource(R.string.ui2_preset_folder_name)) },
+                        singleLine = true,
+                    )
+                    CrystalButton(onClick = {
+                        if (newFolder.isNotBlank()) {
+                            visualsViewModel.addPresetFolder(newFolder.trim())
+                            newFolder = ""
+                        }
+                    }) { Text(stringResource(R.string.ui2_preset_create_folder)) }
+                }
             }
         }
         (listOf("") + folders).forEach { folder ->
@@ -277,12 +376,12 @@ private fun PresetsTreeTab(
                             .fillMaxWidth()
                             .padding(top = 8.dp)
                             .jellyMatteSheet()
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .padding(horizontal = if (livingLake) 12.dp else 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            if (folder.isEmpty()) "Presets" else "📁 $folder",
-                            style = MaterialTheme.typography.titleMedium,
+                            if (folder.isEmpty()) stringResource(R.string.ui2_visuals_presets) else folder,
+                            style = if (livingLake) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
                             color = accentTextColor(),
                             modifier = Modifier.weight(1f),
                             maxLines = 1,
@@ -292,52 +391,37 @@ private fun PresetsTreeTab(
                             IconButton(onClick = {
                                 renamingFolder = folder
                                 folderRenameText = folder
-                            }) { StoneIconArt(StoneIcon.EDIT, "Rename this folder") }
+                            }) { StoneIconArt(StoneIcon.EDIT, stringResource(R.string.ui2_preset_rename_folder)) }
                         }
                     }
                 }
             }
             items(inFolder, key = { "p_${it.name}" }) { p ->
-                Row(Modifier.fillMaxWidth().jellyMatteSheet().padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(p.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    IconButton(onClick = { applyPresetLive(viewModel, visualizerView, p) }) {
-                        StoneIconArt(StoneIcon.PLAY, "Apply", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = { sharePreset(context, visualsViewModel, p.name) }) {
-                        StoneIconArt(StoneIcon.SHARE, "Share this preset")
-                    }
-                    val playlistIndex = vizPlaylistIndexOf(viz.vizPlaylist, p.name)
-                    val inPlaylist = playlistIndex >= 0
-                    IconButton(
-                        onClick = {
-                            if (inPlaylist) {
-                                viewModel.removeVizPlaylistAt(playlistIndex)
-                            } else {
-                                viewModel.addToVizPlaylist(
-                                    VizPlaylistEntry(sceneId = p.sceneId, presetName = p.name, label = p.name),
-                                )
-                            }
-                        },
-                    ) {
-                        StoneIconArt(
-                            StoneIcon.FAVORITE,
-                            if (inPlaylist) "Remove from visual playlist" else "Add to visual playlist",
-                            tint = if (inPlaylist) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                        )
-                    }
-                    IconButton(onClick = { movingPreset = p.name }) {
-                        StoneIconArt(StoneIcon.FOLDER, "Move to another folder")
-                    }
-                    IconButton(onClick = { deletingPreset = p.name }) {
-                        StoneIconArt(StoneIcon.DELETE, "Remove", tint = MaterialTheme.colorScheme.error)
-                    }
-                }
+                val playlistIndex = vizPlaylistIndexOf(viz.vizPlaylist, p.name)
+                PresetLibraryRow(
+                    preset = p,
+                    livingLake = livingLake,
+                    inPlaylist = playlistIndex >= 0,
+                    onApply = { applyPresetLive(viewModel, visualizerView, p) },
+                    onShare = { sharePreset(context, visualsViewModel, p.name) },
+                    onTogglePlaylist = {
+                        if (playlistIndex >= 0) {
+                            viewModel.removeVizPlaylistAt(playlistIndex)
+                        } else {
+                            viewModel.addToVizPlaylist(
+                                VizPlaylistEntry(sceneId = p.sceneId, presetName = p.name, label = p.name),
+                            )
+                        }
+                    },
+                    onMove = { movingPreset = p.name },
+                    onDelete = { deletingPreset = p.name },
+                )
             }
         }
         item {
             Text(
-                "Built-in",
-                style = MaterialTheme.typography.titleMedium,
+                stringResource(R.string.ui2_preset_built_in),
+                style = if (livingLake) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
                 color = accentTextColor(),
                 modifier = Modifier.padding(top = 8.dp).jellyMatteSheet(corner = 10.dp).padding(horizontal = 10.dp, vertical = 8.dp),
             )
@@ -346,154 +430,463 @@ private fun PresetsTreeTab(
             viz.presets.filter { BuiltInPresets.isBuiltIn(it.name) && builtInPresetMatchesScene(it.sceneId, viz.sceneId) },
             key = { "b_${it.name}" },
         ) { p ->
-            Row(Modifier.fillMaxWidth().jellyMatteSheet().padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(p.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .jellyMatteSheet()
+                    .heightIn(min = if (livingLake) 64.dp else 48.dp)
+                    .padding(start = if (livingLake) 12.dp else 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (livingLake) {
+                    StoneIconArt(StoneIcon.VISUALIZER, contentDescription = null, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(12.dp))
+                }
+                Text(
+                    p.name,
+                    Modifier.weight(1f),
+                    style = if (livingLake) MaterialTheme.typography.bodyLarge else LocalTextStyle.current,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 IconButton(onClick = { applyPresetLive(viewModel, visualizerView, p) }) {
-                    StoneIconArt(StoneIcon.PLAY, "Apply", tint = MaterialTheme.colorScheme.primary)
+                    StoneIconArt(StoneIcon.PLAY, stringResource(R.string.ui2_preset_apply), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }
-        item {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(vertical = 10.dp),
-            ) {
-                OutlinedTextField(
-                    value = saveName,
-                    onValueChange = { saveName = it },
-                    modifier = Modifier.weight(1f).jellyMatteSheet(corner = 12.dp),
-                    placeholder = { Text("Save current as…") },
-                    singleLine = true,
-                )
-                CrystalButton(onClick = {
-                    if (saveName.isNotBlank()) {
-                        val existing = presetReplaceTarget(saveName, viz.presets)
-                        if (existing != null) {
-                            replacingPreset = existing
-                        } else {
-                            visualsViewModel.savePreset(
-                                saveName.trim(),
-                                visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
-                                saveFolder,
-                            )
-                            saveName = ""
-                        }
-                    }
-                }) { Text("Save") }
-            }
-            if (folders.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 12.dp)) {
-                    (listOf("") + folders).forEach { f ->
-                        CrystalButton(compact = true, filled = saveFolder == f, onClick = { saveFolder = f }) {
-                            Text(f.ifEmpty { "root" }, style = MaterialTheme.typography.bodySmall)
+        if (!livingLake) {
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(vertical = 10.dp),
+                ) {
+                    OutlinedTextField(
+                        value = saveName,
+                        onValueChange = { saveName = it },
+                        modifier = Modifier.weight(1f).jellyMatteSheet(corner = 12.dp),
+                        placeholder = { Text(stringResource(R.string.ui2_preset_save_current)) },
+                        singleLine = true,
+                    )
+                    CrystalButton(onClick = ::saveCurrentPreset) { Text(stringResource(R.string.action_save)) }
+                }
+                if (folders.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+                        (listOf("") + folders).forEach { f ->
+                            CrystalButton(compact = true, filled = saveFolder == f, onClick = { saveFolder = f }) {
+                                Text(f.ifEmpty { stringResource(R.string.ui2_preset_root) }, style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                 }
             }
         }
     }
+    if (showNewFolder) {
+        PresetNewFolderDialog(
+            name = newFolder,
+            onNameChange = { newFolder = it },
+            onCreate = {
+                visualsViewModel.addPresetFolder(newFolder.trim())
+                newFolder = ""
+                showNewFolder = false
+            },
+            onDismiss = { showNewFolder = false },
+        )
+    }
+    if (showSavePreset) {
+        PresetSaveDialog(
+            name = saveName,
+            folders = folders,
+            selectedFolder = saveFolder,
+            onNameChange = { saveName = it },
+            onFolderChange = { saveFolder = it },
+            onSave = ::saveCurrentPreset,
+            onDismiss = { showSavePreset = false },
+        )
+    }
     renamingFolder?.let { old ->
-        val proposed = folderRenameText.trim()
-        val collides = !proposed.equals(old, ignoreCase = true) && folders.any { it.equals(proposed, ignoreCase = true) }
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { renamingFolder = null },
-            title = { Text("Rename folder") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = folderRenameText,
-                        onValueChange = { folderRenameText = it },
-                        singleLine = true,
-                    )
-                    if (collides) {
-                        Text(
-                            "There is already a folder called \"$proposed\".",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
-                }
+        PresetRenameFolderDialog(
+            oldName = old,
+            name = folderRenameText,
+            folders = folders,
+            onNameChange = { folderRenameText = it },
+            onRename = { proposed ->
+                visualsViewModel.renamePresetFolder(old, proposed)
+                if (saveFolder == old) saveFolder = proposed
+                renamingFolder = null
             },
-            confirmButton = {
-                CrystalButton(enabled = proposed.isNotBlank() && !collides, onClick = {
-                    visualsViewModel.renamePresetFolder(old, proposed)
-                    if (saveFolder == old) saveFolder = proposed
-                    renamingFolder = null
-                }) { Text("Rename") }
-            },
-            dismissButton = { TextButton(onClick = { renamingFolder = null }) { Text("Cancel") } },
+            onDismiss = { renamingFolder = null },
         )
     }
     movingPreset?.let { name ->
-        val current = presetFolders.folderOf(name)
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { movingPreset = null },
-            title = { Text("Move \"$name\"") },
-            text = {
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    (listOf("") + folders).forEach { f ->
-                        CrystalButton(compact = true, filled = f == current, onClick = {
-                            visualsViewModel.movePresetToFolder(name, f)
-                            movingPreset = null
-                        }) { Text(f.ifEmpty { "root" }, style = MaterialTheme.typography.bodySmall) }
-                    }
-                }
+        PresetMoveDialog(
+            name = name,
+            folders = folders,
+            currentFolder = presetFolders.folderOf(name),
+            onMove = { folder ->
+                visualsViewModel.movePresetToFolder(name, folder)
+                movingPreset = null
             },
-            confirmButton = { TextButton(onClick = { movingPreset = null }) { Text("Close") } },
+            onDismiss = { movingPreset = null },
         )
     }
     replacingPreset?.let { name ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { replacingPreset = null },
-            title = { Text("Replace \"$name\"?") },
-            text = {
-                Text(
-                    "A preset with this name already exists. Saving replaces its look " +
-                        "for good — there is no undo. Share it first if you might want it back.",
+        PresetConfirmationDialog(
+            title = stringResource(R.string.ui2_preset_replace_title, name),
+            message = stringResource(R.string.ui2_preset_replace_body),
+            confirmLabel = stringResource(R.string.ui2_preset_replace),
+            onConfirm = {
+                visualsViewModel.savePreset(
+                    saveName.trim(),
+                    visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
+                    saveFolder,
                 )
+                saveName = ""
+                replacingPreset = null
             },
-            confirmButton = {
-                CrystalButton(onClick = {
-                    visualsViewModel.savePreset(
-                        saveName.trim(),
-                        visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
-                        saveFolder,
-                    )
-                    saveName = ""
-                    replacingPreset = null
-                }) { Text("Replace") }
-            },
-            dismissButton = { TextButton(onClick = { replacingPreset = null }) { Text("Cancel") } },
+            onDismiss = { replacingPreset = null },
         )
     }
     deletingPreset?.let { name ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { deletingPreset = null },
-            title = { Text("Delete \"$name\"?") },
-            text = {
-                Text(
-                    "Removes this preset and its file for good — there is no undo. " +
-                        "Share it first if you might want it back.",
-                )
+        PresetConfirmationDialog(
+            title = stringResource(R.string.ui2_preset_delete_title, name),
+            message = stringResource(R.string.ui2_preset_delete_body),
+            confirmLabel = stringResource(R.string.action_delete),
+            onConfirm = {
+                visualsViewModel.deletePreset(name)
+                deletingPreset = null
             },
-            confirmButton = {
-                CrystalButton(onClick = {
-                    visualsViewModel.deletePreset(name)
-                    deletingPreset = null
-                }) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { deletingPreset = null }) { Text("Cancel") }
-            },
+            onDismiss = { deletingPreset = null },
         )
     }
     if (showTemplates) {
         TemplatesSheet(viewModel, visualizerView, onDismiss = { showTemplates = false })
     }
+}
+
+@Composable
+private fun PresetLibraryRow(
+    preset: Preset,
+    livingLake: Boolean,
+    inPlaylist: Boolean,
+    onApply: () -> Unit,
+    onShare: () -> Unit,
+    onTogglePlaylist: () -> Unit,
+    onMove: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var rowMenuOpen by remember(preset.name) { mutableStateOf(false) }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .jellyMatteSheet()
+            .heightIn(min = if (livingLake) 64.dp else 48.dp)
+            .padding(start = if (livingLake) 12.dp else 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (livingLake) {
+            StoneIconArt(StoneIcon.VISUALIZER, contentDescription = null, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+        }
+        Text(
+            preset.name,
+            Modifier.weight(1f),
+            style = if (livingLake) MaterialTheme.typography.bodyLarge else LocalTextStyle.current,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        IconButton(onClick = onApply) {
+            StoneIconArt(StoneIcon.PLAY, stringResource(R.string.ui2_preset_apply), tint = MaterialTheme.colorScheme.primary)
+        }
+        if (livingLake) {
+            Box {
+                IconButton(onClick = { rowMenuOpen = true }) {
+                    Icon(Icons.Filled.MoreVert, stringResource(R.string.ui2_preset_manage))
+                }
+                DropdownMenu(expanded = rowMenuOpen, onDismissRequest = { rowMenuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.ui2_preset_share)) },
+                        onClick = {
+                            rowMenuOpen = false
+                            onShare()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(
+                                    if (inPlaylist) {
+                                        R.string.ui2_preset_remove_visual_playlist
+                                    } else {
+                                        R.string.ui2_preset_add_visual_playlist
+                                    },
+                                ),
+                            )
+                        },
+                        onClick = {
+                            rowMenuOpen = false
+                            onTogglePlaylist()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.ui2_preset_move)) },
+                        onClick = {
+                            rowMenuOpen = false
+                            onMove()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_delete)) },
+                        onClick = {
+                            rowMenuOpen = false
+                            onDelete()
+                        },
+                    )
+                }
+            }
+        } else {
+            IconButton(onClick = { onShare() }) {
+                StoneIconArt(StoneIcon.SHARE, stringResource(R.string.ui2_preset_share))
+            }
+            IconButton(onClick = onTogglePlaylist) {
+                StoneIconArt(
+                    StoneIcon.FAVORITE,
+                    stringResource(
+                        if (inPlaylist) R.string.ui2_preset_remove_visual_playlist else R.string.ui2_preset_add_visual_playlist,
+                    ),
+                    tint = if (inPlaylist) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                )
+            }
+            IconButton(onClick = { onMove() }) {
+                StoneIconArt(StoneIcon.FOLDER, stringResource(R.string.ui2_preset_move))
+            }
+            IconButton(onClick = { onDelete() }) {
+                StoneIconArt(StoneIcon.DELETE, stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresetManagementToolbar(
+    livingLake: Boolean,
+    onPaste: () -> Unit,
+    onOpenFile: () -> Unit,
+    onTemplates: () -> Unit,
+    onSave: () -> Unit,
+    onNewFolder: () -> Unit,
+) {
+    var importMenuOpen by remember { mutableStateOf(false) }
+    var presetMenuOpen by remember { mutableStateOf(false) }
+    if (livingLake) {
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box {
+                CrystalButton(compact = true, filled = false, onClick = { importMenuOpen = true }) {
+                    Text(stringResource(R.string.ui2_preset_import))
+                }
+                DropdownMenu(expanded = importMenuOpen, onDismissRequest = { importMenuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.ui2_preset_paste)) },
+                        onClick = {
+                            importMenuOpen = false
+                            onPaste()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.ui2_preset_open_file)) },
+                        onClick = {
+                            importMenuOpen = false
+                            onOpenFile()
+                        },
+                    )
+                }
+            }
+            TextButton(onClick = onTemplates) { Text(stringResource(R.string.template_entry_point)) }
+            Spacer(Modifier.weight(1f))
+            Box {
+                IconButton(onClick = { presetMenuOpen = true }) {
+                    Icon(Icons.Filled.MoreVert, stringResource(R.string.ui2_preset_manage))
+                }
+                DropdownMenu(expanded = presetMenuOpen, onDismissRequest = { presetMenuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.ui2_preset_save_current)) },
+                        onClick = {
+                            presetMenuOpen = false
+                            onSave()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.ui2_preset_new_folder)) },
+                        onClick = {
+                            presetMenuOpen = false
+                            onNewFolder()
+                        },
+                    )
+                }
+            }
+        }
+    } else {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(bottom = 6.dp),
+        ) {
+            CrystalButton(
+                compact = true,
+                filled = false,
+                onClick = onPaste,
+            ) { Text(stringResource(R.string.ui2_preset_paste)) }
+            CrystalButton(compact = true, filled = false, onClick = {
+                onOpenFile()
+            }) { Text(stringResource(R.string.ui2_preset_open_file)) }
+            CrystalButton(compact = true, filled = false, onClick = onTemplates) {
+                Text(stringResource(R.string.template_entry_point))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresetNewFolderDialog(
+    name: String,
+    onNameChange: (String) -> Unit,
+    onCreate: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ui2_preset_new_folder)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = onNameChange,
+                label = { Text(stringResource(R.string.ui2_preset_folder_name)) },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(enabled = name.isNotBlank(), onClick = onCreate) { Text(stringResource(R.string.ui2_preset_create_folder)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+@Composable
+private fun PresetSaveDialog(
+    name: String,
+    folders: List<String>,
+    selectedFolder: String,
+    onNameChange: (String) -> Unit,
+    onFolderChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ui2_preset_save_current)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    label = { Text(stringResource(R.string.ui2_preset_name)) },
+                    singleLine = true,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    (listOf("") + folders).forEach { folder ->
+                        CrystalButton(compact = true, filled = selectedFolder == folder, onClick = { onFolderChange(folder) }) {
+                            Text(folder.ifEmpty { stringResource(R.string.ui2_preset_root) })
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = name.isNotBlank(), onClick = onSave) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+@Composable
+private fun PresetRenameFolderDialog(
+    oldName: String,
+    name: String,
+    folders: List<String>,
+    onNameChange: (String) -> Unit,
+    onRename: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val proposed = name.trim()
+    val collides = !proposed.equals(oldName, ignoreCase = true) && folders.any { it.equals(proposed, ignoreCase = true) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ui2_preset_rename_folder)) },
+        text = {
+            Column {
+                OutlinedTextField(value = name, onValueChange = onNameChange, singleLine = true)
+                if (collides) {
+                    Text(
+                        stringResource(R.string.ui2_preset_folder_collision, proposed),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            CrystalButton(enabled = proposed.isNotBlank() && !collides, onClick = { onRename(proposed) }) {
+                Text(stringResource(R.string.action_rename))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+@Composable
+private fun PresetMoveDialog(
+    name: String,
+    folders: List<String>,
+    currentFolder: String,
+    onMove: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ui2_preset_move_title, name)) },
+        text = {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                (listOf("") + folders).forEach { folder ->
+                    CrystalButton(compact = true, filled = folder == currentFolder, onClick = { onMove(folder) }) {
+                        Text(folder.ifEmpty { stringResource(R.string.ui2_preset_root) }, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+    )
+}
+
+@Composable
+private fun PresetConfirmationDialog(
+    title: String,
+    message: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = { CrystalButton(onClick = onConfirm) { Text(confirmLabel) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
 }
 
 internal fun clipboardText(context: android.content.Context): String? =

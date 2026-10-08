@@ -42,9 +42,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.ui.theme.LocalThemePack
+import dev.geode.ui.theme.isLivingLake
 
 @Composable
 internal fun LookSettingsTab(viewModel: SettingsViewModel) {
+    val livingLake = LocalThemePack.current.isLivingLake
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     val appTheme by viewModel.theme.collectAsStateWithLifecycle()
     SettingsTabColumn {
@@ -62,23 +65,25 @@ internal fun LookSettingsTab(viewModel: SettingsViewModel) {
                         valueRange = 0.5f..1.5f,
                     )
                 }
-                Column {
-                    Text(
-                        stringResource(R.string.look_background_dim, (gui.backgroundDim * 100).toInt()),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    CrystalSlider(
-                        value = gui.backgroundDim,
-                        onValueChange = { viewModel.setGuiPrefs(gui.copy(backgroundDim = it)) },
-                        valueRange = 0f..0.6f,
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.look_follow_system), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    Switch(
-                        checked = gui.followSystemDark,
-                        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(followSystemDark = it)) },
-                    )
+                if (!livingLake) {
+                    Column {
+                        Text(
+                            stringResource(R.string.look_background_dim, (gui.backgroundDim * 100).toInt()),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        CrystalSlider(
+                            value = gui.backgroundDim,
+                            onValueChange = { viewModel.setGuiPrefs(gui.copy(backgroundDim = it)) },
+                            valueRange = 0f..0.6f,
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.look_follow_system), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Switch(
+                            checked = gui.followSystemDark,
+                            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(followSystemDark = it)) },
+                        )
+                    }
                 }
             }
         }
@@ -154,6 +159,7 @@ private fun FontColorRow(
     appTheme: dev.geode.ui.theme.ThemePack,
 ) {
     val cs = MaterialTheme.colorScheme
+    val contrastDim = if (LocalThemePack.current.isLivingLake) 0f else gui.backgroundDim
     Column {
         Text(stringResource(R.string.look_font_color), style = MaterialTheme.typography.labelMedium)
         LazyRow(
@@ -161,7 +167,7 @@ private fun FontColorRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(FontColorChoice.CHOICES) { choice ->
-                val usable = choice.argb == null || appTheme.fontColorActive(choice.argb, gui.backgroundDim)
+                val usable = choice.argb == null || appTheme.fontColorActive(choice.argb, contrastDim)
                 val sel = gui.fontColorArgb == choice.argb
                 val shape = crystalShardShape(8.dp, 3.dp)
                 val fill =
@@ -219,38 +225,46 @@ private fun LayoutGroup(
     viewModel: SettingsViewModel,
     gui: GuiPrefs,
 ) {
-    Column {
-        Text(stringResource(R.string.look_bar_opacity, (gui.barOpacity * 100).toInt()), style = MaterialTheme.typography.labelMedium)
-        CrystalSlider(
-            value = gui.barOpacity,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(barOpacity = it)) },
-            valueRange = 0.2f..1f,
+    if (LocalThemePack.current.isLivingLake) {
+        Text(
+            stringResource(R.string.ui2_settings_lake_layout),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-    Column {
-        Text(stringResource(R.string.look_player_position), style = MaterialTheme.typography.labelMedium)
-        CrystalSegmented(
-            options = PlayerPosition.entries.map { stringResource(it.labelRes) },
-            selected = PlayerPosition.entries.indexOf(gui.playerPosition),
-            onSelect = { viewModel.setGuiPrefs(gui.copy(playerPosition = PlayerPosition.entries[it])) },
-            modifier = Modifier.padding(top = 4.dp),
-        )
-    }
-    Column {
-        Text(stringResource(R.string.look_corner_style), style = MaterialTheme.typography.labelMedium)
-        CrystalSegmented(
-            options = CornerStyle.entries.map { stringResource(it.labelRes) },
-            selected = CornerStyle.entries.indexOf(gui.cornerStyle),
-            onSelect = { viewModel.setGuiPrefs(gui.copy(cornerStyle = CornerStyle.entries[it])) },
-            modifier = Modifier.padding(top = 4.dp),
-        )
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.look_compact_player), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(
-            checked = gui.compactPlayer,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(compactPlayer = it)) },
-        )
+    } else {
+        Column {
+            Text(stringResource(R.string.look_bar_opacity, (gui.barOpacity * 100).toInt()), style = MaterialTheme.typography.labelMedium)
+            CrystalSlider(
+                value = gui.barOpacity,
+                onValueChange = { viewModel.setGuiPrefs(gui.copy(barOpacity = it)) },
+                valueRange = 0.2f..1f,
+            )
+        }
+        Column {
+            Text(stringResource(R.string.look_player_position), style = MaterialTheme.typography.labelMedium)
+            CrystalSegmented(
+                options = PlayerPosition.entries.map { stringResource(it.labelRes) },
+                selected = PlayerPosition.entries.indexOf(gui.playerPosition),
+                onSelect = { viewModel.setGuiPrefs(gui.copy(playerPosition = PlayerPosition.entries[it])) },
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        Column {
+            Text(stringResource(R.string.look_corner_style), style = MaterialTheme.typography.labelMedium)
+            CrystalSegmented(
+                options = CornerStyle.entries.map { stringResource(it.labelRes) },
+                selected = CornerStyle.entries.indexOf(gui.cornerStyle),
+                onSelect = { viewModel.setGuiPrefs(gui.copy(cornerStyle = CornerStyle.entries[it])) },
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.look_compact_player), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(
+                checked = gui.compactPlayer,
+                onCheckedChange = { viewModel.setGuiPrefs(gui.copy(compactPlayer = it)) },
+            )
+        }
     }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {

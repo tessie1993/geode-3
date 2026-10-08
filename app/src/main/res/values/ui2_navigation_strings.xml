@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui2_navigation">Navigate</string>
+    <string name="ui2_open_navigation_from">Open navigation, currently %1$s</string>
+    <string name="ui2_close_navigation">Close navigation</string>
+    <string name="ui2_navigation_hint">Choose a destination</string>
+    <string name="ui2_open_player">Open Player</string>
+    <string name="ui2_now_playing">Now playing</string>
+</resources>

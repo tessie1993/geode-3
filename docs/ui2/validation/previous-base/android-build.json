@@ -1,0 +1,146 @@
+{
+  "source_commit": "b4ed0d027356c2833aaa7a11932a03475917c658",
+  "apk": {
+    "path": "app/build/outputs/apk/debug/app-debug.apk",
+    "bytes": 46134070,
+    "sha256": "e2bf1b592321fef009599c0531cbd2c4d2df49cc2b01bc2f7e831cc145b79694",
+    "signature": "verified, APK Signature Scheme v2, Android Debug RSA2048",
+    "certificate_sha256": "172cc163b405274b768c9cbdfc78a8049e5cfb59a578cc5249ce2a3b25f40e53",
+    "native_alignment": "PASS: 8 native libraries, arm64-v8a/x86_64, ELF and ZIP 16KB alignment"
+  },
+  "gradle_checks": {
+    "ktlintFormat": "passed",
+    "ktlintCheck": "passed",
+    "detekt": "passed",
+    "compileDebugKotlin": "passed",
+    "externalNativeBuildDebug": "passed",
+    "assembleDebug": "passed",
+    "lintDebug": {
+      "errors": 0,
+      "warnings": 105,
+      "hints": 14
+    }
+  },
+  "unit_tests": {
+    "totals": {
+      "tests": 74,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "modules": {
+      "app": {
+        "totals": {
+          "tests": 53,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "suites": [
+          {
+            "name": "dev.geode.audio.AudioCapturePumpTest",
+            "tests": 10,
+            "timestamp": "2026-10-07T23:38:32.124Z"
+          },
+          {
+            "name": "dev.geode.audio.MicSourcePlanTest",
+            "tests": 16,
+            "timestamp": "2026-10-07T23:38:33.212Z"
+          },
+          {
+            "name": "dev.geode.audio.PcmRingBufferTest",
+            "tests": 1,
+            "timestamp": "2026-10-07T23:38:33.222Z"
+          },
+          {
+            "name": "dev.geode.ui.ClipEditSaverTest",
+            "tests": 3,
+            "timestamp": "2026-10-07T23:38:33.228Z"
+          },
+          {
+            "name": "dev.geode.ui.GeodeAppStateTest",
+            "tests": 6,
+            "timestamp": "2026-10-07T23:38:33.239Z"
+          },
+          {
+            "name": "dev.geode.ui.JellyMatteContrastTest",
+            "tests": 2,
+            "timestamp": "2026-10-07T23:38:33.255Z"
+          },
+          {
+            "name": "dev.geode.ui.LakeWorldVisibilityTest",
+            "tests": 3,
+            "timestamp": "2026-10-07T23:38:33.277Z"
+          },
+          {
+            "name": "dev.geode.ui.PresetLinkTest",
+            "tests": 9,
+            "timestamp": "2026-10-07T23:38:33.280Z"
+          },
+          {
+            "name": "dev.geode.ui.theme.LakeThemeMigrationTest",
+            "tests": 3,
+            "timestamp": "2026-10-07T23:38:33.293Z"
+          }
+        ]
+      },
+      "scenes": {
+        "totals": {
+          "tests": 11,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "suites": [
+          {
+            "name": "dev.geode.analysis.AnalysisFrameGateTest",
+            "tests": 5,
+            "timestamp": "2026-10-07T23:33:39.687Z"
+          },
+          {
+            "name": "dev.geode.analysis.AnalysisInputTest",
+            "tests": 3,
+            "timestamp": "2026-10-07T23:33:39.716Z"
+          },
+          {
+            "name": "dev.geode.analysis.AnalysisWorkerTest",
+            "tests": 3,
+            "timestamp": "2026-10-07T23:33:39.725Z"
+          }
+        ]
+      },
+      "audio-android": {
+        "totals": {
+          "tests": 0,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "suites": []
+      },
+      "audio-core": {
+        "totals": {
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "suites": [
+          {
+            "name": "dev.geode.engine.audio.FeatureRingTest",
+            "tests": 10,
+            "timestamp": "2026-10-07T23:33:38.476Z"
+          }
+        ]
+      }
+    }
+  },
+  "other_checks": {
+    "android_python_tests": 52,
+    "release_python_tests": 7,
+    "motion_field_cpp": "passed",
+    "mic_pcm_cpp": "passed",
+    "graphics_path_rebuild": "passed (both ABIs)"
+  },
+  "runtime_qa": "No Android emulator or connected-device runtime QA was executed."
+}

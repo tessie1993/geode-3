@@ -1,0 +1,248 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Geode UI 2.0 Wireframes</title><style>body{margin:0;background:#f7f8f2;font:16px system-ui;color:#203f45}header,footer{padding:20px 24px}h1{margin:0 0 12px;font-size:24px}p{max-width:1000px;line-height:1.6}nav{display:flex;gap:12px;flex-wrap:wrap}a{padding:14px 18px;background:#e0eee4;border:1px solid #9fbfb0;border-radius:10px;color:#254b3b;text-decoration:none}.canvas{overflow:auto;padding:0 0 20px}svg{display:block;min-width:1800px;width:100%}@media print{header,footer{display:none}.canvas{overflow:visible}svg{min-width:0}}</style><header><h1>Geode UI 2.0 — structure before implementation</h1><p>Five native Android destinations. The spatial Player is the home; labelled orbit navigation opens as a separate overlay. Every content screen retains its own state and one compact Player strip, with the navigation handle on the right. These wireframes show layout and readable controls; final lighting, transparent lenses and lake motion come from the scoped GPU world.</p><nav><a href="WIREFRAMES.svg">Open full-size vector</a><a href="BLUEPRINT.md">Implementation blueprint</a><a href="#player">Player</a><a href="#library">Library</a><a href="#visuals">Visuals</a><a href="#studio">Studio</a><a href="#settings">Settings</a></nav></header><div class="canvas"><svg xmlns="http://www.w3.org/2000/svg" width="2110" height="1040" viewBox="0 0 2110 1040" role="img" aria-labelledby="title desc">
+<title id="title">Geode UI 2.0 — five destination wireframes</title><desc id="desc">Player, Library, Visuals, Studio and Settings. Orbit navigation opens as a separate overlay. Content screens have one compact now playing strip with a navigation handle. Pale panels preserve text contrast over the natural lake environment.</desc>
+<rect x="0" y="0" width="2110" height="1040" rx="0" fill="#f7f8f2" stroke="#f7f8f2" opacity="1"/>
+<text x="24" y="38" font-family="Inter,Arial,sans-serif" font-size="23" fill="#203f45" font-weight="600" text-anchor="start">GEODE / UI 2.0 / NATIVE APP WIREFRAMES</text>
+<text x="24" y="65" font-family="Inter,Arial,sans-serif" font-size="14" fill="#6f8178" font-weight="400" text-anchor="start">Structure, hit regions and hierarchy — the world renderer uses real GPU geometry and lighting; these diagrams are not final artwork.</text>
+<g id="player" transform="translate(24,95)">
+<rect x="0" y="0" width="390" height="844" rx="26" fill="#dcece4" stroke="#86a4a4" opacity="1"/>
+<path d="M1 155 L52 128 L100 158 L152 124 L207 162 L282 132 L389 160 V230 H1Z" fill="#a6bcbc" opacity=".23"/>
+<path d="M1 205 Q95 177 200 210 T389 195 V325 H1Z" fill="#92acaa" opacity=".18"/>
+<path d="M18 700L373 700" stroke="#a1c3bb" stroke-width="1" fill="none" stroke-dasharray=""/>
+<text x="195" y="827" font-family="Inter,Arial,sans-serif" font-size="9" fill="#6c8985" font-weight="400" text-anchor="middle">SYSTEM GESTURE INSET</text>
+<text x="22" y="46" font-family="Inter,Arial,sans-serif" font-size="11" fill="#57817d" font-weight="600" text-anchor="start">GEODE</text>
+<text x="22" y="82" font-family="Inter,Arial,sans-serif" font-size="28" fill="#203f45" font-weight="600" text-anchor="start">Player</text>
+<text x="22" y="104" font-family="Inter,Arial,sans-serif" font-size="12" fill="#5a7776" font-weight="400" text-anchor="start">Music in a living landscape</text>
+<polygon points="195,212 253.5,238.25 270,296.75 234.0,357.5 162.75,362 120,305.0 135.0,245.75" fill="#b4e2ce" stroke="#539591"/>
+<path d="M195 212L162.75 362" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M120 305.0L270 296.75" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M135.0 245.75L234.0 357.5" stroke="#b8e5df" stroke-width="1" fill="none" stroke-dasharray=""/>
+<ellipse cx="195" cy="393" rx="55" ry="12" fill="#8bbdad" opacity=".26"/>
+<text x="195" y="442" font-family="Inter,Arial,sans-serif" font-size="11" fill="#66837a" font-weight="400" text-anchor="middle">Tap the geode to open orbit navigation</text>
+<rect x="20" y="466" width="350" height="94" rx="16" fill="#edf7ef" stroke="#91b1a6" opacity="1"/>
+<rect x="34" y="480" width="56" height="56" rx="10" fill="#bdd7cd" stroke="#9cbdb0" opacity="1"/>
+<text x="106" y="486" font-family="Inter,Arial,sans-serif" font-size="10" fill="#657e71" font-weight="400" text-anchor="start">NOW PLAYING</text>
+<text x="106" y="511" font-family="Inter,Arial,sans-serif" font-size="18" fill="#203f45" font-weight="600" text-anchor="start">01 dream set 2</text>
+<text x="106" y="539" font-family="Inter,Arial,sans-serif" font-size="11" fill="#657e71" font-weight="400" text-anchor="start">Nomad · Warehouse Raves 5</text>
+<rect x="20" y="575" width="350" height="132" rx="18" fill="#edf7ef" stroke="#91b1a6" opacity="1"/>
+<path d="M42 599L348 599" stroke="#aec4c4" stroke-width="3" fill="none" stroke-dasharray=""/>
+<path d="M42 599L143 599" stroke="#4c907e" stroke-width="3" fill="none" stroke-dasharray=""/>
+<text x="42" y="618" font-family="Inter,Arial,sans-serif" font-size="11" fill="#577467" font-weight="400" text-anchor="start">02:14</text>
+<text x="348" y="618" font-family="Inter,Arial,sans-serif" font-size="11" fill="#577467" font-weight="400" text-anchor="end">06:42</text>
+<circle cx="96" cy="653" r="24" fill="#e2f1e5" stroke="#6baaa8"/>
+<text x="96" y="658" font-family="Inter,Arial,sans-serif" font-size="18" fill="#203f45" font-weight="400" text-anchor="middle">◀</text>
+<circle cx="195" cy="653" r="24" fill="#e2f1e5" stroke="#6baaa8"/>
+<text x="195" y="658" font-family="Inter,Arial,sans-serif" font-size="18" fill="#203f45" font-weight="400" text-anchor="middle">Ⅱ</text>
+<circle cx="294" cy="653" r="24" fill="#e2f1e5" stroke="#6baaa8"/>
+<text x="294" y="658" font-family="Inter,Arial,sans-serif" font-size="18" fill="#203f45" font-weight="400" text-anchor="middle">▶</text>
+<text x="42" y="697" font-family="Inter,Arial,sans-serif" font-size="11" fill="#577467" font-weight="400" text-anchor="start">A–B</text>
+<text x="181" y="697" font-family="Inter,Arial,sans-serif" font-size="11" fill="#577467" font-weight="400" text-anchor="start">Auto off</text>
+<text x="348" y="697" font-family="Inter,Arial,sans-serif" font-size="11" fill="#577467" font-weight="400" text-anchor="end">Queue (4)</text>
+<rect x="20" y="718" width="350" height="30" rx="10" fill="#edf7ef" stroke="#91b1a6" opacity="1"/>
+<text x="195" y="738" font-family="Inter,Arial,sans-serif" font-size="11" fill="#577467" font-weight="400" text-anchor="middle">Live spectrum</text>
+<rect x="130" y="766" width="130" height="48" rx="12" fill="#f6faf7" stroke="#b2c6c4" opacity="1"/>
+<text x="195.0" y="796" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="400" text-anchor="middle">Navigate</text>
+</g>
+<g id="library" transform="translate(440,95)">
+<rect x="0" y="0" width="390" height="844" rx="26" fill="#dcece4" stroke="#86a4a4" opacity="1"/>
+<path d="M1 155 L52 128 L100 158 L152 124 L207 162 L282 132 L389 160 V230 H1Z" fill="#a6bcbc" opacity=".23"/>
+<path d="M1 205 Q95 177 200 210 T389 195 V325 H1Z" fill="#92acaa" opacity=".18"/>
+<path d="M18 700L373 700" stroke="#a1c3bb" stroke-width="1" fill="none" stroke-dasharray=""/>
+<text x="195" y="827" font-family="Inter,Arial,sans-serif" font-size="9" fill="#6c8985" font-weight="400" text-anchor="middle">SYSTEM GESTURE INSET</text>
+<text x="22" y="46" font-family="Inter,Arial,sans-serif" font-size="11" fill="#57817d" font-weight="600" text-anchor="start">GEODE</text>
+<text x="22" y="82" font-family="Inter,Arial,sans-serif" font-size="28" fill="#203f45" font-weight="600" text-anchor="start">Library</text>
+<text x="22" y="104" font-family="Inter,Arial,sans-serif" font-size="12" fill="#5a7776" font-weight="400" text-anchor="start">Tracks, collections and saved music</text>
+<text x="55.0" y="152" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="600" text-anchor="middle">Tracks</text>
+<path d="M26 168L84.0 168" stroke="#4f8b7f" stroke-width="3" fill="none" stroke-dasharray=""/>
+<text x="125.0" y="152" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="middle">Albums</text>
+<text x="195.0" y="152" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="middle">Artists</text>
+<text x="265.0" y="152" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="middle">Folders</text>
+<text x="335.0" y="152" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="middle">Playlists</text>
+<rect x="20" y="180" width="350" height="54" rx="12" fill="#f9fcf7" stroke="#98b8ac" opacity="1"/>
+<text x="38" y="213" font-family="Inter,Arial,sans-serif" font-size="14" fill="#5c796d" font-weight="400" text-anchor="start">Search titles, artists, albums</text>
+<rect x="20" y="246" width="350" height="48" rx="12" fill="#d9eee8" stroke="#57928d" opacity="1"/>
+<text x="195.0" y="276" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="600" text-anchor="middle">Sort: Title ⌄</text>
+<rect x="20" y="312" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="339" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">(I Wanna Give You) Dev…</text>
+<text x="34" y="360" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Nomad · Warehouse Raves 5</text>
+<text x="351" y="342" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">6:42</text>
+<rect x="20" y="394" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="421" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">00 · Funk Tribu &amp; Odym…</text>
+<text x="34" y="442" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Unknown · All My Music</text>
+<text x="351" y="424" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">3:20</text>
+<rect x="20" y="476" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="503" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">00 · HOEHENANGST…</text>
+<text x="34" y="524" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Unknown · All My Music</text>
+<text x="351" y="506" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">5:26</text>
+<rect x="20" y="558" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="585" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">02 · Lake reflections</text>
+<text x="34" y="606" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Example media metadata</text>
+<text x="351" y="588" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">4:18</text>
+<text x="25" y="676" font-family="Inter,Arial,sans-serif" font-size="11" fill="#547368" font-weight="400" text-anchor="start">Import and play collection controls stay contextual</text>
+<rect x="14" y="735" width="362" height="74" rx="18" fill="#edf7f1" stroke="#81aaa6" opacity="1"/>
+<text x="30" y="758" font-family="Inter,Arial,sans-serif" font-size="11" fill="#5b7771" font-weight="400" text-anchor="start">Now playing</text>
+<text x="30" y="781" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="600" text-anchor="start">01 dream set 2</text>
+<circle cx="283" cy="769" r="22" fill="#d7ece5" stroke="#6baaa8"/>
+<text x="283" y="776" font-family="Inter,Arial,sans-serif" font-size="20" fill="#203f45" font-weight="400" text-anchor="middle">Ⅱ</text>
+<polygon points="340,747 354.04,753.3 358,767.34 349.36,781.92 332.26,783 322,769.32 325.6,755.1" fill="#b4e2ce" stroke="#539591"/>
+<path d="M340 747L332.26 783" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M322 769.32L358 767.34" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M325.6 755.1L349.36 781.92" stroke="#b8e5df" stroke-width="1" fill="none" stroke-dasharray=""/>
+<text x="340" y="795" font-family="Inter,Arial,sans-serif" font-size="9" fill="#3d6662" font-weight="400" text-anchor="middle">Navigate</text>
+<path d="M30 798L308 798" stroke="#b6cdca" stroke-width="3" fill="none" stroke-dasharray=""/>
+<path d="M30 798L124 798" stroke="#4c8c82" stroke-width="3" fill="none" stroke-dasharray=""/>
+</g>
+<g id="visuals" transform="translate(856,95)">
+<rect x="0" y="0" width="390" height="844" rx="26" fill="#dcece4" stroke="#86a4a4" opacity="1"/>
+<path d="M1 155 L52 128 L100 158 L152 124 L207 162 L282 132 L389 160 V230 H1Z" fill="#a6bcbc" opacity=".23"/>
+<path d="M1 205 Q95 177 200 210 T389 195 V325 H1Z" fill="#92acaa" opacity=".18"/>
+<path d="M18 700L373 700" stroke="#a1c3bb" stroke-width="1" fill="none" stroke-dasharray=""/>
+<text x="195" y="827" font-family="Inter,Arial,sans-serif" font-size="9" fill="#6c8985" font-weight="400" text-anchor="middle">SYSTEM GESTURE INSET</text>
+<text x="22" y="46" font-family="Inter,Arial,sans-serif" font-size="11" fill="#57817d" font-weight="600" text-anchor="start">GEODE</text>
+<text x="22" y="82" font-family="Inter,Arial,sans-serif" font-size="28" fill="#203f45" font-weight="600" text-anchor="start">Visuals</text>
+<text x="22" y="104" font-family="Inter,Arial,sans-serif" font-size="12" fill="#5a7776" font-weight="400" text-anchor="start">Tunnel · One native preview</text>
+<rect x="20" y="124" width="350" height="132" rx="16" fill="#abc8c1" stroke="#80a49b" opacity="1"/>
+<path d="M20 227 Q80 149 195 217 T370 153" stroke="#d8f5e6" stroke-width="6" fill="none"/>
+<text x="38" y="150" font-family="Inter,Arial,sans-serif" font-size="10" fill="#203f45" font-weight="600" text-anchor="start">LIVE VISUALIZER PREVIEW</text>
+<rect x="255" y="268" width="115" height="48" rx="12" fill="#f6faf7" stroke="#b2c6c4" opacity="1"/>
+<text x="312.5" y="298" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="400" text-anchor="middle">View live</text>
+<text x="55.0" y="350" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="600" text-anchor="middle">Presets</text>
+<path d="M26 366L84.0 366" stroke="#4f8b7f" stroke-width="3" fill="none" stroke-dasharray=""/>
+<text x="125.0" y="350" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="middle">Styles</text>
+<text x="195.0" y="350" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="middle">Customize</text>
+<text x="265.0" y="350" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="middle">Textures</text>
+<text x="335.0" y="350" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="middle">Takes</text>
+<rect x="20" y="387" width="166" height="48" rx="12" fill="#f6faf7" stroke="#b2c6c4" opacity="1"/>
+<text x="103.0" y="417" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="400" text-anchor="middle">Import preset</text>
+<rect x="204" y="387" width="166" height="48" rx="12" fill="#f6faf7" stroke="#b2c6c4" opacity="1"/>
+<text x="287.0" y="417" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="400" text-anchor="middle">Video templates</text>
+<text x="24" y="456" font-family="Inter,Arial,sans-serif" font-size="13" fill="#203f45" font-weight="600" text-anchor="start">Built-in</text>
+<rect x="20" y="468" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="495" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">tunnel · Chill</text>
+<text x="34" y="516" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Built-in preset</text>
+<text x="351" y="498" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">▶</text>
+<rect x="20" y="549" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="576" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">tunnel · Punchy</text>
+<text x="34" y="597" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Built-in preset</text>
+<text x="351" y="579" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">▶</text>
+<rect x="20" y="630" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="657" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">tunnel · Hypno</text>
+<text x="34" y="678" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Built-in preset</text>
+<text x="351" y="660" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">▶</text>
+<rect x="14" y="735" width="362" height="74" rx="18" fill="#edf7f1" stroke="#81aaa6" opacity="1"/>
+<text x="30" y="758" font-family="Inter,Arial,sans-serif" font-size="11" fill="#5b7771" font-weight="400" text-anchor="start">Now playing</text>
+<text x="30" y="781" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="600" text-anchor="start">01 dream set 2</text>
+<circle cx="283" cy="769" r="22" fill="#d7ece5" stroke="#6baaa8"/>
+<text x="283" y="776" font-family="Inter,Arial,sans-serif" font-size="20" fill="#203f45" font-weight="400" text-anchor="middle">Ⅱ</text>
+<polygon points="340,747 354.04,753.3 358,767.34 349.36,781.92 332.26,783 322,769.32 325.6,755.1" fill="#b4e2ce" stroke="#539591"/>
+<path d="M340 747L332.26 783" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M322 769.32L358 767.34" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M325.6 755.1L349.36 781.92" stroke="#b8e5df" stroke-width="1" fill="none" stroke-dasharray=""/>
+<text x="340" y="795" font-family="Inter,Arial,sans-serif" font-size="9" fill="#3d6662" font-weight="400" text-anchor="middle">Navigate</text>
+<path d="M30 798L308 798" stroke="#b6cdca" stroke-width="3" fill="none" stroke-dasharray=""/>
+<path d="M30 798L124 798" stroke="#4c8c82" stroke-width="3" fill="none" stroke-dasharray=""/>
+</g>
+<g id="studio" transform="translate(1272,95)">
+<rect x="0" y="0" width="390" height="844" rx="26" fill="#dcece4" stroke="#86a4a4" opacity="1"/>
+<path d="M1 155 L52 128 L100 158 L152 124 L207 162 L282 132 L389 160 V230 H1Z" fill="#a6bcbc" opacity=".23"/>
+<path d="M1 205 Q95 177 200 210 T389 195 V325 H1Z" fill="#92acaa" opacity=".18"/>
+<path d="M18 700L373 700" stroke="#a1c3bb" stroke-width="1" fill="none" stroke-dasharray=""/>
+<text x="195" y="827" font-family="Inter,Arial,sans-serif" font-size="9" fill="#6c8985" font-weight="400" text-anchor="middle">SYSTEM GESTURE INSET</text>
+<text x="22" y="46" font-family="Inter,Arial,sans-serif" font-size="11" fill="#57817d" font-weight="600" text-anchor="start">GEODE</text>
+<text x="22" y="82" font-family="Inter,Arial,sans-serif" font-size="28" fill="#203f45" font-weight="600" text-anchor="start">Studio</text>
+<text x="22" y="104" font-family="Inter,Arial,sans-serif" font-size="12" fill="#5a7776" font-weight="400" text-anchor="start">Clips, timeline and export</text>
+<rect x="20" y="124" width="136" height="48" rx="12" fill="#f6faf7" stroke="#b2c6c4" opacity="1"/>
+<text x="88.0" y="154" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="400" text-anchor="middle">Timeline</text>
+<rect x="174" y="124" width="196" height="48" rx="12" fill="#f6faf7" stroke="#b2c6c4" opacity="1"/>
+<text x="272.0" y="154" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="400" text-anchor="middle">Open a video…</text>
+<rect x="20" y="193" width="350" height="119" rx="14" fill="#f2f7ed" stroke="#acbfae" opacity="1"/>
+<rect x="34" y="207" width="96" height="56" rx="8" fill="#bdd7cd" stroke="#9cbdb0" opacity="1"/>
+<text x="146" y="227" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="600" text-anchor="start">Lake session.mp4</text>
+<text x="146" y="252" font-family="Inter,Arial,sans-serif" font-size="12" fill="#5b7861" font-weight="400" text-anchor="start">00:14</text>
+<text x="44" y="294" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="start">Send</text>
+<text x="161" y="294" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="start">Rename</text>
+<text x="282" y="294" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="start">Delete</text>
+<rect x="20" y="328" width="350" height="119" rx="14" fill="#f2f7ed" stroke="#acbfae" opacity="1"/>
+<rect x="34" y="342" width="96" height="56" rx="8" fill="#bdd7cd" stroke="#9cbdb0" opacity="1"/>
+<text x="146" y="362" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="600" text-anchor="start">Morning light.mp4</text>
+<text x="146" y="387" font-family="Inter,Arial,sans-serif" font-size="12" fill="#5b7861" font-weight="400" text-anchor="start">00:32</text>
+<text x="44" y="429" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="start">Send</text>
+<text x="161" y="429" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="start">Rename</text>
+<text x="282" y="429" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="start">Delete</text>
+<rect x="20" y="463" width="350" height="119" rx="14" fill="#f2f7ed" stroke="#acbfae" opacity="1"/>
+<rect x="34" y="477" width="96" height="56" rx="8" fill="#bdd7cd" stroke="#9cbdb0" opacity="1"/>
+<text x="146" y="497" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="600" text-anchor="start">Dream set.mp4</text>
+<text x="146" y="522" font-family="Inter,Arial,sans-serif" font-size="12" fill="#5b7861" font-weight="400" text-anchor="start">01:08</text>
+<text x="44" y="564" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="start">Send</text>
+<text x="161" y="564" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="start">Rename</text>
+<text x="282" y="564" font-family="Inter,Arial,sans-serif" font-size="12" fill="#203f45" font-weight="400" text-anchor="start">Delete</text>
+<text x="195" y="631" font-family="Inter,Arial,sans-serif" font-size="11" fill="#547368" font-weight="400" text-anchor="middle">Timeline and clip editing open separate pages</text>
+<rect x="14" y="735" width="362" height="74" rx="18" fill="#edf7f1" stroke="#81aaa6" opacity="1"/>
+<text x="30" y="758" font-family="Inter,Arial,sans-serif" font-size="11" fill="#5b7771" font-weight="400" text-anchor="start">Now playing</text>
+<text x="30" y="781" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="600" text-anchor="start">01 dream set 2</text>
+<circle cx="283" cy="769" r="22" fill="#d7ece5" stroke="#6baaa8"/>
+<text x="283" y="776" font-family="Inter,Arial,sans-serif" font-size="20" fill="#203f45" font-weight="400" text-anchor="middle">Ⅱ</text>
+<polygon points="340,747 354.04,753.3 358,767.34 349.36,781.92 332.26,783 322,769.32 325.6,755.1" fill="#b4e2ce" stroke="#539591"/>
+<path d="M340 747L332.26 783" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M322 769.32L358 767.34" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M325.6 755.1L349.36 781.92" stroke="#b8e5df" stroke-width="1" fill="none" stroke-dasharray=""/>
+<text x="340" y="795" font-family="Inter,Arial,sans-serif" font-size="9" fill="#3d6662" font-weight="400" text-anchor="middle">Navigate</text>
+<path d="M30 798L308 798" stroke="#b6cdca" stroke-width="3" fill="none" stroke-dasharray=""/>
+<path d="M30 798L124 798" stroke="#4c8c82" stroke-width="3" fill="none" stroke-dasharray=""/>
+</g>
+<g id="settings" transform="translate(1688,95)">
+<rect x="0" y="0" width="390" height="844" rx="26" fill="#dcece4" stroke="#86a4a4" opacity="1"/>
+<path d="M1 155 L52 128 L100 158 L152 124 L207 162 L282 132 L389 160 V230 H1Z" fill="#a6bcbc" opacity=".23"/>
+<path d="M1 205 Q95 177 200 210 T389 195 V325 H1Z" fill="#92acaa" opacity=".18"/>
+<path d="M18 700L373 700" stroke="#a1c3bb" stroke-width="1" fill="none" stroke-dasharray=""/>
+<text x="195" y="827" font-family="Inter,Arial,sans-serif" font-size="9" fill="#6c8985" font-weight="400" text-anchor="middle">SYSTEM GESTURE INSET</text>
+<text x="22" y="46" font-family="Inter,Arial,sans-serif" font-size="11" fill="#57817d" font-weight="600" text-anchor="start">GEODE</text>
+<text x="22" y="82" font-family="Inter,Arial,sans-serif" font-size="28" fill="#203f45" font-weight="600" text-anchor="start">Settings</text>
+<text x="22" y="104" font-family="Inter,Arial,sans-serif" font-size="12" fill="#5a7776" font-weight="400" text-anchor="start">Make Geode feel yours</text>
+<rect x="20" y="125" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="152" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">Look</text>
+<text x="34" y="173" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Materials, text and layout</text>
+<text x="351" y="155" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">›</text>
+<rect x="20" y="207" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="234" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">Audio</text>
+<text x="34" y="255" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Playback, equalizer and live input</text>
+<text x="351" y="237" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">›</text>
+<rect x="20" y="289" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="316" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">Export</text>
+<text x="34" y="337" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Format, quality and saved defaults</text>
+<text x="351" y="319" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">›</text>
+<rect x="20" y="371" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="398" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">Folders</text>
+<text x="34" y="419" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Music sources, presets and cache</text>
+<text x="351" y="401" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">›</text>
+<rect x="20" y="453" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="480" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">Behavior</text>
+<text x="34" y="501" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Interaction, safety and display</text>
+<text x="351" y="483" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">›</text>
+<rect x="20" y="535" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="562" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">Help</text>
+<text x="34" y="583" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Tutorial and practical guidance</text>
+<text x="351" y="565" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">›</text>
+<rect x="20" y="617" width="350" height="72" rx="12" fill="#f2f8f3" stroke="#c5d6d0" opacity="1"/>
+<text x="34" y="644" font-family="Inter,Arial,sans-serif" font-size="15" fill="#203f45" font-weight="500" text-anchor="start">About</text>
+<text x="34" y="665" font-family="Inter,Arial,sans-serif" font-size="11" fill="#667d75" font-weight="400" text-anchor="start">Version, licenses and privacy</text>
+<text x="351" y="647" font-family="Inter,Arial,sans-serif" font-size="13" fill="#4d7169" font-weight="400" text-anchor="end">›</text>
+<rect x="14" y="735" width="362" height="74" rx="18" fill="#edf7f1" stroke="#81aaa6" opacity="1"/>
+<text x="30" y="758" font-family="Inter,Arial,sans-serif" font-size="11" fill="#5b7771" font-weight="400" text-anchor="start">Now playing</text>
+<text x="30" y="781" font-family="Inter,Arial,sans-serif" font-size="14" fill="#203f45" font-weight="600" text-anchor="start">01 dream set 2</text>
+<circle cx="283" cy="769" r="22" fill="#d7ece5" stroke="#6baaa8"/>
+<text x="283" y="776" font-family="Inter,Arial,sans-serif" font-size="20" fill="#203f45" font-weight="400" text-anchor="middle">Ⅱ</text>
+<polygon points="340,747 354.04,753.3 358,767.34 349.36,781.92 332.26,783 322,769.32 325.6,755.1" fill="#b4e2ce" stroke="#539591"/>
+<path d="M340 747L332.26 783" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M322 769.32L358 767.34" stroke="#91c8c1" stroke-width="1" fill="none" stroke-dasharray=""/>
+<path d="M325.6 755.1L349.36 781.92" stroke="#b8e5df" stroke-width="1" fill="none" stroke-dasharray=""/>
+<text x="340" y="795" font-family="Inter,Arial,sans-serif" font-size="9" fill="#3d6662" font-weight="400" text-anchor="middle">Navigate</text>
+<path d="M30 798L308 798" stroke="#b6cdca" stroke-width="3" fill="none" stroke-dasharray=""/>
+<path d="M30 798L124 798" stroke="#4c8c82" stroke-width="3" fill="none" stroke-dasharray=""/>
+</g>
+<text x="24" y="980" font-family="Inter,Arial,sans-serif" font-size="13" fill="#203f45" font-weight="600" text-anchor="start">01 / SPATIAL HOME</text>
+<text x="440" y="980" font-family="Inter,Arial,sans-serif" font-size="13" fill="#203f45" font-weight="600" text-anchor="start">02 / LIBRARY</text>
+<text x="856" y="980" font-family="Inter,Arial,sans-serif" font-size="13" fill="#203f45" font-weight="600" text-anchor="start">03 / VISUALS</text>
+<text x="1272" y="980" font-family="Inter,Arial,sans-serif" font-size="13" fill="#203f45" font-weight="600" text-anchor="start">04 / STUDIO</text>
+<text x="1688" y="980" font-family="Inter,Arial,sans-serif" font-size="13" fill="#203f45" font-weight="600" text-anchor="start">05 / SETTINGS</text>
+<text x="24" y="1007" font-family="Inter,Arial,sans-serif" font-size="14" fill="#59786c" font-weight="400" text-anchor="start">48 dp minimum semantic targets · readable pale surface · visible labels · saved screen state · one foreground renderer</text>
+</svg></div><footer><p><strong>Navigation:</strong> the geode handle opens labelled orbit navigation; track metadata opens Player; play/pause acts without navigating. Back dismisses the top overlay first, then leaves a nested page, then returns to Player. Export, search and modal panels suspend environmental effects when they obscure them.</p><p><strong>Blueprint companion:</strong> feature parity, overlay ownership, component contracts, state restoration, rendering ownership, asset inventory and clean-switch gates are documented in BLUEPRINT.md.</p></footer></html>

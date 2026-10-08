@@ -12,14 +12,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Send
+import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -36,9 +46,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -48,8 +60,11 @@ import dev.geode.export.ClipLook
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
 import dev.geode.export.StudioClip
+import dev.geode.ui.lake.LakeScreenHeader
 import dev.geode.ui.studio.EditorActions
 import dev.geode.ui.studio.TimelineEditor
+import dev.geode.ui.theme.LocalThemePack
+import dev.geode.ui.theme.isLivingLake
 import kotlin.math.roundToInt
 
 @Composable
@@ -85,6 +100,7 @@ internal fun StudioScreen(
     onClearResult: () -> Unit,
 ) {
     val context = LocalContext.current
+    val livingLake = LocalThemePack.current.isLivingLake
     var editingUri by rememberSaveable { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<StudioClip?>(null) }
     var timelineOpen by rememberSaveable { mutableStateOf(false) }
@@ -112,16 +128,25 @@ internal fun StudioScreen(
 
     val chooserTitle = stringResource(R.string.studio_share_chooser)
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
-            CrystalOverline(stringResource(R.string.app_name))
-            GlowTitle(
-                stringResource(if (editing == null) R.string.nav_studio else R.string.studio_edit),
+        if (livingLake) {
+            LakeScreenHeader(
+                title = stringResource(if (editing == null) R.string.nav_studio else R.string.studio_edit),
+                subtitle = stringResource(R.string.ui2_screen_studio_subtitle),
             )
+        } else {
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+                CrystalOverline(stringResource(R.string.app_name))
+                GlowTitle(
+                    stringResource(if (editing == null) R.string.nav_studio else R.string.studio_edit),
+                )
+            }
         }
         val clip = editing
         if (clip == null) {
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                CrystalButton(filled = false, onClick = { timelineOpen = true }) { Text(stringResource(R.string.editor_open)) }
+            if (!livingLake) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    CrystalButton(filled = false, onClick = { timelineOpen = true }) { Text(stringResource(R.string.editor_open)) }
+                }
             }
             ClipLibrary(
                 studio = state,
@@ -130,6 +155,7 @@ internal fun StudioScreen(
                     editingUri = it.uri
                 },
                 onPick = { picker.launch(arrayOf("video/*")) },
+                onOpenTimeline = { timelineOpen = true },
                 onShare = { context.shareVideo(it, chooserTitle) },
                 onRename = { target, name, done -> onRename(target.uri, name, done) },
                 onDelete = { target, done -> onDelete(target.uri, done) },
@@ -158,6 +184,7 @@ private fun ClipLibrary(
     studio: StudioUiState,
     onOpen: (StudioClip) -> Unit,
     onPick: () -> Unit,
+    onOpenTimeline: () -> Unit,
     onShare: (Uri) -> Unit,
     onRename: (StudioClip, String, (Boolean) -> Unit) -> Unit,
     onDelete: (StudioClip, (Boolean) -> Unit) -> Unit,
@@ -171,6 +198,7 @@ private fun ClipLibrary(
         studio = studio,
         onOpen = onOpen,
         onPick = onPick,
+        onOpenTimeline = onOpenTimeline,
         onShare = onShare,
         onRenameRequest = { renaming = it },
         onDeleteRequest = { deleting = it },
@@ -208,6 +236,7 @@ private fun ClipList(
     studio: StudioUiState,
     onOpen: (StudioClip) -> Unit,
     onPick: () -> Unit,
+    onOpenTimeline: () -> Unit,
     onShare: (Uri) -> Unit,
     onRenameRequest: (StudioClip) -> Unit,
     onDeleteRequest: (StudioClip) -> Unit,
@@ -218,14 +247,18 @@ private fun ClipList(
         contentPadding = PaddingValues(vertical = 12.dp),
     ) {
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CrystalButton(onClick = onPick) { Text(stringResource(R.string.studio_open_video)) }
+            if (LocalThemePack.current.isLivingLake) {
+                StudioLibraryToolbar(onOpenTimeline = onOpenTimeline, onPick = onPick)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CrystalButton(onClick = onPick) { Text(stringResource(R.string.studio_open_video)) }
+                }
             }
         }
         if (studio.clips.isEmpty() && studio.phase != ExportPhase.Loading) {
             item { ClipLibraryEmpty() }
         }
-        items(studio.clips.size) { index ->
+        items(studio.clips.size, key = { studio.clips[it].uri }) { index ->
             val clip = studio.clips[index]
             ClipRow(
                 clip = clip,
@@ -242,21 +275,51 @@ private fun ClipList(
 }
 
 @Composable
+private fun StudioLibraryToolbar(
+    onOpenTimeline: () -> Unit,
+    onPick: () -> Unit,
+) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        CrystalButton(filled = false, compact = true, onClick = onOpenTimeline) {
+            Icon(Icons.Outlined.Timeline, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.editor_open))
+        }
+        CrystalButton(filled = false, compact = true, onClick = onPick) {
+            Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.studio_open_video))
+        }
+    }
+}
+
+@Composable
 private fun ClipLibraryEmpty() {
+    val livingLake = LocalThemePack.current.isLivingLake
     Column(
         Modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.32f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 20.dp,
-            ).padding(8.dp)
-            .jellyMatteSheet(corner = 12.dp)
-            .padding(12.dp),
+            .then(
+                if (livingLake) {
+                    Modifier.jellyMatteSheet(corner = 20.dp)
+                } else {
+                    Modifier
+                        .crystalPanel(
+                            0.32f,
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            MaterialTheme.colorScheme.primary,
+                            corner = 20.dp,
+                        ).padding(8.dp)
+                        .jellyMatteSheet(corner = 12.dp)
+                },
+            ).padding(if (livingLake) 16.dp else 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        CrystalOverline(stringResource(R.string.studio_empty_title))
+        if (livingLake) {
+            Text(stringResource(R.string.studio_empty_title), style = MaterialTheme.typography.titleSmall)
+        } else {
+            CrystalOverline(stringResource(R.string.studio_empty_title))
+        }
         Text(
             stringResource(R.string.studio_empty_body),
             style = MaterialTheme.typography.bodyMedium,
@@ -272,31 +335,46 @@ private fun ClipRow(
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val livingLake = LocalThemePack.current.isLivingLake
     Column(
         Modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.28f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 18.dp,
-                glowStrength = 0.4f,
-            ).clickable(onClick = onOpen)
-            .padding(10.dp),
+            .then(
+                if (livingLake) {
+                    Modifier.jellyMatteSheet(corner = 20.dp)
+                } else {
+                    Modifier.crystalPanel(
+                        0.28f,
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        MaterialTheme.colorScheme.primary,
+                        corner = 18.dp,
+                        glowStrength = 0.4f,
+                    )
+                },
+            ).clickable(role = Role.Button, onClick = onOpen)
+            .padding(if (livingLake) 12.dp else 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            VideoFrame(clip.uri, atMs = clip.durationMs / 3, modifier = Modifier.width(96.dp).height(56.dp))
+            VideoFrame(
+                clip.uri,
+                atMs = clip.durationMs / 3,
+                modifier =
+                    Modifier
+                        .width(if (livingLake) 108.dp else 96.dp)
+                        .height(if (livingLake) 68.dp else 56.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+            )
             Column(
                 Modifier
                     .weight(1f)
                     .padding(start = 12.dp)
-                    .jellyMatteSheet(corner = 12.dp)
-                    .padding(8.dp),
+                    .then(if (livingLake) Modifier else Modifier.jellyMatteSheet(corner = 12.dp).padding(8.dp)),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
                     clip.name,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = if (livingLake) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -304,13 +382,33 @@ private fun ClipRow(
                     clip.summary(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = onShare) { Text(stringResource(R.string.studio_send)) }
-            TextButton(onClick = onRename) { Text(stringResource(R.string.action_rename)) }
-            TextButton(onClick = onDelete) { Text(stringResource(R.string.action_delete)) }
+            TextButton(onClick = onShare) {
+                if (livingLake) {
+                    Icon(Icons.Outlined.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(stringResource(R.string.studio_send))
+            }
+            TextButton(onClick = onRename) {
+                if (livingLake) {
+                    Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(stringResource(R.string.action_rename))
+            }
+            TextButton(onClick = onDelete) {
+                if (livingLake) {
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(stringResource(R.string.action_delete))
+            }
         }
     }
 }
@@ -401,7 +499,7 @@ private fun ClipEditor(
     onClearResult: () -> Unit,
     onClose: () -> Unit,
 ) {
-    var edit by remember(clip.uri) { mutableStateOf(ClipEdit()) }
+    var edit by rememberSaveable(clip.uri, stateSaver = ClipEditSaver) { mutableStateOf(ClipEdit()) }
     val duration = clip.durationMs.coerceAtLeast(1L)
     val dismiss = rememberPredictiveDismiss(onDismiss = onClose)
     // Mirrors ExportHost's destination picker: below API 29 StudioExporter.publish cannot insert
@@ -412,17 +510,19 @@ private fun ClipEditor(
         }
 
     LazyColumn(
-        Modifier.fillMaxSize().dismissTransform(dismiss).padding(horizontal = 16.dp),
+        Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = PaddingValues(vertical = 12.dp),
     ) {
         item {
-            ClipEditorHeader(
-                clip = clip,
-                resettable = !edit.isIdentity(duration),
-                onReset = { edit = ClipEdit() },
-                onClose = onClose,
-            )
+            Column(Modifier.dismissTransform(dismiss)) {
+                ClipEditorHeader(
+                    clip = clip,
+                    resettable = !edit.isIdentity(duration),
+                    onReset = { edit = ClipEdit() },
+                    onClose = onClose,
+                )
+            }
         }
         item { ClipEditorPreview(clip = clip, edit = edit) }
         item { ClipCutSection(clip = clip, edit = edit, duration = duration, onEdit = { edit = it }) }
@@ -797,21 +897,32 @@ private fun StudioSection(
     title: String,
     content: @Composable () -> Unit,
 ) {
+    val livingLake = LocalThemePack.current.isLivingLake
     Column(
         Modifier
             .fillMaxWidth()
-            .crystalPanel(
-                0.28f,
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.primary,
-                corner = 20.dp,
-                glowStrength = 0.45f,
-            ).padding(7.dp)
-            .jellyMatteSheet(corner = 13.dp)
-            .padding(12.dp),
+            .then(
+                if (livingLake) {
+                    Modifier.jellyMatteSheet(corner = 20.dp)
+                } else {
+                    Modifier
+                        .crystalPanel(
+                            0.28f,
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            MaterialTheme.colorScheme.primary,
+                            corner = 20.dp,
+                            glowStrength = 0.45f,
+                        ).padding(7.dp)
+                        .jellyMatteSheet(corner = 13.dp)
+                },
+            ).padding(if (livingLake) 16.dp else 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        CrystalOverline(title)
+        if (livingLake) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+        } else {
+            CrystalOverline(title)
+        }
         content()
     }
 }

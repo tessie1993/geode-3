@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 1,
+  "designSystem": "Geode UI 2.0 — Dawn Lake",
+  "updated": "2026-10-08",
+  "assetPolicy": {
+    "rasterEnvironment": "Original generated portrait matte; no UI controls, geode, particles, or interface text are baked into the environment.",
+    "runtimeSpatialAssets": "The water surface, geode, lens navigation and effect response are drawn at runtime.",
+    "sourceOfTruth": "Generated environment belongs to this repository; shader and vector assets are defined in their source files.",
+    "finality": "Original environment PNGs are generated and inspected. The UI and procedural world are integrated onto main fa75ced697c45ba091b552200c40f78e9ad92392; current build, tests, lint and shader captures are pending GitHub Actions. Android visual, interaction and physical-device performance validation remains pending."
+  },
+  "assets": [
+    {
+      "id": "ui2_lake_dawn",
+      "status": "ready",
+      "path": "app/src/main/res/drawable-nodpi/ui2_lake_dawn.png",
+      "androidResource": "R.drawable.ui2_lake_dawn",
+      "role": "Distant environment matte and static fallback",
+      "format": "PNG",
+      "colorMode": "RGB",
+      "dimensions": {
+        "width": 1024,
+        "height": 1536
+      },
+      "bytes": 2020956,
+      "sha256": "ec08f2a34602ddc850cc98151f056facd2f5d7e3495580800262a8db6fbb89bf",
+      "alpha": false,
+      "provenance": {
+        "type": "original_image_generation",
+        "tool": "Built-in image_gen",
+        "useCase": "photorealistic-natural",
+        "sourceImage": "Attached video frame 00, used only as a composition and atmosphere reference",
+        "sourceFrameWorkspacePath": "/workspace/scratch/fae6a67bd01c/analysis/video-00.jpg",
+        "generatedOriginalWorkspacePath": "/workspace/scratch/fae6a67bd01c/generated_images/exec-785fa1f2-13e9-4401-a4cb-8fb701cc2fc4.png",
+        "prompt": "Use case: photorealistic-natural\nAsset type: Original portrait environment matte for a high-end native Android 3D music player. This is scenery only, not a UI mockup.\nPrimary request: An immaculate natural dawn lake environment inspired by the supplied reference's quiet blue-gray mist, layered forested hills, and subtle freshwater reflections.\nScene/backdrop: A calm still freshwater lake, distant soft layers of forested mountains, small wisps of mist over the water. Near the bottom edge: understated damp gray stones, a little moss, restrained natural ferns at lower corners. The center of the lake is empty and unobstructed.\nStyle/medium: Photorealistic AAA environment render, physically plausible natural materials, refined cinematic art direction, restrained detail and realistic scale.\nComposition/framing: Portrait 1024 by 1536 pixels. Horizontally level lake horizon approximately 40 percent from the top. Upper 35 percent is clean pale blue-gray open sky with a few delicate diffuse clouds. Mountain silhouettes occupy the distant horizontal band. A large calm readable empty water area fills the middle and lower-middle. Shore detail is confined to bottom 12 percent and the extreme bottom corners. Eye-level viewpoint from lake shore, straight camera without perspective exaggeration.\nLighting/mood: Gentle overcast early dawn, no visible sun, cool pearl-blue daylight with a subtle neutral warm dawn tone near the horizon. Soft atmospheric depth and smooth natural reflections. Bright and breathable enough for deep charcoal text to remain legible.\nColor palette: Pale pearl blue, cool slate blue, muted stone gray, restrained natural green. Medium-light luminance overall.\nMaterials/textures: Physically believable lake reflections, tiny low-amplitude ripples, wet stone microtexture, softly lit moss and fern fronds.\nConstraints: No geode, no central rock, no floating objects, no controls, no interfaces, no text, no logo, no watermark, no particles, no surreal architecture. Do not darken with a vignette. This asset will sit behind separately rendered true 3D geode and glass lenses; leave the water area quiet and uncluttered. Do not imitate the black UI from the screenshots."
+      },
+      "validation": {
+        "inspection": "Passed: pale open sky, level lake, misty forest depth, natural shore, quiet central water area; no UI text, no controls, no central geode.",
+        "encoding": "Copied original PNG without resizing or visual postprocessing.",
+        "runtimeIntegration": "Earlier-base software captures selected this original asset. Current-candidate shader and Android composition validation are pending GitHub Actions and device evidence."
+      },
+      "runtimeConsumption": {
+        "nativeResource": "R.drawable.ui2_lake_dawn",
+        "consumer": "app/src/main/java/dev/geode/ui/world/LakeWorldRenderer.kt",
+        "decode": "inScaled=false; inSampleSize=2; CPU bitmap recycled after GL texture upload",
+        "gpuDimensions": {
+          "width": 512,
+          "height": 768
+        },
+        "usage": "Direction-sampled sky/far-shore, world-projected water-bed/near-shore colors, static native fallback",
+        "responsiveIntegration": "Portrait selected for tall/square GL surfaces; landscape selected for wide GL surfaces. Native still fallbacks select by actual available bounds. Texture replacement occurs on the GL thread when the selected scene changes."
+      }
+    },
+    {
+      "id": "ui2_lake_dawn_landscape",
+      "status": "ready",
+      "path": "app/src/main/res/drawable-nodpi/ui2_lake_dawn_landscape.png",
+      "androidResource": "R.drawable.ui2_lake_dawn_landscape",
+      "role": "Original landscape distant environment and wide-layout static fallback",
+      "format": "PNG",
+      "colorMode": "RGB",
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      },
+      "bytes": 2176999,
+      "sha256": "82fe8db3217559c4069d11f54ef5d011b2f9f8daca024ae0b947c45328484716",
+      "alpha": false,
+      "horizonTopOriginApproximate": 0.443,
+      "runtimeConsumption": {
+        "nativeResource": "R.drawable.ui2_lake_dawn_landscape",
+        "consumer": "app/src/main/java/dev/geode/ui/world/LakeWorldRenderer.kt",
+        "decode": "inScaled=false; inSampleSize=2; CPU bitmap recycled after GL texture upload",
+        "gpuDimensions": {
+          "width": 768,
+          "height": 512
+        },
+        "usage": "Calibrated wide distant environment, world-projected near shore, native still fallback",
+        "responsiveIntegration": "Selected only for wide surfaces; texture is replaced cleanly on the GL thread when orientation selection changes."
+      },
+      "provenance": {
+        "type": "original_image_generation",
+        "tool": "Built-in image_gen",
+        "useCase": "photorealistic-natural",
+        "referenceImages": [
+          "app/src/main/res/drawable-nodpi/ui2_lake_dawn.png",
+          "Attached video frame 00, used only for atmosphere"
+        ],
+        "generatedOriginalWorkspacePath": "/workspace/scratch/fae6a67bd01c/generated_images/exec-e4ceb16a-b614-4392-bf5d-5bb5b749117e.png",
+        "prompt": "Use case: photorealistic-natural\nAsset type: Original landscape environment matte for the same native 3D dawn-lake world as the supplied portrait reference. Generate a newly composed matching landscape scene; do not resize, crop, stretch or merely extend the portrait.\nPrimary request: A calm blue-gray natural lake at dawn, immaculate photorealistic AAA environment render, matching the portrait's exact cool pearl-blue light, misty wooded hills, restrained muted green vegetation, pale pink-neutral dawn horizon, and realistic shallow fresh water.\nInput images: Image 1 is the already generated portrait environment, used for lighting, color palette and natural materials only; Image 2 is a frame of the user's video, used for atmosphere and quiet environmental depth only.\nScene/backdrop: A still natural freshwater lake bordered by soft layers of forested mountain hills and low wisps of dawn mist. Near the bottom edge are understated damp gray stones, a little moss and restrained ferns at the lower corners. The center and wide middle remain empty and unobstructed.\nStyle/medium: Refined photorealistic environment render with physically plausible lighting, natural scale and coherent perspective. Real stone and fern textures.\nComposition/framing: Landscape 1536 by 1024 pixels. Level horizon about 40 percent from the top. Upper 35 percent is clean pale blue-gray sky with sparse diffuse dawn clouds. Layered forested mountains form a distant horizontal band. Wide calm water fills the middle and lower-middle. Shore detail stays inside the bottom 12 percent and extreme lower corners. Eye-level viewpoint from lake shore, straight level camera, no fisheye, no dramatic wide-angle distortion.\nLighting/mood: Quiet soft early dawn, gentle diffuse cool daylight, no visible sun, no dramatic directional shafts. Bright breathable medium-light luminance without becoming washed out.\nColor palette: Match the supplied portrait: pale pearl blue, muted slate blue, neutral gray stone, restrained natural green and a tiny neutral dawn warmth near the horizon.\nMaterials/textures: Soft small freshwater ripples, natural reflected mist and forests, believable wet stones, natural moss and fern fronds.\nConstraints: This asset is scenery only. No geode, no central rock, no floating object, no interface, no control, no icon, no text, no logo, no particles, no light filaments, no watermark, no dark vignette, no surreal architecture. Do not bake any interaction state into it. Keep empty readable space across the lake for separately rendered real 3D geode and navigation lenses."
+      },
+      "validation": {
+        "inspection": "Passed: matches portrait dawn light/materials; wide quiet lake, level far shore, natural stones/moss/ferns, no baked geode/control/text.",
+        "encoding": "Exact generated original PNG copied without resizing, cropping, stretching or visual postprocessing.",
+        "runtimeIntegration": "Earlier-base software captures selected this original asset. Current-candidate shader and Android composition validation are pending GitHub Actions and device evidence."
+      }
+    }
+  ],
+  "proceduralFamilies": [
+    {
+      "id": "lake_surface",
+      "role": "View-dependent water shading, fine ripples and touch waves",
+      "status": "implemented_current_validation_pending",
+      "owner": "world_renderer",
+      "source": "app/src/main/assets/ui2/world_frag.glsl",
+      "additionalSources": [
+        "app/src/main/java/dev/geode/ui/world/NativeWorldBackdrop.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldView.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldRenderer.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldShaderProgram.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldSceneSnapshot.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldAudioMailbox.kt"
+      ],
+      "validation": "Source implementation is present. Earlier software render reports apply only to their recorded shader hash; current-candidate GLES and Android results are pending GitHub Actions.",
+      "implementation": "Perspective ray-plane water; procedural wave normals; independent environment/geode reflection; projected near-shore colors and damped onset ripple."
+    },
+    {
+      "id": "geode",
+      "role": "Three-dimensional central anchor with mineral surface, illumination and depth",
+      "status": "implemented_current_validation_pending",
+      "owner": "world_renderer",
+      "source": "app/src/main/assets/ui2/world_frag.glsl",
+      "additionalSources": [
+        "app/src/main/java/dev/geode/ui/world/NativeWorldBackdrop.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldView.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldRenderer.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldShaderProgram.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldSceneSnapshot.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldAudioMailbox.kt"
+      ],
+      "validation": "Source implementation is present. Earlier software render reports apply only to their recorded shader hash; current-candidate GLES and Android results are pending GitHub Actions.",
+      "implementation": "Raymarched leaning chipped shell, six fracture planes, tall scooped cavity, three faceted quartz volumes, object-local gray/moss mineral grain, restrained cyan seams, wet base and water reflection; conservative hero bounds and unchanged 48-step march budget."
+    },
+    {
+      "id": "navigation_lenses",
+      "role": "Three-dimensional orbital navigation with selection and touch response",
+      "status": "implemented_current_validation_pending",
+      "owner": "world_renderer",
+      "source": "app/src/main/assets/ui2/world_frag.glsl",
+      "additionalSources": [
+        "app/src/main/java/dev/geode/ui/world/NativeWorldBackdrop.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldView.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldRenderer.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldShaderProgram.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldSceneSnapshot.kt",
+        "app/src/main/java/dev/geode/ui/lake/LakeNavigation.kt"
+      ],
+      "validation": "Source implementation is present. Earlier software render reports apply only to their recorded shader hash; current-candidate GLES and Android results are pending GitHub Actions.",
+      "implementation": "Analytical sphere entry/exit refraction with a shared index, actual exit point/thickness and Fresnel; measured native anchors, bounded five-anchor upload; Player uses real mineral volume rather than a duplicate sphere."
+    },
+    {
+      "id": "spatial_atmosphere",
+      "role": "Depth fog, soft light and restrained particles",
+      "status": "implemented_current_validation_pending",
+      "owner": "world_renderer",
+      "source": "app/src/main/assets/ui2/world_frag.glsl",
+      "additionalSources": [
+        "app/src/main/java/dev/geode/ui/world/NativeWorldBackdrop.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldView.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldRenderer.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldShaderProgram.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldSceneSnapshot.kt"
+      ],
+      "validation": "Source implementation is present. Earlier software render reports apply only to their recorded shader hash; current-candidate GLES and Android results are pending GitHub Actions.",
+      "implementation": "Direction-sampled distant mist/sky and bounded soft orbit motes; no imported particle sprites."
+    },
+    {
+      "id": "interaction_effects",
+      "role": "Water impulse, focus light and navigation transition response",
+      "status": "implemented_current_validation_pending",
+      "owner": "world_renderer",
+      "source": "app/src/main/assets/ui2/world_frag.glsl",
+      "additionalSources": [
+        "app/src/main/java/dev/geode/ui/world/NativeWorldBackdrop.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldView.kt",
+        "app/src/main/java/dev/geode/ui/world/LakeWorldRenderer.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldShaderProgram.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldSceneSnapshot.kt",
+        "app/src/main/java/dev/geode/ui/theme/StoneSurface.kt",
+        "app/src/main/java/dev/geode/ui/TidalGlass.kt",
+        "app/src/main/java/dev/geode/ui/world/WorldAudioMailbox.kt"
+      ],
+      "validation": "Source implementation is present. Earlier software render reports apply only to their recorded shader hash; current-candidate GLES and Android results are pending GitHub Actions.",
+      "implementation": "Four bounded curved world-space filaments connect the geode to route nodes, eight segments per path; independent beat/transient edges retained in a constant-size mailbox and consumed once; native press ripple and reduced-motion-aware orbit chrome reveal."
+    },
+    {
+      "id": "glass_components",
+      "role": "Reusable panels, buttons, slider and transport control material",
+      "status": "implemented_current_validation_pending",
+      "owner": "component_kit",
+      "source": "app/src/main/java/dev/geode/ui/lake/LakeMaterials.kt",
+      "additionalSources": [
+        "app/src/main/java/dev/geode/ui/theme/LakeThemePack.kt",
+        "app/src/main/java/dev/geode/ui/Crystal.kt",
+        "app/src/main/java/dev/geode/ui/CrystalControls.kt",
+        "app/src/main/java/dev/geode/ui/JellyMatte.kt",
+        "app/src/main/java/dev/geode/ui/PlayerPanels.kt",
+        "app/src/main/java/dev/geode/ui/lake/LakeScreenHeader.kt",
+        "app/src/main/java/dev/geode/ui/lake/LakeSearchField.kt",
+        "app/src/main/java/dev/geode/ui/lake/LakeNavigation.kt"
+      ],
+      "validation": "Shared kit is integrated onto newest main and refined for the current candidate; current build/material contrast tests and Android visual/accessibility evidence are pending.",
+      "implementation": "Pale readable frost, shallow optical/contact edges, framed actual artwork, native search input, selected tab underline and 48 dp transport actions; shared GEODE screen headings."
+    },
+    {
+      "id": "navigation_icons",
+      "role": "Code-native semantic vectors with state-dependent tint",
+      "status": "implemented_current_validation_pending",
+      "owner": "component_kit",
+      "source": "app/src/main/java/dev/geode/ui/theme/StoneIcon.kt",
+      "validation": "Existing sharp vector icon system reused by new shell; runtime navigation and accessibility checks pending."
+    },
+    {
+      "id": "geode_handle_fallback",
+      "role": "Deterministic native identity and fallback mark for navigation handles",
+      "status": "implemented_current_validation_pending",
+      "owner": "orbit_navigation",
+      "source": "app/src/main/java/dev/geode/ui/lake/LakeNavigation.kt",
+      "implementation": "Private LakeGeodeMark draws a six-facet identity mark on Canvas; it is a native fallback and handle, not a replacement for the available GL geode.",
+      "validation": "Source inspected; final native UI/device composition pending."
+    }
+  ],
+  "importedThirdPartyAssets": [],
+  "notes": [
+    "Dribbble and Framer references inform direction; their imagery or animation assets are not included as repository assets.",
+    "Raster matte resources contain environment only; all geode, lens, filament and control states are generated at runtime.",
+    "The landscape matte is a newly composed original, not a stretched or cropped derivative.",
+    "Software render success does not establish AAA visual quality or sustained Android device performance."
+  ],
+  "reusedAssets": [
+    {
+      "id": "tp_clear_quartz_click_soft",
+      "path": "app/src/main/res/raw/tp_clear_quartz_click_soft.wav",
+      "androidResource": "R.raw.tp_clear_quartz_click_soft",
+      "role": "Soft interaction click",
+      "provenance": "Existing repository resource reused by LakeThemePack",
+      "bytes": 14444,
+      "sha256": "5f4b06ae57da6a6ddc27fe1d4b335159158b9c1f9d069b0ab984331458be7bee",
+      "channels": 1,
+      "sampleRateHz": 48000,
+      "durationSeconds": 0.15
+    },
+    {
+      "id": "tp_clear_quartz_confirm",
+      "path": "app/src/main/res/raw/tp_clear_quartz_confirm.wav",
+      "androidResource": "R.raw.tp_clear_quartz_confirm",
+      "role": "Confirmation cue",
+      "provenance": "Existing repository resource reused by LakeThemePack",
+      "bytes": 28844,
+      "sha256": "79facad7debb654e09bc6e19cbc7913387676e4e1142121d105ac254734935d5",
+      "channels": 1,
+      "sampleRateHz": 48000,
+      "durationSeconds": 0.3
+    },
+    {
+      "id": "tp_clear_quartz_swoop",
+      "path": "app/src/main/res/raw/tp_clear_quartz_swoop.wav",
+      "androidResource": "R.raw.tp_clear_quartz_swoop",
+      "role": "Transition cue",
+      "provenance": "Existing repository resource reused by LakeThemePack",
+      "bytes": 46124,
+      "sha256": "0365b785dba10277eee7f3f8e64795bb05c205e0d9f4e6cfc1aee23fa2c91469",
+      "channels": 1,
+      "sampleRateHz": 48000,
+      "durationSeconds": 0.48
+    }
+  ],
+  "validationEvidence": {
+    "portraitReport": "docs/ui2/validation/world-gles-report.json",
+    "landscapeReport": "docs/ui2/validation/landscape/world-gles-report.json",
+    "backend": "OpenGL ES 3.2 Mesa llvmpipe (software rasterizer)",
+    "scope": "Earlier shader compilation/link/rendering and synthetic uniform-driven captures for the recorded shaderSha256 only. These reports do not validate the newest-main candidate, native Android composition or real playback.",
+    "checked": [
+      "GL error code is zero in captures",
+      "Uniform upload audit",
+      "Nonblack rendered output",
+      "Reduced-motion time invariance",
+      "Output response to synthetic audio feature uniforms"
+    ],
+    "shaderSha256": "1421451f1631da93b278fb08502991f351c497771d07f2725791010ab08ff599",
+    "responsiveUpdate": "Matching portrait and landscape assets are integrated; reports record each selected scene file, source hash and horizon. Wide environment calibration removes the previous portrait stretch. Native fallback uses actual available bounds.",
+    "remaining": [
+      "Physical Android GPU driver and SurfaceView/native text composition",
+      "Native navigation icon backing composition over dark refracted shoreline on Android",
+      "Portrait/landscape texture projection and material quality",
+      "Actual playback-driven reaction and lifecycle visibility handoffs",
+      "Native layout/accessibility/restoration",
+      "Sustained frame time, memory and thermal behavior"
+    ],
+    "status": "historical_previous_shader",
+    "currentCandidate": "Pending exact-commit ui-world, debug-apk, quality, native-regressions and emulator jobs in GitHub Actions; no local checks executed.",
+    "currentSourceShaderSha256": "ec41b830df61dca10e529ecfa7ed9cbbc6f4865c801c2f5a49e2c2eeefd044e5",
+    "currentSourceHashScope": "Source identification only; no current compilation, GL render or Android runtime result."
+  },
+  "integrationAudit": {
+    "builtinScene": "ThemePackCatalog contains Living Lake only; retired built-in names migrate to it.",
+    "noBakedControls": "StoneSurfaceArt and crystalPanel bypass bitmap surface slots for Living Lake. PlayerPanels WaveformSeekBar now uses drawLakeSeekThumb; no old spatial_glass_pebble is loaded there. Debug showroom no longer uses TidalWaterOrb.",
+    "clockOwnership": "Living Lake material theme supplies static zero scene time; the scoped GL world owns live scene timing.",
+    "retainedLegacy": "Legacy spatial bitmap definitions remain in the repository. They are not referenced as active Living Lake control sprites.",
+    "readability": "Native text and regular controls use pale local reading surfaces. Non-Player orbit icons have a 36 dp native frost backing at shared reading opacity; optical lens perimeters stay clear. Source inspected; final Android composition remains pending.",
+    "baseMain": "fa75ced697c45ba091b552200c40f78e9ad92392",
+    "audioEdges": "Existing main feature source retained. A bounded UI-only mailbox preserves independently rearmed beat/transient edges across slower frames; source/lifecycle/reduced-motion resets discard stale pending accents. Nine new regression cases are authored and pending CI.",
+    "surfaceLifecycle": "UI world pauses and stops audio capture on yield/window pause/detach, establishes a paused replacement GLThread baseline on reattach, and clears old GL audio animation. Actual Android handoff remains pending emulator evidence."
+  }
+}

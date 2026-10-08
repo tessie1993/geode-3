@@ -15,6 +15,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
@@ -38,8 +40,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import dev.geode.R
 import dev.geode.render.VisualizerView
+import dev.geode.ui.lake.lakeFrostedPanel
 import dev.geode.ui.theme.LocalBackgroundDim
 import dev.geode.ui.theme.LocalMaterialResumed
 import dev.geode.ui.theme.LocalReducedMotion
@@ -47,6 +49,7 @@ import dev.geode.ui.theme.LocalThemePack
 import dev.geode.ui.theme.ThemePack
 import dev.geode.ui.theme.colorScheme
 import dev.geode.ui.theme.isJellyGlass
+import dev.geode.ui.theme.isLivingLake
 import dev.geode.ui.theme.stoneTypography
 import dev.geode.ui.theme.tidalTypography
 import kotlin.math.max
@@ -62,18 +65,26 @@ internal fun CrystalMaterialTheme(
     val systemMotionDisabled = rememberSystemMotionDisabled()
     val reducedMotion = gui.reducedMotion || systemMotionDisabled
     val resumed = rememberMaterialResumed()
-    val sceneTime = rememberTidalSceneTime(pack.isJellyGlass && resumed && !reducedMotion && !motionObscured)
-    val fontColor = pack.resolvedFontColor(gui.fontColorOverride, gui.backgroundDim)
+    val effectiveDim = if (pack.isLivingLake) 0f else gui.backgroundDim
+    val effectiveCorners = if (pack.isLivingLake) CornerStyle.ROUNDED else gui.cornerStyle
+    // The native world owns the live clock. Lake controls only animate in response to events.
+    val sceneTime =
+        if (pack.isLivingLake) {
+            remember { mutableFloatStateOf(0f) }
+        } else {
+            rememberTidalSceneTime(pack.isJellyGlass && resumed && !reducedMotion && !motionObscured)
+        }
+    val fontColor = pack.resolvedFontColor(gui.fontColorOverride, effectiveDim)
     val scheme =
         pack.colorScheme(
             accentIntensity = gui.accentIntensity,
-            backgroundDim = gui.backgroundDim,
+            backgroundDim = effectiveDim,
             fontColorOverride = fontColor?.let { Color(it) },
         )
     CompositionLocalProvider(
         LocalThemePack provides pack,
         LocalReducedMotion provides reducedMotion,
-        LocalBackgroundDim provides gui.backgroundDim,
+        LocalBackgroundDim provides effectiveDim,
         LocalMaterialResumed provides resumed,
         LocalTidalSceneTime provides sceneTime,
         LocalFontColor provides fontColor?.let { Color(it) },
@@ -81,7 +92,7 @@ internal fun CrystalMaterialTheme(
     ) {
         MaterialTheme(
             colorScheme = scheme,
-            shapes = gui.cornerStyle.shapes(),
+            shapes = effectiveCorners.shapes(),
             typography =
                 if (pack.isJellyGlass) {
                     tidalTypography(
@@ -157,7 +168,12 @@ fun GlowTitle(
         } else {
             modifier
         },
-        style = style.copy(shadow = Shadow(color = glow.copy(alpha = 0.8f), blurRadius = 28f)),
+        style =
+            if (LocalThemePack.current.isLivingLake) {
+                style.copy(shadow = null)
+            } else {
+                style.copy(shadow = Shadow(color = glow.copy(alpha = 0.8f), blurRadius = 28f))
+            },
         color = MaterialTheme.colorScheme.onBackground,
     )
 }
@@ -195,17 +211,13 @@ fun Modifier.crystalPanel(
 ): Modifier =
     composed {
         val pack = LocalThemePack.current
-        if (pack.isJellyGlass) {
-            return@composed this.tidalPanel(
-                capsule = rememberTidalBitmap(R.drawable.spatial_glass_capsule),
-                opacity = if (readable) opacity.coerceIn(0.86f, 0.98f) else opacity.coerceIn(0f, 1f),
+        if (pack.isLivingLake) {
+            return@composed this.lakeFrostedPanel(
                 tint = jellyMatteTint(LocalFontColor.current ?: MaterialTheme.colorScheme.onSurface, tint),
-                glow = glow,
+                opacity = opacity,
                 corner = corner,
-                glowStrength = glowStrength,
-                facets = facets,
-                prismatic = prismatic,
-                sheen = sheen,
+                rim = MaterialTheme.colorScheme.outline,
+                readable = readable,
             )
         }
         val tile = ImageBitmap.imageResource(pack.material.tile)
@@ -271,13 +283,17 @@ fun Modifier.luminousHairline(glow: Color): Modifier =
     )
 
 @Composable
-fun CrystalBackground(
-    modifier: Modifier = Modifier,
-    reducedMotion: Boolean = false,
-) {
+fun CrystalBackground(modifier: Modifier = Modifier) {
     val pack = LocalThemePack.current
-    if (pack.isJellyGlass) {
-        TidalForestBackground(modifier, reducedMotion)
+    if (pack.isLivingLake) {
+        BoxWithConstraints(modifier) {
+            Image(
+                painter = painterResource(if (maxWidth > maxHeight) pack.material.ambientLandscape else pack.material.ambientPortrait),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         return
     }
     val cs = MaterialTheme.colorScheme

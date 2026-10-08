@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui2_intro_tagline">Sound, brought to life.</string>
+    <string name="ui2_skip_intro">Skip introduction</string>
+</resources>
