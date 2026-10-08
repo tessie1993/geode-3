@@ -270,7 +270,9 @@ private fun LakeOrbitOverlay(
     val close = stringResource(R.string.ui2_close_navigation)
     val closeFocus = remember { FocusRequester() }
     val reducedMotion = LocalReducedMotion.current
-    val revealMillis = LocalThemePack.current.motion.selectedDurationMs.coerceAtLeast(0)
+    val revealMillis =
+        LocalThemePack.current.motion.selectedDurationMs
+            .coerceAtLeast(0)
     val reveal = remember { Animatable(if (reducedMotion) 1f else 0f) }
     LaunchedEffect(Unit) { closeFocus.requestFocus() }
     LaunchedEffect(reducedMotion, revealMillis) {

@@ -223,8 +223,7 @@ fun LakeSurfaceArt(
                 clip = false,
                 ambientColor = colors.primary.copy(alpha = 0.06f),
                 spotColor = colors.primary.copy(alpha = 0.1f),
-            )
-            .clip(shape)
+            ).clip(shape)
             .background(fill.copy(alpha = alpha))
             .drawWithCache {
                 val radius = CornerRadius(if (round) size.minDimension / 2f else corner.toPx())

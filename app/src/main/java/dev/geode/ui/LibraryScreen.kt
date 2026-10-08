@@ -70,8 +70,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MusicPlaylist
-import dev.geode.ui.lake.LakeSearchField
 import dev.geode.ui.lake.LakeScreenHeader
+import dev.geode.ui.lake.LakeSearchField
 import dev.geode.ui.lake.lakeArtworkFrame
 import dev.geode.ui.lake.lakeFrostedPanel
 import dev.geode.ui.theme.LocalReducedMotion
@@ -304,7 +304,12 @@ private fun TrackRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (livingLake) 3.dp else 0.dp)) {
             Text(
                 title,
-                style = if (livingLake) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold) else MaterialTheme.typography.bodyLarge,
+                style =
+                    if (livingLake) {
+                        MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                    } else {
+                        MaterialTheme.typography.bodyLarge
+                    },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

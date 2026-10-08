@@ -636,8 +636,7 @@ private fun PlayerTransportButton(
                 } else {
                     if (large) 76.dp else 52.dp
                 },
-            )
-            .then(selection)
+            ).then(selection)
             .stonePress(interaction)
             .clickable(
                 interactionSource = interaction,
